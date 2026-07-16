@@ -1,0 +1,29 @@
+# Generated run state
+/output/
+/work/
+/cache/
+/.nabu-builder.lock
+
+# Images and archives
+*.img
+*.img.*
+*.raw
+*.qcow2
+*.zst
+*.zip
+*.partial
+*.part
+
+# Signing secrets
+secure/
+*.key
+*.crt
+*.pem
+*.p12
+*.pfx
+
+# Editor and platform noise
+.idea/
+.vscode/
+*~
+.DS_Store
