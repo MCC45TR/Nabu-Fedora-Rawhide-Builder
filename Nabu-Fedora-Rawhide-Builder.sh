@@ -86,6 +86,7 @@ DEVICE_REPO_URL=""
 ALLOW_EXTERNAL_REPOS="false"
 ALLOW_EXPERIMENTAL_DESKTOP="false"
 NOTIFY="yes"
+STEP_BY_NOTIFICATION="false"
 CLEANUP_CONTAINER_IMAGE="false"
 DRY_RUN="false"
 NON_INTERACTIVE="false"
@@ -251,6 +252,9 @@ Build behavior:
   --allow-external-repos         Permit the explicit device repository
   --allow-experimental-desktop   Permit validated experimental desktop sources
   --notify / --no-notify         Host desktop notification (default: notify)
+  --step-by-notification         Send a low-urgency SUCCESS notification at
+                                 each completed stage with elapsed minute and
+                                 approximate remaining percentage
   --cleanup-container-image      Remove image only if pulled by this invocation
 
 Exit codes:
@@ -339,6 +343,7 @@ parse_args() {
             --allow-experimental-desktop) ALLOW_EXPERIMENTAL_DESKTOP="true"; shift ;;
             --notify) NOTIFY="yes"; shift ;;
             --no-notify) NOTIFY="no"; shift ;;
+            --step-by-notification) STEP_BY_NOTIFICATION="true"; shift ;;
             --cleanup-container-image) CLEANUP_CONTAINER_IMAGE="true"; shift ;;
             --internal-container)
                 [[ "${NABU_IN_CONTAINER:-0}" == "1" ]] || {
@@ -1026,7 +1031,8 @@ cleanup_host() {
     fi
     stop_notification_watcher
     release_build_lock
-    send_notification "$rc"
+    send_notification "$rc" || true
+    return 0
 }
 
 notification_available() {
@@ -1065,6 +1071,16 @@ format_duration() {
     fi
 }
 
+elapsed_minute_mark() {
+    local seconds="${1:-0}"
+    ((seconds >= 0)) || seconds=0
+    if ((seconds == 0)); then
+        printf '0\n'
+    else
+        printf '%d\n' "$(((seconds + 59) / 60))"
+    fi
+}
+
 stage_progress_percent() {
     local stage_number="${1:-0}"
     [[ "$stage_number" =~ ^[0-9]+$ ]] || stage_number=0
@@ -1079,6 +1095,19 @@ stage_progress_percent() {
         21) printf '88\n' ;; 22) printf '93\n' ;; 23) printf '98\n' ;;
         *) printf '100\n' ;;
     esac
+}
+
+stage_remaining_percent() {
+    local progress
+    progress="$(stage_progress_percent "$1")"
+    progress="${progress:-0}"
+    if ((progress >= 100)); then
+        printf '0\n'
+    elif ((progress <= 0)); then
+        printf '100\n'
+    else
+        printf '%d\n' "$((100 - progress))"
+    fi
 }
 
 localized_stage_name() {
@@ -1149,6 +1178,13 @@ emit_replaceable_notification() {
     fi
 }
 
+emit_transient_notification() {
+    local urgency="$1" icon="$2" title="$3" body="$4" timeout="${5:-8000}"
+    notification_available || return 0
+    notify-send --urgency="$urgency" --expire-time="$timeout" \
+        --app-name="$PROGRAM" --icon="$icon" "$title" "$body" >/dev/null 2>&1 || true
+}
+
 send_build_started_notification() {
     local language title body
     notification_available || return 0
@@ -1163,6 +1199,54 @@ send_build_started_notification() {
             "$DESKTOP" "$FILESYSTEM" "$BUILD_MODE" "$BUILD_ID"
     fi
     emit_replaceable_notification normal system-run "$title" "$body" 10000
+}
+
+send_step_completion_notification() {
+    local completed_stage_number="$1" completed_stage_name="$2" component="$3" desktop="$4" filesystem="$5"
+    local next_stage_number="${6:-}" next_stage_name="${7:-}"
+    local language elapsed elapsed_text minute_mark remaining_percent title body completed_label next_label
+    notification_available || return 0
+    [[ "$STEP_BY_NOTIFICATION" == "true" ]] || return 0
+    [[ "$completed_stage_number" =~ ^[0-9]+$ ]] || return 0
+    ((completed_stage_number > 0)) || return 0
+
+    language="$(notification_language)"
+    elapsed="$(( $(date +%s) - START_EPOCH ))"
+    elapsed_text="$(format_duration "$elapsed" "$language")"
+    minute_mark="$(elapsed_minute_mark "$elapsed")"
+    remaining_percent="$(stage_remaining_percent "$completed_stage_number")"
+    completed_label="$(localized_stage_name "$completed_stage_number" "$language" "$completed_stage_name")"
+    if [[ "$next_stage_number" =~ ^[0-9]+$ ]] && [[ -n "$next_stage_name" ]]; then
+        next_label="$(localized_stage_name "$next_stage_number" "$language" "$next_stage_name")"
+    else
+        next_stage_number=""
+        next_label=""
+    fi
+
+    if [[ "$language" == "tr" ]]; then
+        title="Nabu aşama SUCCESS — ${completed_stage_number}/24"
+        if [[ -n "$next_stage_number" ]]; then
+            printf -v body 'Durum: SUCCESS\nBiten: %s/24 — %s\nBileşen: %s\nProfil: %s / %s\nDakika: %s\nGeçen süre: %s\nYaklaşık kalan: %%%s\nSıradaki: %s/24 — %s' \
+                "$completed_stage_number" "$completed_label" "$component" "$desktop" "$filesystem" \
+                "$minute_mark" "$elapsed_text" "$remaining_percent" "$next_stage_number" "$next_label"
+        else
+            printf -v body 'Durum: SUCCESS\nBiten: %s/24 — %s\nBileşen: %s\nProfil: %s / %s\nDakika: %s\nGeçen süre: %s\nYaklaşık kalan: %%%s' \
+                "$completed_stage_number" "$completed_label" "$component" "$desktop" "$filesystem" \
+                "$minute_mark" "$elapsed_text" "$remaining_percent"
+        fi
+    else
+        title="Nabu step SUCCESS — ${completed_stage_number}/24"
+        if [[ -n "$next_stage_number" ]]; then
+            printf -v body 'Status: SUCCESS\nFinished: %s/24 — %s\nComponent: %s\nProfile: %s / %s\nMinute: %s\nElapsed: %s\nApprox remaining: %s%%\nNext: %s/24 — %s' \
+                "$completed_stage_number" "$completed_label" "$component" "$desktop" "$filesystem" \
+                "$minute_mark" "$elapsed_text" "$remaining_percent" "$next_stage_number" "$next_label"
+        else
+            printf -v body 'Status: SUCCESS\nFinished: %s/24 — %s\nComponent: %s\nProfile: %s / %s\nMinute: %s\nElapsed: %s\nApprox remaining: %s%%' \
+                "$completed_stage_number" "$completed_label" "$component" "$desktop" "$filesystem" \
+                "$minute_mark" "$elapsed_text" "$remaining_percent"
+        fi
+    fi
+    emit_transient_notification low dialog-information "$title" "$body" 7000
 }
 
 send_stage_notification() {
@@ -1195,7 +1279,9 @@ send_stage_notification() {
 }
 
 notification_progress_watcher() {
-    local last_key="" state stage_number stage_name component desktop filesystem key snapshot
+    local last_key="" last_running_stage_number="" last_running_stage_name="" last_running_component=""
+    local last_running_desktop="" last_running_filesystem=""
+    local state stage_number stage_name component desktop filesystem key snapshot
     while :; do
         if [[ -s "${STATUS_FILE:-}" ]] && command -v jq >/dev/null 2>&1; then
             snapshot="$(jq -r '[.status // "", ((.stage // 0) | tostring), .stage_name // "unknown", .component // "unknown", .desktop // "unknown", .filesystem // "unknown"] | @tsv' \
@@ -1206,8 +1292,20 @@ notification_progress_watcher() {
             fi
             IFS=$'\t' read -r state stage_number stage_name component desktop filesystem <<<"$snapshot"
             key="$state:$stage_number:$stage_name:$desktop:$filesystem"
-            if [[ "$state" == "RUNNING" && "$component" != "CONTAINER" && "$key" != "$last_key" ]]; then
-                send_stage_notification "$stage_number" "$stage_name" "$component" "$desktop" "$filesystem"
+            if [[ "$state" == "RUNNING" && "$key" != "$last_key" ]]; then
+                if [[ -n "$last_running_stage_number" ]]; then
+                    send_step_completion_notification \
+                        "$last_running_stage_number" "$last_running_stage_name" "$last_running_component" \
+                        "$last_running_desktop" "$last_running_filesystem" "$stage_number" "$stage_name"
+                fi
+                if [[ "$component" != "CONTAINER" ]]; then
+                    send_stage_notification "$stage_number" "$stage_name" "$component" "$desktop" "$filesystem"
+                fi
+                last_running_stage_number="$stage_number"
+                last_running_stage_name="$stage_name"
+                last_running_component="$component"
+                last_running_desktop="$desktop"
+                last_running_filesystem="$filesystem"
                 last_key="$key"
             fi
         fi
@@ -1340,6 +1438,9 @@ handle_exit() {
     if [[ "$HOST_MODE" == "true" && -t 1 ]]; then
         printf '\a'
     fi
+    # An EXIT trap must not replace the pipeline's successful exit status with
+    # a best-effort cleanup or notification status.
+    return 0
 }
 
 on_signal() {
@@ -3619,7 +3720,12 @@ cleanup_container_state() {
         done < <(find /work -mindepth 1 -maxdepth 1 -type d \( -name '*mount*' -o -name 'mnt-*' \) -print 2>/dev/null)
     fi
     [[ ! -f /output/.nabu-builder-output ]] || find /output -type f \( -name '*.partial' -o -name '*.part' \) -delete 2>/dev/null || true
-    [[ ! -e /work/private-keys ]] || safe_remove_container_tree /work/private-keys
+    # Cleanup must never turn a successful build or preflight into a failure.
+    # The directory is confined to the marked /work mount; retain it only if
+    # an unexpected deletion problem occurs, and report that condition.
+    if [[ -e /work/private-keys ]] && ! safe_remove_container_tree /work/private-keys; then
+        log WARN "Could not remove temporary private-key directory; it remains inside the isolated work directory."
+    fi
     find /work -type f -name 'qemu-aarch64-static' -delete 2>/dev/null || true
     log INFO "Temporary private keys, QEMU helpers, and partial artifacts were removed."
 }

@@ -177,6 +177,12 @@ estimate. The estimate is deliberately labelled approximate because package
 downloads, compression, multiple filesystems, and desktop variants can change
 the duration substantially.
 
+With `--step-by-notification`, the builder also sends a separate low-urgency
+`SUCCESS` notification whenever it finishes a stage and moves to the next one.
+Those step notifications include what just finished, the current elapsed minute
+and duration, the active desktop/filesystem, the next stage, and an
+approximate remaining percentage derived from the existing stage weights.
+
 The final notification distinguishes `COMPLETE`, `PREFLIGHT_PASS`, `PARTIAL`,
 and `FAILED`. Success includes completed variant and artifact/report counts;
 failure includes the preserved cause, exit code, failure stage, elapsed time,
