@@ -2120,11 +2120,11 @@ resolve_rawhide_metadata() {
         compose_base="https://kojipkgs.fedoraproject.org/compose/rawhide/$RAWHIDE_COMPOSE_ID"
     else
         compose_base="https://kojipkgs.fedoraproject.org/compose/rawhide/latest-Fedora-Rawhide"
-        RAWHIDE_COMPOSE_ID="$(curl -fsSL --retry 3 "$compose_base/COMPOSE_ID")"
+        RAWHIDE_COMPOSE_ID="$(curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 "$compose_base/COMPOSE_ID")"
         compose_base="https://kojipkgs.fedoraproject.org/compose/rawhide/$RAWHIDE_COMPOSE_ID"
     fi
-    RAWHIDE_COMPOSE_STATUS="$(curl -fsSL --retry 3 "$compose_base/STATUS")"
-    compose_json="$(curl -fsSL --retry 3 "$compose_base/compose/metadata/composeinfo.json")"
+    RAWHIDE_COMPOSE_STATUS="$(curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 "$compose_base/STATUS")"
+    compose_json="$(curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 "$compose_base/compose/metadata/composeinfo.json")"
     RAWHIDE_COMPOSE_DATE="$(jq -r '.payload.compose.date // empty' <<<"$compose_json")"
     [[ -n "$RAWHIDE_COMPOSE_DATE" ]] || RAWHIDE_COMPOSE_DATE="$(sed -nE 's/^Fedora-Rawhide-([0-9]{8}).*/\1/p' <<<"$RAWHIDE_COMPOSE_ID")"
     jq . <<<"$compose_json" >"$METADATA_DIR/rawhide-compose-metadata.json"
@@ -2804,7 +2804,7 @@ build_uki() {
     fi
     run ukify "${ukify_args[@]}"
     [[ -s "$UKI_PATH" ]] || return "$EXIT_SECURE_BOOT"
-    file "$UKI_PATH" | grep -Eq 'PE32\+.*Aarch64|Aarch64.*PE32\+' || return "$EXIT_SECURE_BOOT"
+    file "$UKI_PATH" | grep -Eqi 'PE32\+.*(Aarch64|ARM64)|(Aarch64|ARM64).*PE32\+' || return "$EXIT_SECURE_BOOT"
     ukify inspect "$UKI_PATH" >"$METADATA_DIR/uki-inspect.txt"
     grep -q '\.linux' "$METADATA_DIR/uki-inspect.txt" || return "$EXIT_SECURE_BOOT"
     grep -q '\.initrd' "$METADATA_DIR/uki-inspect.txt" || return "$EXIT_SECURE_BOOT"
@@ -2827,7 +2827,7 @@ sign_efi_binary() {
         cp -- "$source" "$destination"
     fi
     [[ -s "$destination" ]] || return "$EXIT_SECURE_BOOT"
-    file "$destination" | grep -Eq 'PE32\+.*Aarch64|Aarch64.*PE32\+' || return "$EXIT_ESP"
+    file "$destination" | grep -Eqi 'PE32\+.*(Aarch64|ARM64)|(Aarch64|ARM64).*PE32\+' || return "$EXIT_ESP"
 }
 
 build_systemd_bootloader() {
@@ -2885,7 +2885,7 @@ validate_existing_esp() {
     fsck.vfat -n "$image" >>"$LOG_DIR/esp-build.log" 2>&1
     mdir -i "$image" ::/EFI/BOOT/BOOTAA64.EFI >/dev/null
     mcopy -i "$image" ::/EFI/BOOT/BOOTAA64.EFI "$temp"
-    file "$temp" | grep -Eq 'PE32\+.*Aarch64|Aarch64.*PE32\+' || return "$EXIT_ESP"
+    file "$temp" | grep -Eqi 'PE32\+.*(Aarch64|ARM64)|(Aarch64|ARM64).*PE32\+' || return "$EXIT_ESP"
     if [[ "$SECURE_BOOT" == "on" ]]; then
         sbverify --list "$temp" >>"$LOG_DIR/esp-build.log" 2>&1 || return "$EXIT_SECURE_BOOT"
     fi
@@ -2960,7 +2960,7 @@ EOF
     mcopy -i "$ESP_IMAGE.partial" "::/EFI/Linux/fedora-nabu-$KERNEL_RELEASE.efi" "$verify_dir/nabu.efi"
     local verified_efi
     for verified_efi in "$verify_dir/BOOTAA64.EFI" "$verify_dir/nabu.efi"; do
-        file "$verified_efi" | grep -Eq 'PE32\+.*Aarch64|Aarch64.*PE32\+' || return "$EXIT_ESP"
+        file "$verified_efi" | grep -Eqi 'PE32\+.*(Aarch64|ARM64)|(Aarch64|ARM64).*PE32\+' || return "$EXIT_ESP"
     done
     if [[ "$SECURE_BOOT" == "on" ]]; then
         sbverify --list "$verify_dir/BOOTAA64.EFI" >>"$LOG_DIR/esp-build.log" 2>&1
@@ -3348,18 +3348,22 @@ publish_core_artifact() {
 }
 
 sync_initramfs_into_core_image() {
-    local filesystem="$1" mountpoint image_root
-    mountpoint="/work/core-initramfs-mount-$filesystem"
-    [[ ! -e "$mountpoint" ]] || safe_remove_container_tree "$mountpoint"
-    mkdir -p "$mountpoint"
-    image_root="$(mount_image_rw "$CORE_IMAGE" "$filesystem" "$mountpoint")"
-    mkdir -p "$image_root/boot"
-    cp "$CORE_ROOTFS/boot/initramfs-$KERNEL_RELEASE.img" "$image_root/boot/"
-    sync
-    guestunmount "$mountpoint"
+    local filesystem="$1" initramfs
+    initramfs="$CORE_ROOTFS/boot/initramfs-$KERNEL_RELEASE.img"
+    [[ -s "$initramfs" ]] || return "$EXIT_KERNEL"
     case "$filesystem" in
-        ext4) e2fsck -f -n "$CORE_IMAGE" >>"$LOG_DIR/validation.log" 2>&1 ;;
-        btrfs) btrfs check --readonly "$CORE_IMAGE" >>"$LOG_DIR/validation.log" 2>&1 ;;
+        # debugfs writes directly to ext4 and avoids both the FUSE unmount
+        # permission issue and libguestfs's rootless QEMU appliance.
+        ext4)
+            debugfs -w -R "rm /boot/initramfs-$KERNEL_RELEASE.img" "$CORE_IMAGE" >>"$LOG_DIR/uki-build.log" 2>&1 || true
+            debugfs -w -R "write $initramfs /boot/initramfs-$KERNEL_RELEASE.img" "$CORE_IMAGE" >>"$LOG_DIR/uki-build.log" 2>&1
+            e2fsck -f -n "$CORE_IMAGE" >>"$LOG_DIR/validation.log" 2>&1
+            ;;
+        btrfs)
+            LIBGUESTFS_BACKEND=direct guestfish --rw --add "$CORE_IMAGE" --mount /dev/sda:/ \
+                copy-in "$initramfs" /boot >>"$LOG_DIR/uki-build.log" 2>&1
+            btrfs check --readonly "$CORE_IMAGE" >>"$LOG_DIR/validation.log" 2>&1
+            ;;
     esac
 }
 
