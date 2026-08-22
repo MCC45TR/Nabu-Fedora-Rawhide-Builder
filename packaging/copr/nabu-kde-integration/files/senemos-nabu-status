@@ -1,0 +1,132 @@
+#!/usr/bin/bash
+set -u
+
+failures=0
+
+result() {
+    local state=$1 label=$2 detail=${3:-}
+    printf '%-5s %-30s %s\n' "$state" "$label" "$detail"
+    [[ "$state" != FAIL ]] || failures=$((failures + 1))
+}
+
+kernel_release="$(uname -r)"
+kernel_provider=''
+while IFS= read -r candidate; do
+    if rpm -ql "$candidate" 2>/dev/null |
+            grep -Fxq "/boot/vmlinuz-${kernel_release}"; then
+        kernel_provider=$candidate
+        break
+    fi
+done < <(rpm -q --qf '%{NAME}\n' --whatprovides kernel-nabu-core-uname-r 2>/dev/null || true)
+if [[ -n $kernel_provider ]]; then
+    result OK kernel "$kernel_release"
+else
+    result FAIL kernel "$kernel_release (not provided by an installed Nabu kernel RPM)"
+fi
+
+for capability in iio-sensor-proxy libssc hexagonrpc alsa-ucm-conf-sm8150; do
+    provider="$(rpm -q --qf '%{NAME}\n' --whatprovides "$capability" 2>/dev/null |
+        head -n1 || true)"
+    if [[ -n $provider ]] &&
+            version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' "$provider" 2>/dev/null)"; then
+        result OK "rpm:${capability}" "$provider $version"
+    else
+        result FAIL "rpm:${capability}" missing
+    fi
+done
+
+slpi_path=''
+for candidate in /sys/class/remoteproc/remoteproc*; do
+    [[ -r $candidate/name ]] || continue
+    if [[ "$(<"$candidate/name")" == slpi ]]; then
+        slpi_path=$candidate
+        break
+    fi
+done
+if [[ -n $slpi_path && -r $slpi_path/state && "$(<"$slpi_path/state")" == running ]]; then
+    result OK slpi-remoteproc "$slpi_path"
+else
+    result FAIL slpi-remoteproc "${slpi_path:-not-found}"
+fi
+
+if [[ -c /dev/fastrpc-sdsp ]] && systemctl is-active --quiet hexagonrpcd-sdsp.service; then
+    result OK slpi-fastrpc /dev/fastrpc-sdsp
+else
+    result FAIL slpi-fastrpc unavailable
+fi
+
+mount_matrix='-1, 0, 0; 0, -1, 0; 0, 0, 1'
+matrix_path=''
+for candidate in /sys/class/misc/fastrpc-sdsp/mount_matrix \
+                 /sys/class/misc/fastrpc-adsp/mount_matrix; do
+    if [[ -r $candidate ]]; then
+        matrix_path=$candidate
+        break
+    fi
+done
+if [[ -n $matrix_path && "$(<"$matrix_path")" == "$mount_matrix" ]]; then
+    result OK sensor-mount-matrix "$matrix_path"
+else
+    result FAIL sensor-mount-matrix "${matrix_path:-not-exposed}"
+fi
+
+sensor_path=/net/hadess/SensorProxy
+sensor_iface=net.hadess.SensorProxy
+sensor_light="$(busctl get-property net.hadess.SensorProxy "$sensor_path" \
+    "$sensor_iface" HasAmbientLight 2>/dev/null || true)"
+sensor_light_unit="$(busctl get-property net.hadess.SensorProxy "$sensor_path" \
+    "$sensor_iface" LightLevelUnit 2>/dev/null || true)"
+sensor_light_level="$(busctl get-property net.hadess.SensorProxy "$sensor_path" \
+    "$sensor_iface" LightLevel 2>/dev/null || true)"
+if [[ $sensor_light == 'b true' && $sensor_light_unit == 's "lux"' &&
+        $sensor_light_level == d\ * ]]; then
+    result OK sensorproxy-als "${sensor_light_level#d } lux"
+else
+    result FAIL sensorproxy-als "not exposed as lux"
+fi
+
+sensor_accel="$(busctl get-property net.hadess.SensorProxy "$sensor_path" \
+    "$sensor_iface" HasAccelerometer 2>/dev/null || true)"
+sensor_tilt="$(busctl get-property net.hadess.SensorProxy "$sensor_path" \
+    "$sensor_iface" AccelerometerTilt 2>/dev/null || true)"
+if [[ $sensor_accel == 'b true' && $sensor_tilt == 's '* ]]; then
+    if [[ $sensor_tilt == 's "undefined"' ]]; then
+        result OK sensorproxy-accel "available; currently unclaimed"
+    else
+        result OK sensorproxy-accel "${sensor_tilt#s }"
+    fi
+else
+    result FAIL sensorproxy-accel "${sensor_tilt:-not exposed}"
+fi
+
+for unit in nabu-pmic-rtc-sync.service nabu-slpi-suspend.service; do
+    if systemctl is-enabled --quiet "$unit"; then
+        result OK "enabled:${unit}"
+    else
+        result FAIL "enabled:${unit}"
+    fi
+done
+
+if [[ -r /sys/class/rtc/rtc0/name || -r /sys/class/rtc/rtc1/name ]]; then
+    rtc_name="$(grep -h '^rtc-pm8xxx' /sys/class/rtc/rtc*/name 2>/dev/null | head -n1 || true)"
+    if [[ -n "$rtc_name" ]]; then
+        result OK pmic-rtc "$rtc_name"
+    else
+        result FAIL pmic-rtc not-found
+    fi
+fi
+
+if [[ -n ${HOME:-} && -s ${HOME}/.config/kwinoutputconfig.json ]] && command -v jq >/dev/null; then
+    if jq -e 'any(.[]; .name == "outputs" and any(.data[]; .connectorName == "DSI-1" and .automaticBrightness == true))' \
+        "${HOME}/.config/kwinoutputconfig.json" >/dev/null 2>&1; then
+        result OK kde-auto-brightness enabled
+    else
+        result WARN kde-auto-brightness not-applied
+    fi
+fi
+
+if ((failures)); then
+    printf '\n%d critical check(s) failed.\n' "$failures"
+    exit 1
+fi
+printf '\nSENEMOS Nabu integration checks passed.\n'

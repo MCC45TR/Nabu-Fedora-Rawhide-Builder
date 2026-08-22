@@ -1,0 +1,9 @@
+[nabu-linux]
+name=Nabu Linux packages for Fedora $releasever - maintained by mcc45tr
+baseurl=https://download.copr.fedorainfracloud.org/results/mcc45tr/nabu-linux/fedora-$releasever-$basearch/
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://download.copr.fedorainfracloud.org/results/mcc45tr/nabu-linux/pubkey.gpg
+skip_if_unavailable=True
+metadata_expire=6h

@@ -1,0 +1,7 @@
+# Override only the presentation fields exported for Nabu's DMI identity.
+# The firmware-provided compatibility and kernel device-tree model are intact.
+dmi:*:svnXiaomi:pnPad5:pvrnabu:*
+ ID_MODEL=Mi Pad 5
+ ID_PRODUCT_NAME_IS_RUBBISH=1
+ ID_HARDWARE_VERSION=mcc45tr-fedora-test
+ ID_PRODUCT_VERSION_IS_RUBBISH=1

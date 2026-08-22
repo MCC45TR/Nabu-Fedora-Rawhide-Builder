@@ -1,0 +1,30 @@
+#!/bin/bash
+# Find the PM8150-family RTC by its kernel name instead of assuming an rtcX
+# index. Nabu currently exposes rtc-pm8xxx as rtc0; the index may change when
+# another RTC driver is present. Never hold up networking or the display for a
+# missing RTC: NTP can still recover the clock after boot.
+
+set -u
+
+rtc_class_root=${NABU_RTC_CLASS_ROOT:-/sys/class/rtc}
+rtc_dev_root=${NABU_RTC_DEV_ROOT:-/dev}
+hwclock_bin=${NABU_HWCLOCK_BIN:-/usr/sbin/hwclock}
+
+for attempt in {1..5}; do
+    for name_path in "${rtc_class_root}"/rtc*/name; do
+        [[ -r ${name_path} ]] || continue
+        read -r rtc_name < "${name_path}" || continue
+        [[ ${rtc_name} == rtc-pm8xxx* ]] || continue
+
+        rtc_id=${name_path%/name}
+        rtc_id=${rtc_id##*/}
+        rtc_device="${rtc_dev_root}/${rtc_id}"
+        if [[ -c ${rtc_device} || -n ${NABU_RTC_ALLOW_REGULAR_FILE:-} && -e ${rtc_device} ]]; then
+            exec "${hwclock_bin}" --hctosys --utc --rtc="${rtc_device}"
+        fi
+    done
+    sleep 0.2
+done
+
+echo "Nabu PMIC RTC (rtc-pm8xxx) did not appear within 1 second" >&2
+exit 0

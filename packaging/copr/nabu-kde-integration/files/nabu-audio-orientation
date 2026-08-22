@@ -1,0 +1,360 @@
+#!/usr/bin/python3
+"""Keep Nabu speakers screen-relative without recreating the virtual sink."""
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+
+
+VIRTUAL_SINK = "nabu_screen_speakers"
+PLAYBACK_NODE = f"playback.{VIRTUAL_SINK}"
+LOOPBACK_NAME = "nabu-screen-audio"
+CANONICAL_POSITIONS = ["FL", "FR", "RL", "RR"]
+ROTATION_MAP = {
+    1: ["FL", "FR", "RL", "RR"],
+    2: ["RL", "FL", "RR", "FR"],
+    4: ["RR", "RL", "FR", "FL"],
+    8: ["FR", "RR", "FL", "RL"],
+}
+POLL_SECONDS = max(0.25, float(os.environ.get("NABU_AUDIO_POLL_SECONDS", "1")))
+SETTLE_SECONDS = max(0.0, float(os.environ.get("NABU_AUDIO_ROTATION_SETTLE_SECONDS", "1.5")))
+TARGET_REFRESH_SECONDS = max(1.0, float(os.environ.get("NABU_AUDIO_TARGET_REFRESH_SECONDS", "3")))
+
+running = True
+
+
+def log(message):
+    print(f"nabu-audio-orientation: {message}", flush=True)
+
+
+def stop(_signum, _frame):
+    global running
+    running = False
+
+
+def command_output(argv, timeout=5):
+    return subprocess.run(
+        argv,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=timeout,
+    ).stdout
+
+
+def run_command(argv, timeout=5):
+    subprocess.run(
+        argv,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        timeout=timeout,
+    )
+
+
+def pipewire_objects():
+    try:
+        value = json.loads(command_output(["pw-dump"], timeout=5))
+    except (json.JSONDecodeError, OSError, subprocess.SubprocessError):
+        return []
+    return value if isinstance(value, list) else []
+
+
+def props(item):
+    value = item.get("info", {}).get("props", {})
+    return value if isinstance(value, dict) else {}
+
+
+def nodes(objects):
+    return [item for item in objects if item.get("type") == "PipeWire:Interface:Node"]
+
+
+def discover_target(objects):
+    configured = os.environ.get("NABU_AUDIO_TARGET", "").strip()
+    candidates = []
+    for node in nodes(objects):
+        node_props = props(node)
+        name = str(node_props.get("node.name", ""))
+        if configured:
+            if name == configured:
+                return name
+            continue
+        if node_props.get("media.class") != "Audio/Sink":
+            continue
+        if node_props.get("device.api") != "alsa" or not name.startswith("alsa_output."):
+            continue
+        try:
+            channels = int(node_props.get("audio.channels", 0))
+        except (TypeError, ValueError):
+            continue
+        positions = str(node_props.get("audio.position", ""))
+        if channels != 4 or not all(position in positions for position in CANONICAL_POSITIONS):
+            continue
+        description = " ".join(
+            str(node_props.get(key, ""))
+            for key in ("node.description", "device.profile.description", "node.nick")
+        ).lower()
+        candidates.append((1 if "speaker" in description else 0, name))
+    if not candidates:
+        return None
+    candidates.sort(reverse=True)
+    return candidates[0][1]
+
+
+def kscreen_rotation():
+    rotation_override = os.environ.get("NABU_ROTATION_OVERRIDE", "").strip()
+    if rotation_override:
+        try:
+            return int(rotation_override)
+        except ValueError:
+            return None
+    rotation_file = os.environ.get("NABU_ROTATION_FILE", "").strip()
+    if rotation_file:
+        try:
+            with open(rotation_file, encoding="ascii") as stream:
+                return int(stream.read().strip())
+        except (OSError, ValueError):
+            return None
+    try:
+        config = json.loads(command_output(["kscreen-doctor", "--json"], timeout=5))
+    except (json.JSONDecodeError, OSError, subprocess.SubprocessError):
+        return None
+    outputs = [
+        output
+        for output in config.get("outputs", [])
+        if output.get("connected") and output.get("enabled")
+    ]
+    if not outputs:
+        return None
+    internal = [output for output in outputs if output.get("type") == 7]
+    selected = min(internal or outputs, key=lambda output: output.get("priority", 9999))
+    try:
+        return int(selected["rotation"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def launch_loopback():
+    capture_props = {
+        "node.name": VIRTUAL_SINK,
+        "node.description": "Nabu Screen-relative Speakers",
+        "media.class": "Audio/Sink",
+        "audio.position": CANONICAL_POSITIONS,
+        "priority.session": 2000,
+    }
+    playback_props = {
+        "node.name": PLAYBACK_NODE,
+        "media.class": "Stream/Output/Audio",
+        "audio.position": CANONICAL_POSITIONS,
+        "node.autoconnect": False,
+        "node.dont-reconnect": True,
+        "stream.dont-remix": True,
+        "node.passive": True,
+    }
+    return subprocess.Popen(
+        [
+            "pw-loopback",
+            "--name",
+            LOOPBACK_NAME,
+            "--channels",
+            "4",
+            "--channel-map",
+            "[ FL, FR, RL, RR ]",
+            "--capture-props",
+            json.dumps(capture_props),
+            "--playback-props",
+            json.dumps(playback_props),
+        ]
+    )
+
+
+def find_node(objects, name):
+    for node in nodes(objects):
+        if props(node).get("node.name") == name:
+            return int(node["id"])
+    return None
+
+
+def port_map(objects, node_id, direction):
+    result = {}
+    for item in objects:
+        if item.get("type") != "PipeWire:Interface:Port":
+            continue
+        item_props = props(item)
+        try:
+            item_node_id = int(item_props.get("node.id"))
+        except (TypeError, ValueError):
+            continue
+        if item_node_id != node_id or item_props.get("port.direction") != direction:
+            continue
+        channel = str(item_props.get("audio.channel", ""))
+        if channel in CANONICAL_POSITIONS:
+            result[channel] = int(item["id"])
+    return result
+
+
+def output_links(objects, playback_id):
+    result = []
+    for item in objects:
+        if item.get("type") != "PipeWire:Interface:Link":
+            continue
+        info = item.get("info", {})
+        try:
+            output_node = int(info.get("output-node-id"))
+            output_port = int(info.get("output-port-id"))
+            input_port = int(info.get("input-port-id"))
+        except (TypeError, ValueError):
+            continue
+        if output_node == playback_id:
+            result.append((int(item["id"]), output_port, input_port))
+    return result
+
+
+def wait_for_loopback(process):
+    for _ in range(50):
+        if process.poll() is not None:
+            raise RuntimeError(f"pw-loopback exited with status {process.returncode}")
+        objects = pipewire_objects()
+        sink_id = find_node(objects, VIRTUAL_SINK)
+        playback_id = find_node(objects, PLAYBACK_NODE)
+        if sink_id is not None and playback_id is not None:
+            if len(port_map(objects, playback_id, "out")) == 4:
+                return sink_id
+        time.sleep(0.1)
+    raise RuntimeError("persistent virtual sink did not appear")
+
+
+def select_sink_and_move_streams(sink_id):
+    subprocess.run(["wpctl", "set-default", str(sink_id)], check=False)
+    for node in nodes(pipewire_objects()):
+        node_props = props(node)
+        if node_props.get("media.class") != "Stream/Output/Audio":
+            continue
+        if VIRTUAL_SINK in str(node_props.get("node.name", "")):
+            continue
+        subprocess.run(
+            ["wpctl", "move", str(node["id"]), str(sink_id)],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
+def reconcile_links(target_name, rotation):
+    objects = pipewire_objects()
+    playback_id = find_node(objects, PLAYBACK_NODE)
+    target_id = find_node(objects, target_name)
+    if playback_id is None or target_id is None:
+        raise RuntimeError("persistent playback or target sink node is unavailable")
+    outputs = port_map(objects, playback_id, "out")
+    inputs = port_map(objects, target_id, "in")
+    if set(outputs) != set(CANONICAL_POSITIONS) or set(inputs) != set(CANONICAL_POSITIONS):
+        raise RuntimeError("four-channel PipeWire ports are incomplete")
+
+    mapping = ROTATION_MAP[rotation]
+    desired = {
+        (outputs[source], inputs[destination])
+        for source, destination in zip(CANONICAL_POSITIONS, mapping, strict=True)
+    }
+    existing = {(output_port, input_port) for _, output_port, input_port in output_links(objects, playback_id)}
+
+    # Add the new route before dropping obsolete links.  The stable virtual
+    # sink never disappears, so Plasma does not report a new audio device.
+    for output_port, input_port in sorted(desired - existing):
+        run_command(["pw-link", "-L", "-P", "-w", str(output_port), str(input_port)])
+
+    refreshed = pipewire_objects()
+    for link_id, output_port, input_port in output_links(refreshed, playback_id):
+        if (output_port, input_port) not in desired:
+            run_command(["pw-link", "-d", str(link_id)])
+
+    verified = {
+        (output_port, input_port)
+        for _, output_port, input_port in output_links(pipewire_objects(), playback_id)
+    }
+    if verified != desired:
+        raise RuntimeError(f"link verification failed: wanted {len(desired)}, found {len(verified)}")
+    log(f"rotation={rotation} target={target_name} mapping={','.join(mapping)} stable-sink=true")
+
+
+def terminate(process):
+    if process is None or process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=3)
+
+
+def main():
+    process = None
+    sink_id = None
+    active_rotation = None
+    active_target = None
+    candidate_rotation = None
+    candidate_since = time.monotonic()
+    target = None
+    next_target_refresh = 0.0
+
+    try:
+        while running:
+            if process is None or process.poll() is not None:
+                terminate(process)
+                process = None
+                try:
+                    process = launch_loopback()
+                    sink_id = wait_for_loopback(process)
+                    select_sink_and_move_streams(sink_id)
+                    log(f"persistent sink ready sink-id={sink_id}")
+                except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                    log(str(error))
+                    terminate(process)
+                    process = None
+                    time.sleep(2)
+                    continue
+                active_rotation = None
+                active_target = None
+                next_target_refresh = 0.0
+
+            now = time.monotonic()
+            rotation = kscreen_rotation()
+            if rotation in ROTATION_MAP and rotation != candidate_rotation:
+                candidate_rotation = rotation
+                candidate_since = now
+
+            if now >= next_target_refresh:
+                target = discover_target(pipewire_objects())
+                next_target_refresh = now + TARGET_REFRESH_SECONDS
+
+            rotation_ready = (
+                candidate_rotation in ROTATION_MAP
+                and (active_rotation is None or now - candidate_since >= SETTLE_SECONDS)
+            )
+            target_changed = target is not None and target != active_target
+            rotation_changed = candidate_rotation != active_rotation
+            if target is not None and rotation_ready and (target_changed or rotation_changed):
+                try:
+                    reconcile_links(target, candidate_rotation)
+                except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                    log(str(error))
+                    time.sleep(1)
+                    continue
+                active_rotation = candidate_rotation
+                active_target = target
+
+            time.sleep(POLL_SECONDS)
+    finally:
+        terminate(process)
+    return 0
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, stop)
+    signal.signal(signal.SIGTERM, stop)
+    sys.exit(main())

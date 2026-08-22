@@ -1,0 +1,50 @@
+#!/usr/bin/python3
+"""Apply the one-time Nabu Plasma 200% scale migration.
+
+The migration only changes the legacy first-boot value (1.0) for DSI-1.  A
+marker prevents later package upgrades from overriding the user's choice.
+"""
+
+import json
+import os
+from pathlib import Path
+import tempfile
+
+
+home = Path.home()
+config_home = Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
+state_home = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state"))
+config = config_home / "kwinoutputconfig.json"
+marker = state_home / "senemos-nabu" / "kwin-scale-v2.done"
+
+if marker.exists():
+    raise SystemExit(0)
+
+changed = False
+if config.exists():
+    with config.open("r", encoding="utf-8") as stream:
+        document = json.load(stream)
+    for section in document:
+        if section.get("name") != "outputs":
+            continue
+        for output in section.get("data", []):
+            if output.get("connectorName") == "DSI-1" and output.get("scale", 1) == 1:
+                output["scale"] = 2
+                changed = True
+
+    if changed:
+        config.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=config.parent, delete=False
+        ) as stream:
+            json.dump(document, stream, ensure_ascii=False, indent=4)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+            temporary = Path(stream.name)
+        temporary.chmod(0o600)
+        temporary.replace(config)
+
+marker.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+marker.write_text("scale=2\n", encoding="utf-8")
+marker.chmod(0o600)

@@ -1,0 +1,163 @@
+#!/usr/bin/python3
+"""Select a safe logical display profile for the fixed-timing Nabu panel."""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+
+
+PROFILES = {
+    "native": (1.0, "2560x1600 landscape / 1600x2560 portrait"),
+    "fhd": (4.0 / 3.0, "1920x1200 landscape / 1200x1920 portrait"),
+    "hd": (2.0, "1280x800 landscape / 800x1280 portrait"),
+}
+ALIASES = {"fullhd": "fhd", "2k": "native"}
+NATIVE_SIZES = {(1600, 2560), (2560, 1600)}
+
+
+def fail(message):
+    print(f"senemos-nabu-display-profile: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def load_outputs_text(doctor):
+    try:
+        result = subprocess.run(
+            [doctor, "-o"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        fail(f"KScreen output state could not be read: {error}")
+
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+    outputs = []
+    for block in re.split(r"(?=Output:\s+\d+\s+)", plain):
+        header = re.search(r"Output:\s+\d+\s+(\S+)", block)
+        current = re.search(
+            r"\b\d+:(\d+)x(\d+)@[0-9.]+\*", block
+        )
+        if not header or not current:
+            continue
+        width, height = (int(current.group(1)), int(current.group(2)))
+        outputs.append(
+            {
+                "name": header.group(1),
+                "connected": bool(re.search(r"(?m)^\s*connected\s*$", block)),
+                "enabled": bool(re.search(r"(?m)^\s*enabled\s*$", block)),
+                "currentModeId": "current",
+                "modes": [
+                    {
+                        "id": "current",
+                        "size": {"width": width, "height": height},
+                    }
+                ],
+            }
+        )
+    if not outputs:
+        fail("KScreen text output did not contain a current display mode")
+    return outputs
+
+
+def load_outputs(doctor):
+    try:
+        result = subprocess.run(
+            [doctor, "--json"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        document = json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return load_outputs_text(doctor)
+    return document.get("outputs", [])
+
+
+def find_internal_panel(outputs, requested_name):
+    candidates = [
+        output
+        for output in outputs
+        if output.get("connected") and output.get("enabled")
+    ]
+    if requested_name:
+        candidates = [
+            output for output in candidates if output.get("name") == requested_name
+        ]
+    else:
+        preferred = [output for output in candidates if output.get("name") == "DSI-1"]
+        if preferred:
+            candidates = preferred
+        else:
+            candidates = [
+                output
+                for output in candidates
+                if str(output.get("name", "")).startswith("DSI-")
+            ]
+
+    if len(candidates) != 1:
+        fail("exactly one enabled internal DSI panel was not found")
+
+    output = candidates[0]
+    if not str(output.get("name", "")).startswith("DSI-"):
+        fail("refusing to alter a connector that is not an internal DSI panel")
+    current_mode = str(output.get("currentModeId", ""))
+    modes = output.get("modes", [])
+    mode = next((item for item in modes if str(item.get("id")) == current_mode), None)
+    if mode is None:
+        fail("the internal panel current mode could not be identified")
+
+    size = mode.get("size", {})
+    dimensions = (size.get("width"), size.get("height"))
+    if dimensions not in NATIVE_SIZES:
+        fail(
+            "refusing to alter a non-native panel mode "
+            f"({dimensions[0]}x{dimensions[1]})"
+        )
+    return output
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Keep the Xiaomi Pad 5 panel at its native timing and select a "
+            "safe KWin logical-size profile."
+        )
+    )
+    parser.add_argument("profile", choices=sorted(PROFILES.keys() | ALIASES.keys()))
+    parser.add_argument("--output", help="internal connector name; defaults to DSI-1")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="validate and print without changing KWin"
+    )
+    arguments = parser.parse_args()
+
+    profile = ALIASES.get(arguments.profile, arguments.profile)
+    scale, logical_size = PROFILES[profile]
+    doctor = os.environ.get("KSCREEN_DOCTOR", "/usr/bin/kscreen-doctor")
+    output = find_internal_panel(load_outputs(doctor), arguments.output)
+    connector = output["name"]
+    setting = f"output.{connector}.scale.{scale:.12g}"
+
+    if arguments.dry_run:
+        print(f"profile={profile} connector={connector} scale={scale:.12g}")
+        print(f"logical-size={logical_size}")
+        print(f"physical-mode=2560x1600 (unchanged)")
+        return
+
+    try:
+        subprocess.run([doctor, setting], check=True, timeout=15)
+    except (OSError, subprocess.SubprocessError) as error:
+        fail(f"profile could not be applied: {error}")
+    print(
+        f"Applied {profile}: {logical_size}; "
+        "physical panel timing remains native 2560x1600."
+    )
+
+
+if __name__ == "__main__":
+    main()
