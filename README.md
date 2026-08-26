@@ -1,41 +1,181 @@
-# Nabu Fedora Rawhide Builder
+# Fedora Rawhide for Xiaomi Pad 5
 
-`Nabu-Fedora-Rawhide-Builder.sh` composes Fedora Rawhide **aarch64** root
-filesystem images, signed Unified Kernel Images (UKIs), and FAT32 ESP images
-for the Xiaomi Pad 5 (`nabu`). The implementation is one auditable Bash file;
-all package, filesystem, UKI, and ESP work runs inside a rootless Podman
-container by default.
+**Reproducible Fedora Rawhide images and device integration for Xiaomi Pad 5
+(`nabu`).**
 
-The builder never flashes a tablet and never creates an ISO, Android
-`boot.img`, or whole-disk GPT image. Existing projects and RPM output trees are
-mounted read-only. Only this project's `work/`, `cache/`, and `output/`
+[![Fedora Rawhide](https://img.shields.io/badge/Fedora-Rawhide-51A2DA?logo=fedora&logoColor=white)](https://fedoraproject.org/)
+[![Architecture](https://img.shields.io/badge/architecture-AArch64-444444)](https://developer.arm.com/Architectures/A-Profile%20Architecture)
+[![Builder](https://img.shields.io/badge/builder-Bash-2F855A?logo=gnubash&logoColor=white)](Nabu-Fedora-Rawhide-Builder.sh)
+[![COPR](https://img.shields.io/badge/COPR-mcc45tr%2Fnabu--linux-3C6EB4)](https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+This repository provides a container-isolated build pipeline for Fedora
+Rawhide AArch64 root filesystems, Unified Kernel Images (UKIs), boot entries,
+and FAT32 EFI System Partition (ESP) images tailored for Xiaomi Pad 5.
+
+**[COPR packages](https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/)**
+· **[Hardware status](NABU-HARDWARE-STATUS.md)**
+· **[Plasma Mobile profile](docs/PLASMA-MOBILE-PROFILE.md)**
+· **[License](LICENSE)**
+
+> [!WARNING]
+> **Unofficial community project**
+>
+> This is **not an official Fedora image or Fedora Project product**. The
+> project is not endorsed by or affiliated with the Fedora Project, Red Hat,
+> Xiaomi, or any other hardware or software vendor.
+>
+> Unlocking a bootloader, changing partitions, or flashing images can erase
+> data or render a device unbootable. Back up all important data, preserve a
+> known-good Android and Linux recovery path, read the complete procedure, and
+> proceed entirely at your own risk.
+
+## Overview
+
+The single entry point, `Nabu-Fedora-Rawhide-Builder.sh`, provides an auditable
+pipeline for:
+
+- resolving current Fedora Rawhide AArch64 packages and compose metadata;
+- validating a coherent Nabu kernel, firmware, boot, and device RPM set;
+- building a reusable core and independent desktop variants;
+- generating initramfs images, UKIs, boot entries, and a FAT32 ESP;
+- signing boot artifacts and validating explicit UEFI trust inputs;
+- verifying package state, filesystem health, boot artifacts, and checksums;
+- producing structured manifests, reports, logs, and failure diagnostics.
+
+The builder produces filesystem and EFI artifacts. It does not create an ISO,
+Android `boot.img`, recovery image, or whole-disk GPT image. Input projects and
+RPM trees are mounted read-only; builder-owned `work/`, `cache/`, and `output/`
 directories are writable.
+
+| Area | Support |
+| --- | --- |
+| Target | Xiaomi Pad 5 (`nabu`), AArch64 |
+| Distribution | Fedora Rawhide |
+| Desktops | KDE Plasma, Plasma Mobile, GNOME, GNOME Mobile, Phosh, headless |
+| Filesystems | Ext4 and Btrfs |
+| Boot | UKI with systemd-boot, GRUB, Limine, or an existing ESP |
+| Build isolation | Rootless Podman by default |
+| Package channel | [mcc45tr/nabu-linux COPR](https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/) |
+
+## Project status
+
+**Last reviewed:** 2026-08-26
+
+Fedora Rawhide and the Nabu device stack change continuously. In the hardware
+checklist, `[x]` means the feature passed at least one recorded physical test
+campaign. It does not certify every newly generated image. Source, package,
+image, and physical-device results are reported as separate validation layers.
+
+### Kernel development tracks
+
+| Kernel line | Role | Status | Validation boundary |
+| --- | --- | --- | --- |
+| [Linux 6.17](https://github.com/MCC45TR/nabu-linux-kernel/tree/6.17.0) | Current Nabu hardware and release line | **Active** | COPR, image, and physical-device validation are maintained per release candidate. |
+| [Linux 7.2](https://github.com/MCC45TR/nabu-linux-kernel/tree/7.2.0) | Next-generation upstream port | **WIP / Alpha** | Source, DTB, module, and alpha-package work is in progress. It is not the default kernel; full image integration and physical regression testing remain pending. |
+
+Linux 7.2 development is isolated in the
+[SENEMOS Nabu kernel alpha COPR](https://copr.fedorainfracloud.org/coprs/mcc45tr/senemos-nabu-kernel-alpha/)
+and is not promoted into the current release channel without recorded physical
+acceptance.
+
+### Builder capabilities
+
+- [x] Rootless Podman workflow by default
+- [x] Repository, dependency, architecture, RPM, and signing-key preflight
+- [x] Ext4 and Btrfs image generation
+- [x] KDE Plasma, KDE Mobile, GNOME, GNOME Mobile (when available), Phosh, and
+      no-desktop profiles
+- [x] Core-first builds and validated core reuse
+- [x] systemd-boot, GRUB, Limine, and existing-ESP modes
+- [x] UKI generation and optional Secure Boot signing
+- [x] Atomic artifact publication, SHA-256 manifests, and focused failure reports
+- [x] UKI and ESP structure, identity, and checksum validation
+- [ ] Automatic stage-level resume after an interrupted build
+- [ ] Stable release channel independent of Rawhide changes
+
+### Working on a physical Xiaomi Pad 5
+
+- [x] UEFI Linux boot with retained Android and known-good Linux fallback entries
+- [x] Internal DSI display at 60 Hz and 120 Hz
+- [x] Ten-contact touchscreen and hardware volume buttons
+- [x] Freedreno OpenGL acceleration and Turnip Vulkan
+- [x] Wi-Fi connectivity and bounded reconnect after suspend
+- [x] Bluetooth HID pairing and pointer input
+- [x] Ambient-light sensing and automatic brightness
+- [x] Accelerometer-based automatic rotation
+- [x] Magnetic-cover detection with the safe lock-screen policy
+- [x] Basic USB-C charging and battery telemetry
+- [x] Bounded s2idle suspend/resume with display and sensor recovery helpers
+
+See [Nabu hardware status](NABU-HARDWARE-STATUS.md) for the maintained public
+status summary. Every release candidate still requires a fresh physical test.
+
+### TODO / known limitations
+
+- [ ] Requalify each release candidate on physical hardware before promotion
+- [ ] Complete four-speaker routing; the current physical baseline does not
+      provide correct independent output from all four speakers
+- [ ] Complete internal microphone recording validation
+- [ ] Add and validate double-tap-to-wake support
+- [ ] Qualify Smart Pen input, keyboard accessories, and stylus charging across
+      attach/detach and suspend cycles
+- [ ] Finish camera bring-up and userspace integration
+- [ ] Validate long-duration suspend residency, wake sources, and battery drain;
+      current suspend is s2idle, not certified deep sleep
+- [ ] Correct charging-status telemetry and qualify higher-current charging with
+      an external USB-C power meter and thermal safeguards
+- [ ] Qualify Bluetooth audio, USB OTG storage/HID/hubs/audio, and DisplayPort
+- [ ] Resolve EL2 firmware/UEFI handoff before claiming KVM support
+- [ ] Complete repeated cold-boot, rollback, and Android-return acceptance
+      tests for each release candidate
+
+## Package repository
+
+Nabu kernel and integration packages are published through the
+**[mcc45tr/nabu-linux COPR project](https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/)**.
+The builder validates the selected RPM family as a coherent set before image
+creation; a successful COPR build alone does not establish physical hardware
+compatibility.
 
 ## Quick start
 
-From the workspace root:
+### Host requirements
+
+- Linux host with Bash and GNU core utilities
+- Podman with working rootless containers
+- Network access to Fedora Rawhide repositories
+- Native AArch64, registered AArch64 binfmt, or an explicit QEMU setup for real
+  package scriptlets
+- Local Nabu kernel, firmware, configuration, and boot RPMs
+- FUSE/libguestfs support for normal rootless image creation
+
+An x86_64 host without binfmt can still run the complete repository/RPM
+preflight with DNF5 `--forcearch=aarch64`; real AArch64 RPM scriptlets remain
+fail-closed in that configuration.
+
+### Clone and inspect
 
 ```bash
+git clone https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder.git
 cd Nabu-Fedora-Rawhide-Builder
 chmod +x Nabu-Fedora-Rawhide-Builder.sh
+
 ./Nabu-Fedora-Rawhide-Builder.sh doctor
 ./Nabu-Fedora-Rawhide-Builder.sh --dry-run
 ```
 
-`doctor` checks required host commands, Podman availability/rootless status,
-the cached Rawhide image, host architecture, FUSE, writable runtime paths, and
-the permissions/readability of the conventional `secure/db.key` and
-`secure/db.crt` files. Warnings do not fail the command; missing hard
-requirements do.
+`doctor` checks host tools, Podman, storage, architecture, FUSE, runtime paths,
+and conventional Secure Boot input paths. The dry-run starts Fedora Rawhide in
+Podman and performs real compose, repository, dependency, local-RPM, kernel,
+and Secure Boot preflight without creating an image.
 
-The dry-run is a real preflight. It starts Fedora Rawhide in Podman, resolves
-current aarch64 compose/group/package metadata, inventories and validates the
-local Nabu RPMs, creates an isolated local repository, performs dependency
-closure, checks the kernel family, and evaluates Secure Boot inputs. It does
-not create an image.
+## Build examples
 
-For a strict real build, use a signing certificate that is already enrolled in
-the target UEFI trust database:
+### KDE Plasma with strict Secure Boot validation
+
+Use a signing certificate already enrolled in the target device's UEFI trust
+database:
 
 ```bash
 ./Nabu-Fedora-Rawhide-Builder.sh \
@@ -49,174 +189,171 @@ the target UEFI trust database:
   --non-interactive
 ```
 
-Private key paths and contents are never written to reports. Manifests contain
-only SHA-256 certificate fingerprints. `--generate-development-sb-key` creates
-an ephemeral private key and publishes only its enrollment certificate; it is
-not accepted as verified strict Secure Boot until the certificate is trusted
-by the device firmware.
+Private-key paths and contents are never written to reports. Manifests contain
+only certificate fingerprints. Never commit private keys to this repository.
+
+### Build all supported desktop variants
+
+```bash
+./Nabu-Fedora-Rawhide-Builder.sh \
+  --desktop all \
+  --filesystem ext4 \
+  --keep-core
+```
+
+A failed core/EFI gate stops the build. With `--desktop all`, independently
+failed desktop variants are reported while verified variants can still be
+published with exit code `20`.
+
+### Plasma Mobile
+
+```bash
+./Nabu-Fedora-Rawhide-Builder.sh \
+  --desktop kde-mobile \
+  --filesystem ext4
+```
+
+The Mobile profile uses Fedora's stock Plasma Mobile, KWin, and Plasma Login
+Manager packages; it does not ship a forked KWin. See the
+[Plasma Mobile profile notes](docs/PLASMA-MOBILE-PROFILE.md).
+
+Run `./Nabu-Fedora-Rawhide-Builder.sh --help` for all profile, filesystem,
+bootloader, repository, cache, signing, logging, and safety options.
 
 ## Defaults
 
-- Desktop: `kde-plasma`
-- Filesystem: `ext4`
-- User shell: `bash`
-- Secure Boot: `on`
-- Bootloader: `systemd-boot`
-- Fedora parity: `strict`
-- Core/final/ESP sizes: `6G` / `12G` / `350M`
-- Compression: Zstandard level `10`
-- Locale/timezone/keyboard: `en_US.UTF-8` / `UTC` / `us`
-- Architecture and image backend: `auto`
+| Setting | Default |
+| --- | --- |
+| Desktop | `kde-plasma` |
+| Filesystem | `ext4` |
+| Shell | `bash` |
+| Secure Boot | `on` |
+| Bootloader | `systemd-boot` |
+| Fedora parity | `strict` |
+| Core / final image size | `6G` / `12G` |
+| ESP size | `350M` |
+| Compression | Zstandard level `10` |
+| Locale / timezone / keyboard | `en_US.UTF-8` / `UTC` / `us` |
 
-The default build mode is `verbose` while the Nabu first-boot path is being
-validated. In this mode the UKI keeps the framebuffer rotation parameter
-`fbcon=rotate:1` but omits `quiet splash`, so kernel and first-boot messages
-remain visible. Use `--build=release` for a quieter UKI with `quiet splash`.
-The existing `--debug` and `--trace` options continue to control builder-side
-diagnostic logging.
+The UKI keeps `fbcon=rotate:1` in every build mode. The default verbose mode
+keeps first-boot messages visible; release mode adds `quiet splash`.
+`--debug` and `--trace` control builder-side diagnostic logging.
 
-Use `./Nabu-Fedora-Rawhide-Builder.sh --help` for all profile, reuse,
-filesystem, bootloader, repository, cache, logging, and safety options.
+## Build workflow
 
-## Tests
+1. Validate the host, container runtime, architecture, storage, and signing
+   inputs.
+2. Resolve official Fedora Rawhide compose and package metadata.
+3. Inventory and validate the local Nabu RPM family.
+4. Build and validate a common Fedora core image.
+5. Generate the initramfs, UKI, boot entries, and ESP.
+6. Clone the validated core for each selected desktop/filesystem variant.
+7. Run package, filesystem, boot, and profile-specific release gates.
+8. Atomically publish artifacts, reports, metadata, logs, and SHA-256 sums.
 
-The project includes 21 fast tests for argument parsing, validation helpers,
-desktop/size rules, Secure Boot safeguards, doctor dispatch, and privileged
-container opt-in behavior:
+Unsafe automatic `--resume` is deliberately rejected. Use a fingerprinted
+`--reuse-core` or an explicitly validated `--from-core` image instead.
+
+## Output layout
+
+Each run is written to `output/rawhide-YYYYMMDD-HHMMSS-ID/` and can contain:
+
+```text
+output/rawhide-.../
+├── SUMMARY.md
+├── STATUS.json
+├── SHA256SUMS
+├── artifacts/
+│   ├── boot/
+│   └── rootfs/
+├── reports/
+├── metadata/
+└── logs/
+```
+
+Failed runs also include `FAILURE.md` with the failed stage, command, relevant
+log tail, and focused diagnostics. `output/latest` points to the latest run;
+`output/latest-failed` points to the latest failed run.
+
+Generated outputs, caches, work trees, image files, and private keys are
+excluded from Git.
+
+## Verification
+
+Run the repository checks before publishing changes:
 
 ```bash
 make test
-# or run syntax checks as well
+
+# Includes syntax checks
 make check
 ```
 
-The test script emits TAP output and can also be run directly as
-`./tests/test_builder.sh`.
+| Validation layer | What it establishes |
+| --- | --- |
+| Source | Syntax, policy, and implementation contracts |
+| Package | RPM identity, dependencies, signatures, payload, and solver closure |
+| Image | Filesystem health, ownership/modes, UKI/ESP structure, and checksums |
+| Physical device | Boot, display, touch, audio, radios, charging, suspend, and rollback |
 
-## Optional privileged container mode
+Passing one layer does not imply that a later layer passed. In particular,
+software-only checks cannot establish UEFI trust or physical tablet behaviour.
 
-The default remains rootless and unprivileged. `--privileged` explicitly adds
-Podman's privileged container flag for environments that require it:
+## Safety model
 
-```bash
-./Nabu-Fedora-Rawhide-Builder.sh --privileged [other build options]
-```
+- Rootless and unprivileged containers are the default.
+- Privileged container and loop-image modes require explicit opt-in.
+- Official Fedora repositories retain package-signature verification.
+- Signature relaxation is scoped only to the temporary repository containing
+  local Nabu development RPMs.
+- Input projects and RPM trees are mounted read-only.
+- Partial images are renamed only after their validation gates pass.
 
-This substantially weakens device and host security isolation. It does not
-add host filesystem bind mounts, but privileged containers may see host
-devices. The selected mode is recorded in the build manifest and Secure Boot
-report, and the builder prints a warning whenever it is enabled.
+## Troubleshooting
 
-## Core-first workflow
+- Start with `./Nabu-Fedora-Rawhide-Builder.sh doctor`.
+- Use `--debug` for comprehensive stage diagnostics and `--trace` for redacted
+  command logging.
+- Inspect `FAILURE.md`, then the referenced component log and metadata report.
+- Do not treat a successful build as proof that a new image is safe to flash.
+- Preserve Android EFI and a previously booted Linux fallback before any
+  device-side test.
 
-The pipeline resolves Fedora's official `core` and `hardware-support` groups,
-installs the selected Nabu runtime RPM family, configures first boot without a
-fixed user or password, and validates the common core before cloning it for
-desktop variants. A core/EFI gate failure stops the entire build. With
-`--desktop all`, independently failed desktop variants are recorded while
-verified variants can still be published with exit code `20`.
+## Credits
 
-Supported profiles are KDE Plasma, KDE Mobile, GNOME, GNOME Mobile (only when a
-real mobile session exists for aarch64), Phosh, and No Desktop. Ext4 and Btrfs
-are supported. Final images are first written with a `.partial` suffix and are
-renamed atomically only after validation.
+**Project maintainer:** [MCC45TR](https://github.com/MCC45TR) — Fedora
+integration, builder development, image production, and physical-device
+testing.
 
-## Local packages and Rawhide compatibility
+The following developers and communities have contributed kernel, boot,
+device-support, distribution, or tooling work to the wider Xiaomi Pad 5 Linux
+ecosystem:
 
-RPM selection uses RPM EVR ordering and requires one matching
-`kernel-nabu`/`kernel-nabu-core`/`kernel-nabu-modules` family. Runtime images
-exclude `kernel-nabu-devel`. RPM payload digests, dependencies, provides,
-conflicts, scripts, architecture, NEVRA, source RPM, and SHA-256 are recorded.
+- [Alexandru Marc Serdeliuc](https://github.com/serdeliuk)
+- [map220v](https://github.com/map220v)
+- [maverickjb](https://github.com/maverickjb)
+- [Pan Ortiz](https://gitlab.com/panpanpanpan)
+- [Viola Guerrera](https://github.com/nik012003)
+- [rodriguezst](https://github.com/rodriguezst)
+- [Timofey](https://github.com/timoxa0)
+- [Amrit Ranjan](https://github.com/arkt-7)
+- [jhuang](https://github.com/jhuang6451)
+- [gmanka](https://github.com/gmankab)
+- The Fedora, Linux kernel, systemd, KDE Plasma, Mesa/Freedreno, and Qualcomm
+  SM8150 mainline communities
 
-Official Fedora repositories retain package signature checking. `gpgcheck=0`
-is scoped only to the temporary local repository because the discovered Nabu
-RPMs are unsigned. Current Rawhide renamed `systemd-zram-generator` to
-`zram-generator`; when the older capability is required, the builder generates
-a documented metadata-only compatibility RPM that depends on the current
-Fedora implementation.
+## Related projects
 
-## Outputs
+Useful projects and documentation from the wider Nabu Linux community:
 
-Every run uses `output/rawhide-YYYYMMDD-HHMMSS-ID/` and contains, as applicable:
+- [TheMojoMan/xiaomi-nabu](https://github.com/TheMojoMan/xiaomi-nabu)
+- [postmarketOS Xiaomi Pad 5 wiki](https://wiki.postmarketos.org/wiki/Xiaomi_Pad_5_%28xiaomi-nabu%29)
+- [jhuang6451/nabu_fedora](https://github.com/jhuang6451/nabu_fedora)
+- [pocketblue](https://github.com/pocketblue/pocketblue)
 
-- `SUMMARY.md`: the short human-readable result and links to the important files;
-- `STATUS.json`: atomically updated machine-readable run state, elapsed seconds,
-  weighted stage progress, and estimated remaining seconds;
-- `artifacts/rootfs/`: compressed core and desktop filesystem images;
-- `artifacts/boot/`: ESP image, EFI-files ZIP, stable `esp.zip` EFI archive,
-  and enrollment files;
-- `reports/`: Rawhide, Secure Boot, validation, first-boot, parity, and failed
-  variant reports;
-- `metadata/`: the JSON build manifest, package inventories, fingerprints, and
-  focused diagnostics;
-- `logs/`: the main log, per-component logs, and structured JSONL events;
-- `SHA256SUMS`: checksums for published reports, metadata, and artifacts.
-
-Failed runs also contain `FAILURE.md`, including the failed stage, command,
-relevant log tail, and a focused diagnostic when available. `output/latest`
-points to the latest completed/partial run and `output/latest-failed` points to
-the latest failed run.
-
-The builder takes a project-wide lock so two runs cannot mutate the shared
-cache simultaneously. Published images use a `.partial` file followed by an
-atomic rename. Work and cache directories are preserved after a real failure
-for diagnosis and retry; successful runs still follow `--keep-work` and
-`--keep-cache`. Unsafe automatic `--resume` is rejected—validated `--reuse-core`
-or `--from-core` is required instead.
-
-Generated output, cache, work trees, private keys, and image files are ignored
-by Git.
-
-## Desktop notifications
-
-With `--notify` (the default), one desktop notification is updated as the build
-moves through its 24 stages instead of creating a separate notification for
-every stage. It shows the current stage/component, active desktop/filesystem,
-elapsed time, weighted phase progress, and a stage-based remaining-time
-estimate. The estimate is deliberately labelled approximate because package
-downloads, compression, multiple filesystems, and desktop variants can change
-the duration substantially.
-
-With `--step-by-notification`, the builder also sends a separate low-urgency
-`SUCCESS` notification whenever it finishes a stage and moves to the next one.
-Those step notifications include what just finished, the current elapsed minute
-and duration, the active desktop/filesystem, the next stage, and an
-approximate remaining percentage derived from the existing stage weights.
-
-The final notification distinguishes `COMPLETE`, `PREFLIGHT_PASS`, `PARTIAL`,
-and `FAILED`. Success includes completed variant and artifact/report counts;
-failure includes the preserved cause, exit code, failure stage, elapsed time,
-estimated time remaining at failure, and paths to `FAILURE.md` and the main
-log. Clicking the final notification opens the run output directory through
-`xdg-open` when the notification server supports actions. KDE also receives a
-file URL hint for the same directory.
-
-Notification text and stage names follow the host `LC_ALL`, `LC_MESSAGES`, or
-`LANG`: `tr*` locales use Turkish and other locales use English. Notifications
-are automatically skipped in CI or when no graphical D-Bus desktop session is
-available, and can always be disabled with `--no-notify`.
-
-## Host requirements and current verification boundary
-
-The host needs Bash, Podman, GNU core utilities, network access, and either a
-native aarch64 CPU or working aarch64 binfmt registration for a real build. An
-x86_64 host without binfmt can still run the full repository/RPM dry-run using
-DNF5 `--forcearch=aarch64`; real RPM scriptlets are deliberately refused in
-that configuration.
-
-Image creation normally uses rootless libguestfs/FUSE. The loop backend remains
-fail-closed in the current implementation; selecting `--privileged` does not
-silently switch image backends. Full hardware boot, touch, audio, Wi-Fi,
-suspend, orientation, and UEFI trust enrollment must be verified on a Xiaomi
-Pad 5 and are reported as `NOT_RUN` by software-only builds.
-
-## Exit codes
-
-`0` success, `1` general, `2` arguments, `3` local RPMs, `4` container/arch,
-`5` Rawhide, `6` core, `7` kernel/DTB/initramfs, `8` Secure Boot/UKI, `9` ESP,
-`10` filesystem, `11` desktop, `12` first boot, `13` strict parity, `20`
-partial success, and `130` cancellation.
+Upstream names and trademarks belong to their respective owners. Inclusion in
+this list does not imply endorsement of this project or its generated images.
 
 ## License
 
-MIT; see [LICENSE](LICENSE).
+Licensed under the [MIT License](LICENSE).
