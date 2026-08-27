@@ -1,5 +1,9 @@
 # Fedora Rawhide for Xiaomi Pad 5
 
+<p align="center">
+  <img src="assets/images/nabu-fedora-header.png" alt="Fedora Rawhide running on Xiaomi Pad 5" />
+</p>
+
 **Reproducible Fedora Rawhide images and device integration for Xiaomi Pad 5
 (`nabu`).**
 
