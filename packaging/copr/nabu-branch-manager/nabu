@@ -1,0 +1,148 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+PATH=/usr/sbin:/usr/bin
+export PATH
+
+readonly PROGRAM=${0##*/}
+readonly -a BRANCHES=(stable alpha unstable)
+
+meta_for_branch() {
+    case ${1:-} in
+        stable) printf '%s\n' nabu-core-stable-meta ;;
+        alpha) printf '%s\n' nabu-core-alpha-meta ;;
+        unstable) printf '%s\n' nabu-core-unstable-meta ;;
+        *) return 2 ;;
+    esac
+}
+
+kernel_core_for_branch() {
+    case ${1:-} in
+        stable) printf '%s\n' senemos-nabu-kernel-core ;;
+        alpha) printf '%s\n' senemos-nabu-kernel-alpha-core ;;
+        unstable) printf '%s\n' senemos-nabu-kernel-mainline-alpha-core ;;
+        *) return 2 ;;
+    esac
+}
+
+usage() {
+    cat <<'EOF'
+Usage:
+  nabu branch
+  nabu branch status
+  nabu branch list
+  nabu branch stable|alpha|unstable
+  nabu desktop migrate plasma-qt6 [--yes]
+
+Changing branch installs exactly one CORE branch meta package through sudo.
+It never reboots the device or automatically removes fallback kernel payloads.
+EOF
+}
+
+installed_branches() {
+    local branch meta
+    for branch in "${BRANCHES[@]}"; do
+        meta=$(meta_for_branch "$branch")
+        if rpm -q "$meta" >/dev/null 2>&1; then
+            printf '%s\n' "$branch"
+        fi
+    done
+}
+
+show_status() {
+    local -a installed=()
+    mapfile -t installed < <(installed_branches)
+    printf 'Running kernel: %s\n' "$(uname -r)"
+    case ${#installed[@]} in
+        0) printf 'Selected CORE branch: none\n'; return 1 ;;
+        1) printf 'Selected CORE branch: %s\n' "${installed[0]}" ;;
+        *) printf 'Selected CORE branches: %s\n' "${installed[*]}"; return 2 ;;
+    esac
+}
+
+list_branches() {
+    local branch meta state available
+    for branch in "${BRANCHES[@]}"; do
+        meta=$(meta_for_branch "$branch")
+        state=available
+        available=$(dnf5 -q repoquery --available --queryformat '%{name}' \
+            "$meta" 2>/dev/null || :)
+        [[ $available == *"$meta"* ]] || state=unavailable
+        rpm -q "$meta" >/dev/null 2>&1 && state=selected
+        printf '%-9s %s\n' "$branch" "$state"
+    done
+}
+
+switch_branch() {
+    local target=$1 meta core kver available
+    local -a selected=()
+    meta=$(meta_for_branch "$target") || {
+        printf '%s: unknown branch: %s\n' "$PROGRAM" "$target" >&2
+        usage >&2
+        return 2
+    }
+    available=$(dnf5 -q repoquery --available --queryformat '%{name}' \
+        "$meta" 2>/dev/null || :)
+    if [[ $available != *"$meta"* ]]; then
+        printf '%s: branch is unavailable for this Fedora release: %s\n' \
+            "$PROGRAM" "$target" >&2
+        return 3
+    fi
+
+    printf 'Switching Nabu CORE branch to %s.\n' "$target"
+    printf 'The existing bootable kernel payload is retained as a fallback.\n'
+    /usr/bin/sudo -v
+    /usr/bin/sudo /usr/bin/flock /run/nabu-package-management.lock +        /usr/bin/dnf5 -y install --allowerasing "$meta"
+
+    mapfile -t selected < <(installed_branches)
+    if [[ ${#selected[@]} -ne 1 || ${selected[0]} != "$target" ]]; then
+        printf '%s: branch transaction did not leave exactly one selected meta package.\n' \
+            "$PROGRAM" >&2
+        return 4
+    fi
+
+    core=$(kernel_core_for_branch "$target")
+    kver=$(rpm -q --qf '[%{FILENAMES}\n]' "$core" 2>/dev/null | \
+        sed -n 's#^/boot/vmlinuz-##p' | sort -V | tail -n 1)
+    if [[ -z $kver || ! -s /boot/vmlinuz-$kver ]]; then
+        printf '%s: selected kernel payload is missing for branch %s.\n' \
+            "$PROGRAM" "$target" >&2
+        return 5
+    fi
+    if [[ ! -x /usr/libexec/nabu-kernel-maintenance ]]; then
+        printf '%s: nabu-kernel-maintenance is not installed.\n' "$PROGRAM" >&2
+        return 6
+    fi
+    /usr/bin/sudo /usr/libexec/nabu-kernel-maintenance --prepare-only
+    printf 'Selected CORE branch: %s\n' "$target"
+    printf 'Prepared kernel: %s\n' "$kver"
+    if [[ $(uname -r) != "$kver" ]]; then
+        printf 'Reboot is required to enter the selected branch.\n'
+    fi
+}
+
+main() {
+    if [[ ${1:-} == desktop ]]; then
+        if [[ ! -x /usr/libexec/nabu-desktop-migrate ]]; then
+            printf '%s: install nabu-desktop-migration first.\n' "$PROGRAM" >&2
+            return 3
+        fi
+        shift
+        exec /usr/libexec/nabu-desktop-migrate "$@"
+    fi
+    case ${1:-} in
+        branch|brunch|brucnh) ;;
+        -h|--help|help|'') usage; return 0 ;;
+        *) usage >&2; return 2 ;;
+    esac
+    case ${2:-status} in
+        status) show_status ;;
+        list) list_branches ;;
+        stable|alpha|unstable) switch_branch "$2" ;;
+        -h|--help|help) usage ;;
+        *) printf '%s: invalid branch command: %s\n' "$PROGRAM" "$2" >&2; usage >&2; return 2 ;;
+    esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+    main "$@"
+fi

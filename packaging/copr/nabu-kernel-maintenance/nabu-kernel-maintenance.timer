@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodically maintain the selected Nabu kernel branch
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=6h
+RandomizedDelaySec=45min
+Persistent=true
+Unit=nabu-kernel-maintenance.service
+
+[Install]
+WantedBy=timers.target
+

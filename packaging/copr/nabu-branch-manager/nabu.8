@@ -1,0 +1,28 @@
+.TH NABU 8 "27 August 2026" "nabu-branch-manager 1.0.0" "System Administration"
+.SH NAME
+nabu \- inspect and switch the Nabu CORE branch
+.SH SYNOPSIS
+.B nabu branch
+.br
+.B nabu branch status
+.br
+.B nabu branch list
+.br
+.B nabu branch
+.RI stable | alpha | unstable
+.SH DESCRIPTION
+The nabu command selects exactly one CORE branch meta package. Stable uses the
+supported 6.17 kernel, alpha uses the isolated 6.17 test kernel and unstable
+uses the Rawhide-only 7.2 mainline WIP kernel.
+.PP
+The canonical subcommand is branch. The common spellings brunch and brucnh
+are accepted as compatibility aliases.
+.PP
+Switching invokes dnf5 through sudo, regenerates the selected UKI and does not
+reboot automatically. Existing install-only kernel payloads may remain as
+fallback boot entries. The command does not alter sudo policy or grant users
+additional privileges.
+.SH EXIT STATUS
+Zero indicates success. Non-zero indicates an invalid command, unavailable
+branch, failed package transaction, inconsistent branch selection or failed
+UKI preparation.

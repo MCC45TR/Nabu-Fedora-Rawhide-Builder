@@ -1,0 +1,94 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+PATH=/usr/sbin:/usr/bin
+export PATH
+
+exec 9>/run/nabu-package-management.lock
+flock -n 9 || {
+    printf 'Another Nabu package or UKI operation is active; retrying later.\n'
+    exit 0
+}
+
+if [[ -r /sys/firmware/devicetree/base/compatible ]] &&
+   ! grep -aq 'xiaomi,nabu' /sys/firmware/devicetree/base/compatible; then
+    printf 'This is not a Xiaomi Pad 5 (nabu); skipping maintenance.\n'
+    exit 0
+fi
+
+selected=()
+for branch in stable alpha unstable; do
+    if rpm -q "nabu-core-${branch}-meta" >/dev/null 2>&1; then
+        selected+=("$branch")
+    fi
+done
+[[ ${#selected[@]} -eq 1 ]] || {
+    printf 'Expected exactly one selected Nabu CORE branch; found %s.\n' +        "${#selected[@]}" >&2
+    exit 2
+}
+
+case ${selected[0]} in
+    stable)
+        selector=senemos-nabu-kernel
+        core=senemos-nabu-kernel-core
+        ;;
+    alpha)
+        selector=senemos-nabu-kernel-alpha
+        core=senemos-nabu-kernel-alpha-core
+        ;;
+    unstable)
+        selector=senemos-nabu-kernel-mainline-alpha
+        core=senemos-nabu-kernel-mainline-alpha-core
+        ;;
+esac
+
+if [[ ${1:-} != --prepare-only ]]; then
+    dnf5 --assumeyes --refresh upgrade "$selector"
+fi
+
+latest_core=$(rpm -q --last "$core" | sed -n '1s/[[:space:]].*//p')
+[[ -n $latest_core ]] || {
+    printf 'No installed kernel core package was found for %s.\n' "${selected[0]}" >&2
+    exit 3
+}
+mapfile -t kernels < <(rpm -ql "$latest_core" | sed -n 's@^/boot/vmlinuz-@@p')
+[[ ${#kernels[@]} -eq 1 ]] || {
+    printf 'Expected exactly one RPM-owned kernel in %s.\n' "$latest_core" >&2
+    exit 4
+}
+kernel=${kernels[0]}
+[[ -s /boot/vmlinuz-$kernel && -d /usr/lib/modules/$kernel ]] || {
+    printf 'Incomplete RPM-owned kernel payload: %s\n' "$kernel" >&2
+    exit 5
+}
+
+pending=/var/lib/nabu-kernel-maintenance/pending-kernel
+prepared=/var/lib/nabu-kernel-maintenance/prepared-kernel
+install -d -m0755 /var/lib/nabu-kernel-maintenance
+printf '%s\n' "$kernel" > "$pending"
+/usr/bin/nabu-regenerate-uki "$kernel"
+
+entry=/boot/efi/loader/entries/senemos.conf
+efi_path=$(sed -nE 's@^efi[[:space:]]+(/.*)@\1@p' "$entry" | head -n1)
+[[ -n $efi_path && -s /boot/efi"$efi_path" ]] || {
+    printf 'Canonical entry does not reference a complete UKI.\n' >&2
+    exit 6
+}
+for protected in android.conf fallback.conf; do
+    protected_path=/boot/efi/loader/entries/$protected
+    [[ -r $protected_path ]] || {
+        printf 'Protected boot entry is missing: %s\n' "$protected" >&2
+        exit 7
+    }
+    protected_efi=$(sed -nE 's@^efi[[:space:]]+(/.*)@\1@p' "$protected_path" | head -n1)
+    [[ -n $protected_efi && -s /boot/efi"$protected_efi" ]] || {
+        printf 'Protected EFI payload is missing: %s\n' "$protected" >&2
+        exit 8
+    }
+done
+grep -Eq '^default[[:space:]]+fallback\.conf$' /boot/efi/loader/loader.conf || {
+    printf 'Refusing to change a non-fallback loader default.\n' >&2
+    exit 9
+}
+printf '%s\n' "$kernel" > "$prepared"
+rm -f "$pending"
+printf 'Prepared %s branch kernel and UKI: %s (%s)\n' "${selected[0]}" "$kernel" "$efi_path"
