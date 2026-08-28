@@ -92,3 +92,38 @@ grep -Eq '^default[[:space:]]+fallback\.conf$' /boot/efi/loader/loader.conf || {
 printf '%s\n' "$kernel" > "$prepared"
 rm -f "$pending"
 printf 'Prepared %s branch kernel and UKI: %s (%s)\n' "${selected[0]}" "$kernel" "$efi_path"
+
+pending_fallback=/var/lib/nabu-kernel-maintenance/pending-fallback-kernel
+prepared_fallback=/var/lib/nabu-kernel-maintenance/prepared-fallback-kernel
+if [[ -s $pending_fallback ]]; then
+    fallback_kernel=$(<"$pending_fallback")
+    [[ $fallback_kernel =~ ^[A-Za-z0-9._+-]+$ ]] || {
+        printf 'Invalid pending fallback kernel name: %s\n' "$fallback_kernel" >&2
+        exit 10
+    }
+    [[ -s /boot/vmlinuz-$fallback_kernel && -d /usr/lib/modules/$fallback_kernel ]] || {
+        printf 'Incomplete pending fallback payload: %s\n' "$fallback_kernel" >&2
+        exit 11
+    }
+    fallback_owner=$(rpm -qf --qf '%{NAME}\n' "/boot/vmlinuz-$fallback_kernel")
+    [[ $fallback_owner == senemos-nabu-kernel-alpha-core ]] || {
+        printf 'Unexpected fallback kernel owner: %s\n' "$fallback_owner" >&2
+        exit 12
+    }
+
+    /usr/bin/nabu-regenerate-uki --fallback "$fallback_kernel"
+    fallback_entry=/boot/efi/loader/entries/fallback.conf
+    fallback_efi=$(sed -nE 's@^efi[[:space:]]+(/.*)@\1@p' "$fallback_entry" | head -n1)
+    [[ -n $fallback_efi && -s /boot/efi"$fallback_efi" ]] || {
+        printf 'Fallback entry does not reference a complete UKI.\n' >&2
+        exit 13
+    }
+    grep -Eq '^default[[:space:]]+fallback\.conf$' /boot/efi/loader/loader.conf || {
+        printf 'Refusing to change a non-fallback loader default.\n' >&2
+        exit 14
+    }
+    printf '%s\n' "$fallback_kernel" > "$prepared_fallback"
+    rm -f "$pending_fallback"
+    printf 'Prepared protected fallback kernel and UKI: %s (%s)\n' \
+        "$fallback_kernel" "$fallback_efi"
+fi

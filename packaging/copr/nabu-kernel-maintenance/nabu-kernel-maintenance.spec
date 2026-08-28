@@ -1,6 +1,6 @@
 %global debug_package %{nil}
 Name:           nabu-kernel-maintenance
-Version:        1.1.0
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Serialized branch-aware kernel and UKI maintenance for Nabu
 License:        MIT
@@ -54,6 +54,10 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.tim
 %systemd_postun_with_restart nabu-kernel-maintenance.timer
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.2.0-1
+- Prepare a pending 6.17 alpha fallback after the selected canonical kernel.
+- Validate the fallback RPM owner, EFI payload and protected loader default.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
 - Export a stable maintenance API independent of implementation releases.
 
