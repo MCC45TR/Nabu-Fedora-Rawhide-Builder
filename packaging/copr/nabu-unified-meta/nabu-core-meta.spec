@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        2.0.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -118,6 +118,7 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.tim
 %posttrans
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl enable --now nabu-kernel-maintenance.timer >/dev/null 2>&1 || :
+    /usr/bin/systemctl reset-failed nabu-kernel-maintenance.service >/dev/null 2>&1 || :
 fi
 
 %preun
@@ -127,6 +128,11 @@ fi
 %systemd_postun_with_restart nabu-kernel-maintenance.timer
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-4
+- Preserve the device's existing explicit loader default instead of assuming it
+  must be fallback.conf, and hash-guard Android/fallback entries and EFI files.
+- Clear the obsolete failed-unit state after installing the corrected policy.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-3
 - Re-enable and start the maintenance timer in post-transaction so removal of
   the superseded standalone package cannot undo the new CORE policy.

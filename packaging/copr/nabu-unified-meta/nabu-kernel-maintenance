@@ -75,15 +75,21 @@ kernel=${kernels[0]}
 pending=/var/lib/nabu-kernel-maintenance/pending-kernel
 prepared=/var/lib/nabu-kernel-maintenance/prepared-kernel
 install -d -m0755 /var/lib/nabu-kernel-maintenance
-printf '%s\n' "$kernel" >"$pending"
-/usr/bin/nabu-regenerate-uki "$kernel"
 
-entry=/boot/efi/loader/entries/senemos.conf
-efi_path=$(sed -nE 's@^efi[[:space:]]+(/.*)@\1@p' "$entry" | head -n1)
-[[ -n $efi_path && -s /boot/efi"$efi_path" ]] || {
-    printf 'Canonical entry does not reference a complete UKI.\n' >&2
+# The maintenance path may replace only the canonical Nabu entry.  Snapshot the
+# user's current loader default plus the protected Android/fallback entries and
+# their EFI payloads before regeneration, then prove that they did not change.
+loader_conf=/boot/efi/loader/loader.conf
+[[ -r $loader_conf ]] || {
+    printf 'Loader configuration is missing or unreadable.\n' >&2
     exit 6
 }
+loader_default_before=$(sed -nE 's/^[[:space:]]*default[[:space:]]+([^#[:space:]]+).*$/\1/p' "$loader_conf" | tail -n1)
+[[ -n $loader_default_before ]] || {
+    printf 'Loader default is not explicit; refusing an unverifiable UKI change.\n' >&2
+    exit 6
+}
+declare -A protected_entry_digest protected_efi_digest protected_efi_path
 for protected in android.conf fallback.conf; do
     protected_path=/boot/efi/loader/entries/$protected
     [[ -r $protected_path ]] || {
@@ -95,12 +101,38 @@ for protected in android.conf fallback.conf; do
         printf 'Protected EFI payload is missing: %s\n' "$protected" >&2
         exit 8
     }
+    protected_efi_path[$protected]=$protected_efi
+    protected_entry_digest[$protected]=$(sha256sum "$protected_path" | cut -d' ' -f1)
+    protected_efi_digest[$protected]=$(sha256sum /boot/efi"$protected_efi" | cut -d' ' -f1)
 done
-grep -Eq '^default[[:space:]]+fallback\.conf$' /boot/efi/loader/loader.conf || {
-    printf 'Refusing to change a non-fallback loader default.\n' >&2
+
+printf '%s\n' "$kernel" >"$pending"
+/usr/bin/nabu-regenerate-uki "$kernel"
+
+entry=/boot/efi/loader/entries/senemos.conf
+efi_path=$(sed -nE 's@^efi[[:space:]]+(/.*)@\1@p' "$entry" | head -n1)
+[[ -n $efi_path && -s /boot/efi"$efi_path" ]] || {
+    printf 'Canonical entry does not reference a complete UKI.\n' >&2
+    exit 6
+}
+for protected in android.conf fallback.conf; do
+    protected_path=/boot/efi/loader/entries/$protected
+    protected_efi=${protected_efi_path[$protected]}
+    [[ -r $protected_path && -s /boot/efi"$protected_efi" ]] || {
+        printf 'Protected boot artifact disappeared: %s\n' "$protected" >&2
+        exit 7
+    }
+    [[ $(sha256sum "$protected_path" | cut -d' ' -f1) == "${protected_entry_digest[$protected]}" &&
+       $(sha256sum /boot/efi"$protected_efi" | cut -d' ' -f1) == "${protected_efi_digest[$protected]}" ]] || {
+        printf 'Protected boot artifact changed unexpectedly: %s\n' "$protected" >&2
+        exit 8
+    }
+done
+loader_default_after=$(sed -nE 's/^[[:space:]]*default[[:space:]]+([^#[:space:]]+).*$/\1/p' "$loader_conf" | tail -n1)
+[[ $loader_default_after == "$loader_default_before" ]] || {
+    printf 'Loader default changed unexpectedly (%s -> %s).\n' "$loader_default_before" "$loader_default_after" >&2
     exit 9
 }
 printf '%s\n' "$kernel" >"$prepared"
 rm -f "$pending"
 printf 'Prepared preferred %s kernel and UKI: %s (%s)\n' "$preferred" "$kernel" "$efi_path"
-

@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        2.0.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -112,12 +112,24 @@ if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable sshd.service >/dev/null 2>&1 || :
 fi
+%posttrans
+if [ -x /usr/bin/systemctl ]; then
+    /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
+    /usr/bin/systemctl enable sshd.service >/dev/null 2>&1 || :
+    if /usr/bin/systemctl is-active --quiet graphical.target; then
+        /usr/bin/systemctl start plasmalogin.service >/dev/null 2>&1 || :
+    fi
+fi
 %preun
 %systemd_preun plasmalogin.service
 %postun
 %systemd_postun_with_restart plasmalogin.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-5
+- Reassert and start Plasma Login Manager after legacy mobile removal scriptlets
+  when the machine is already running the graphical target.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-4
 - Keep the shared login theme as an implementation dependency and let CORE own
   retirement of the common migration helper, eliminating DE-selection ambiguity.
