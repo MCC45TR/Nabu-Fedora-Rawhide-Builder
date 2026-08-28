@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        2.0.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -89,12 +89,22 @@ if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable plasma-setup.service >/dev/null 2>&1 || :
 fi
+
+%posttrans
+if [ -x /usr/bin/systemctl ]; then
+    /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
+    /usr/bin/systemctl enable plasma-setup.service >/dev/null 2>&1 || :
+fi
 %preun
 %systemd_preun plasmalogin.service plasma-setup.service
 %postun
 %systemd_postun_with_restart plasmalogin.service plasma-setup.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-4
+- Reassert Plasma Login Manager and Setup enablement after the complete RPM
+  transaction, including removal of the superseded Plasma base package.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-3
 - Keep the shared login theme as an implementation RPM so desktop and mobile
   manifests never compete to obsolete the same installed package.

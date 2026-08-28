@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        2.0.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -115,6 +115,11 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.tim
 %post
 %systemd_post nabu-kernel-maintenance.timer
 
+%posttrans
+if [ -x /usr/bin/systemctl ]; then
+    /usr/bin/systemctl enable --now nabu-kernel-maintenance.timer >/dev/null 2>&1 || :
+fi
+
 %preun
 %systemd_preun nabu-kernel-maintenance.timer
 
@@ -122,6 +127,10 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.tim
 %systemd_postun_with_restart nabu-kernel-maintenance.timer
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-3
+- Re-enable and start the maintenance timer in post-transaction so removal of
+  the superseded standalone package cannot undo the new CORE policy.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-2
 - Retire the shared one-shot desktop migration helper from the unambiguous CORE
   transition instead of making multiple DE manifests compete for it.
