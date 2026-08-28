@@ -1,6 +1,6 @@
 %global debug_package %{nil}
 Name:           nabu-gnome-optimal-meta
-Version:        1.1.0
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Optimal GNOME tablet profile for Xiaomi Pad 5
 License:        MIT
@@ -8,7 +8,7 @@ URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
 BuildArch:      noarch
 Requires:       nabu-gnome-base-abi = 1
 Requires:       gnome-software
-Requires:       gnome-console
+Requires:       ptyxis
 Requires:       nautilus
 Requires:       firefox
 Requires:       loupe
@@ -16,11 +16,29 @@ Requires:       gnome-weather
 Requires:       gnome-clocks
 Requires:       gnome-calculator
 Requires:       gnome-text-editor
-Requires:       totem
+Requires:       showtime
 Requires:       papers
-Requires:       file-roller
+Requires:       gnome-system-monitor
 Requires:       nano
 Requires:       fastfetch
+Requires:       dconf
+Requires:       polkit
+Requires:       gnome-session-wayland-session
+Requires:       PackageKit-command-not-found
+Requires:       PackageKit-gtk3-module
+Requires:       glycin-thumbnailer
+Requires:       gnome-epub-thumbnailer
+Requires:       gst-thumbnailers
+Requires:       gvfs-afc
+Requires:       gvfs-fuse
+Requires:       gvfs-goa
+Requires:       gvfs-gphoto2
+Requires:       gvfs-mtp
+Requires:       gvfs-smb
+# Intentional Workstation manifest dependency for SVG rendering and previews.
+Requires:       librsvg2
+Requires:       papers-nautilus
+Requires:       sushi
 Provides:       nabu-desktop-profile-meta = %{version}-%{release}
 Conflicts:      nabu-desktop-profile-meta
 Obsoletes:      nabu-gnome-meta < %{version}-%{release}
@@ -33,6 +51,12 @@ desktop-neutral applications and the same provisional coverage as Posh.
 %files
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.2.0-1
+- Align terminal and video applications with the Fedora Workstation ISO.
+- Add GNOME System Monitor and the selected mandatory session components.
+- Add the Workstation file, PackageKit and preview integration set.
+- Keep Fastfetch as a Nabu profile utility and drop File Roller.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
 - Adopt independent profile-manifest versioning and base ABI dependencies.
 
