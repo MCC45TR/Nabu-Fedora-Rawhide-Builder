@@ -10,11 +10,11 @@ Every installable Nabu release is represented by exactly two top-level RPMs:
    `kde-plasma-mobile-nabu-meta`, `gnome-nabu-meta`,
    `gnome-mobile-nabu-meta` or `phosh-nabu-meta`.
 
-Architecture-specific libraries, firmware, kernels and services remain
-independent implementation RPMs. They have different ABI, licensing, build and
-physical-validation lifecycles; merging their payloads would make updates less
-safe rather than simpler. Users and image builders install only the two release
-manifests, which pull every implementation RPM through hard dependencies.
+The two release RPMs now carry Nabu-owned system policy, local services,
+desktop configuration, widgets, branding and locale payloads directly. Only
+true ABI/alternative boundaries remain independent: kernels, firmware,
+HexagonRPC/libssc/IIO native libraries and the selectable boot-manager family.
+Users and image builders still install only the two release manifests.
 
 ## Kernel policy
 
@@ -38,27 +38,27 @@ third-party package names must never appear in that retirement list.
 
 ## Locale contract
 
-All DE manifests require `glibc-all-langpacks` and `nabu-language-support`.
-KDE manifests additionally require `nabu-kde-l10n`; Plasma Desktop also
-requires `nabu-plasma-setup-l10n`. Locale correctness is not delegated to weak
-dependencies, image history or a one-time setup script.
+All DE manifests require `glibc-all-langpacks` and directly own the Nabu locale
+policy. KDE manifests additionally carry the Plasma Shell catalogs; Plasma
+Desktop also carries Plasma Setup catalogs. Locale correctness is not delegated
+to weak dependencies, image history or a separately versioned helper RPM.
 
 ## Migration map
 
 | New package | Replaces |
 |---|---|
-| `nabu-core-meta` | `nabu-meta`, `nabu-core-base`, three branch metas, repository config, branch manager, kernel maintenance, obsolete-package manifest and desktop migration helper |
-| `kde-plasma-nabu-meta` | Plasma base and minimal/optimal metas |
-| `kde-plasma-mobile-nabu-meta` | KDE Mobile base, minimal/optimal metas and legacy mobile setup |
-| `gnome-nabu-meta` | GNOME base and minimal/optimal metas |
-| `gnome-mobile-nabu-meta` | GNOME Mobile base and minimal/optimal metas |
-| `phosh-nabu-meta` | Posh base and minimal/optimal metas |
+| `nabu-core-meta` | Old CORE/control metas plus system/runtime integration, flashlight/USB tools, SAR service, SSC probe and retired suspend diagnostics |
+| `kde-plasma-nabu-meta` | Plasma profiles plus KDE config/ICC, widgets, locale catalogs, login branding and Plasma tablet-control UI |
+| `kde-plasma-mobile-nabu-meta` | KDE Mobile profiles plus shared KDE config/ICC, widgets, locale catalogs, login branding and Plasma tablet-control UI |
+| `gnome-nabu-meta` | GNOME profiles, locale policy and GNOME tablet-control UI |
+| `gnome-mobile-nabu-meta` | GNOME Mobile profiles, locale policy and GNOME tablet-control UI |
+| `phosh-nabu-meta` | Posh/Phosh profiles and locale policy |
 
 The first `dnf update` performs the name transition through RPM obsoletes. The
 installed kernel payloads, Android entry and known-good fallback are outside
 the transition and remain protected.
 
-The Plasma login theme stays an independently versioned implementation RPM
-required by both KDE manifests. Moving its files into both mutually exclusive
-DE packages would give DNF two competing replacements for the same installed
-package during migration.
+The CORE package performs the unambiguous retirement of the old shared Plasma
+login-theme RPM. The mutually exclusive KDE DE manifests own the replacement
+files and provide the compatibility ABI, so no independently versioned theme
+package remains.

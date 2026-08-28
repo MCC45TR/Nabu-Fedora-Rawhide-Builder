@@ -22,11 +22,23 @@ for old in nabu-core-stable-meta nabu-core-alpha-meta nabu-core-unstable-meta na
 done
 
 for spec in "$root"/*-nabu-meta.spec; do
-    grep -Fq 'Requires:       nabu-core-meta >= 2.0.0' "$spec" || fail "missing CORE dependency in $spec"
+    grep -Fq 'Requires:       nabu-core-meta >= 3.0.0' "$spec" || fail "missing CORE dependency in $spec"
     grep -Fq 'Requires:       glibc-all-langpacks' "$spec" || fail "missing hard locale dependency in $spec"
-    grep -Fq 'Requires:       nabu-language-support' "$spec" || fail "missing Nabu locale dependency in $spec"
+    grep -Fq 'Provides:       nabu-language-support' "$spec" || fail "locale payload not merged into $spec"
+    grep -Fq 'Obsoletes:      nabu-language-support' "$spec" || fail "locale migration missing in $spec"
+    grep -Fq 'Provides:       nabu-desktop-profile-meta = 3' "$spec" || fail "manifest ABI mismatch in $spec"
     grep -Eq '^Recommends:' "$spec" && fail "weak dependency in release manifest $spec"
 done
+
+for merged in nabu-system-integration nabu-runtime-integration nabu-flashlight-integration nabu-sar-service nabu-ssc-probe nabu-suspend-diagnostics; do
+    grep -Eq "^Obsoletes:[[:space:]]+$merged" "$core" || fail "missing merged CORE transition for $merged"
+done
+
+for retired in nabu-system-integration nabu-kde-integration nabu-kde-config nabu-kde-color-profiles nabu-kde-widgets nabu-language-support nabu-kde-l10n nabu-plasma-setup-l10n nabu-plasma-login-theme nabu-flashlight-integration nabu-sar-service; do
+    grep -RqE "^Requires:[[:space:]]+$retired([[:space:]]|$)" "$root"/*.spec && fail "standalone integration dependency remains: $retired"
+done
+
+(cd "$root/vendor" && sha256sum -c SHA256SUMS >/dev/null) || fail "vendored source checksum"
 
 for spec in "$root"/*.spec; do
     if grep -E '^Obsoletes:' "$spec" | grep -Ev '^Obsoletes:[[:space:]]+nabu-' >/dev/null; then
@@ -36,4 +48,3 @@ done
 
 grep -Rq '^Name:.*minimal\|^Name:.*optimal' "$root" && fail "minimal/optimal package remains"
 printf 'PASS: unified two-meta release policy\n'
-

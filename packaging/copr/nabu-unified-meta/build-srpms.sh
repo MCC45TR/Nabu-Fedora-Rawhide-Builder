@@ -20,6 +20,7 @@ install -m0644 "$copr_dir/nabu-kde-mobile-base/90-nabu-mobile-login.conf" "$top_
 install -m0644 "$copr_dir/nabu-kde-mobile-base/95-nabu-plasma-mobile.preset" "$top_dir/SOURCES/"
 install -m0755 "$source_dir/nabu" "$source_dir/nabu-kernel-maintenance" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/nabu.8" "$source_dir/kernel.conf" "$top_dir/SOURCES/"
+install -m0644 "$source_dir"/vendor/*.{c,gz,zst} "$top_dir/SOURCES/"
 
 for spec in "$source_dir"/*.spec; do
     staged="$top_dir/SPECS/$(basename -- "$spec")"
@@ -33,4 +34,3 @@ count=$(find "$top_dir/SRPMS" -maxdepth 1 -type f -name '*.src.rpm' | wc -l)
     exit 1
 }
 printf 'Built one CORE and five DE meta SRPMs: %s\n' "$top_dir/SRPMS"
-

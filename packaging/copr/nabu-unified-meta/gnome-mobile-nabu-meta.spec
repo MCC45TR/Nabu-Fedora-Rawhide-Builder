@@ -1,15 +1,22 @@
 %global debug_package %{nil}
 %global legacy_meta_max 9999999999-99
 Name:           gnome-mobile-nabu-meta
-Version:        2.0.0
+Version:        3.0.0
 Release:        1%{?dist}
 Summary:        Complete touch-oriented GNOME release profile for Xiaomi Pad 5
-License:        MIT
+License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
+Source0:        nabu-kde-l10n-1.1.0.tar.gz
+Source1:        nabu-flashlight-integration-1.0.0.tar.gz
 BuildArch:      noarch
-Requires:       nabu-core-meta >= 2.0.0
+BuildRequires:  python3
+Requires:       nabu-core-meta >= 3.0.0
 Requires:       glibc-all-langpacks
-Requires:       nabu-language-support >= 1.1.0-1.test
+Requires:       bash
+Requires:       coreutils
+Requires:       filesystem
+Requires:       gzip
+Requires:       tar
 Requires:       gnome-shell
 Requires:       gnome-session
 Requires:       gdm
@@ -32,20 +39,49 @@ Requires:       file-roller
 Requires:       nano
 Requires:       fastfetch
 Conflicts:      nabu-desktop-profile-meta
-Provides:       nabu-desktop-profile-meta = %{version}-%{release}
+Provides:       nabu-desktop-profile-meta = 3
 Provides:       nabu-desktop-session = %{version}-%{release}
 Provides:       nabu-gnome-mobile-base-abi = 2
+Provides:       nabu-language-support = %{version}-%{release}
+Provides:       nabu-flashlight-integration-gnome = %{version}-%{release}
 Obsoletes:      nabu-gnome-mobile-base < %{legacy_meta_max}
 Obsoletes:      nabu-gnome-mobile-minimal-meta < %{legacy_meta_max}
 Obsoletes:      nabu-gnome-mobile-optimal-meta < %{legacy_meta_max}
+Obsoletes:      nabu-language-support < %{legacy_meta_max}
+Obsoletes:      nabu-flashlight-integration-gnome < %{legacy_meta_max}
 
 %description
 The single touch-oriented GNOME manifest for Nabu. Fedora does not ship a
 separate GNOME Shell Mobile, so this uses the unmodified stock GNOME session
 with the complete prior optimal application set and mandatory locale payload.
 
+%prep
+%setup -q -c -T
+mkdir l10n flashlight
+tar -xzf %{SOURCE0} -C l10n --strip-components=1
+tar -xzf %{SOURCE1} -C flashlight --strip-components=1
+
+%install
+install -Dm0755 l10n/nabu-restore-kde-locales %{buildroot}%{_libexecdir}/senemos-nabu/nabu-restore-kde-locales
+install -Dm0644 l10n/macros.nabu-languages %{buildroot}%{_sysconfdir}/rpm/macros.nabu-languages
+install -d %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org
+cp -a flashlight/gnome/. %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/
+
+%check
+python3 -m json.tool flashlight/gnome/metadata.json >/dev/null
+
+%posttrans
+%{_libexecdir}/senemos-nabu/nabu-restore-kde-locales || :
+
 %files
+%license l10n/LICENSES/common/LICENSE-MIT
+%dir %{_libexecdir}/senemos-nabu
+%{_libexecdir}/senemos-nabu/nabu-restore-kde-locales
+%{_sysconfdir}/rpm/macros.nabu-languages
+%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-1
+- Merge the locale policy and GNOME tablet-control extension into this DE RPM.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-1
 - Replace the touch GNOME minimal/optimal and base packages with one manifest.
-
