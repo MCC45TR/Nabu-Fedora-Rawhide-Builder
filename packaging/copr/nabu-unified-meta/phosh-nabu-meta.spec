@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           phosh-nabu-meta
 Version:        3.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Complete Phosh release profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -43,7 +43,6 @@ Provides:       nabu-language-support = %{version}-%{release}
 Obsoletes:      nabu-posh-base < %{legacy_meta_max}
 Obsoletes:      nabu-posh-minimal-meta < %{legacy_meta_max}
 Obsoletes:      nabu-posh-optimal-meta < %{legacy_meta_max}
-Obsoletes:      nabu-language-support < %{legacy_meta_max}
 
 %description
 The single Phosh desktop manifest for Nabu. It retains compatibility with the
@@ -68,6 +67,9 @@ install -Dm0644 l10n/macros.nabu-languages %{buildroot}%{_sysconfdir}/rpm/macros
 %{_libexecdir}/senemos-nabu/nabu-restore-kde-locales
 %{_sysconfdir}/rpm/macros.nabu-languages
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
+- Leave retirement of the shared locale policy name to CORE.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-1
 - Merge the complete locale policy into the single Phosh release RPM.
 

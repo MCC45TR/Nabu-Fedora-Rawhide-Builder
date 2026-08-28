@@ -25,12 +25,11 @@ for spec in "$root"/*-nabu-meta.spec; do
     grep -Fq 'Requires:       nabu-core-meta >= 3.0.0' "$spec" || fail "missing CORE dependency in $spec"
     grep -Fq 'Requires:       glibc-all-langpacks' "$spec" || fail "missing hard locale dependency in $spec"
     grep -Fq 'Provides:       nabu-language-support' "$spec" || fail "locale payload not merged into $spec"
-    grep -Fq 'Obsoletes:      nabu-language-support' "$spec" || fail "locale migration missing in $spec"
     grep -Fq 'Provides:       nabu-desktop-profile-meta = 3' "$spec" || fail "manifest ABI mismatch in $spec"
     grep -Eq '^Recommends:' "$spec" && fail "weak dependency in release manifest $spec"
 done
 
-for merged in nabu-system-integration nabu-runtime-integration nabu-flashlight-integration nabu-sar-service nabu-ssc-probe nabu-suspend-diagnostics; do
+for merged in nabu-system-integration nabu-runtime-integration nabu-flashlight-integration nabu-sar-service nabu-ssc-probe nabu-suspend-diagnostics nabu-kde-integration nabu-kde-config nabu-kde-color-profiles nabu-kde-widgets nabu-language-support nabu-kde-l10n nabu-plasma-setup-l10n nabu-plasma-login-theme nabu-flashlight-integration-plasma nabu-flashlight-integration-gnome; do
     grep -Eq "^Obsoletes:[[:space:]]+$merged" "$core" || fail "missing merged CORE transition for $merged"
 done
 

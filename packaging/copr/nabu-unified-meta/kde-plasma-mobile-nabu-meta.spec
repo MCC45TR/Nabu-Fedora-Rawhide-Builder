@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        3.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -97,12 +97,6 @@ Obsoletes:      nabu-kde-mobile-base < %{legacy_meta_max}
 Obsoletes:      nabu-kde-mobile-minimal-meta < %{legacy_meta_max}
 Obsoletes:      nabu-kde-mobile-optimal-meta < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-mobile-setup < %{legacy_meta_max}
-Obsoletes:      nabu-kde-config < %{legacy_meta_max}
-Obsoletes:      nabu-kde-color-profiles < %{legacy_meta_max}
-Obsoletes:      nabu-kde-widgets < %{legacy_meta_max}
-Obsoletes:      nabu-language-support < %{legacy_meta_max}
-Obsoletes:      nabu-kde-l10n < %{legacy_meta_max}
-Obsoletes:      nabu-flashlight-integration-plasma < %{legacy_meta_max}
 
 %description
 The only KDE Plasma Mobile manifest for Nabu. It combines the mobile session,
@@ -226,6 +220,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
+- Leave retirement of shared integration names to CORE; this DE owns only its
+  replacement payload and profile-specific legacy names.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-1
 - Merge mobile KDE configuration, ICC profiles, widgets, locale restoration,
   login branding and the Plasma tablet-control UI into this release package.

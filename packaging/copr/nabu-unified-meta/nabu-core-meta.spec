@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -117,6 +117,15 @@ Obsoletes:      nabu-sar-service < %{legacy_meta_max}
 Obsoletes:      nabu-ssc-probe < %{legacy_meta_max}
 Obsoletes:      nabu-suspend-diagnostics < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-login-theme < %{legacy_meta_max}
+Obsoletes:      nabu-kde-integration < %{legacy_meta_max}
+Obsoletes:      nabu-kde-config < %{legacy_meta_max}
+Obsoletes:      nabu-kde-color-profiles < %{legacy_meta_max}
+Obsoletes:      nabu-kde-widgets < %{legacy_meta_max}
+Obsoletes:      nabu-language-support < %{legacy_meta_max}
+Obsoletes:      nabu-kde-l10n < %{legacy_meta_max}
+Obsoletes:      nabu-plasma-setup-l10n < %{legacy_meta_max}
+Obsoletes:      nabu-flashlight-integration-plasma < %{legacy_meta_max}
+Obsoletes:      nabu-flashlight-integration-gnome < %{legacy_meta_max}
 
 %description
 The single hardware-side release manifest for Fedora on Xiaomi Pad 5 (nabu).
@@ -310,6 +319,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
+- Make CORE the sole retirement owner for shared integration subpackages so
+  mutually exclusive DE manifests are never considered competing replacements.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
 - Run inherited system-policy tests from their source root in clean build
   chroots.
