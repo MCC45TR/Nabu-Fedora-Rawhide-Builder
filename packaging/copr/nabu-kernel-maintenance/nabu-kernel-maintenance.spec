@@ -1,6 +1,6 @@
 %global debug_package %{nil}
 Name:           nabu-kernel-maintenance
-Version:        1.0.0
+Version:        1.1.0
 Release:        1%{?dist}
 Summary:        Serialized branch-aware kernel and UKI maintenance for Nabu
 License:        MIT
@@ -18,6 +18,7 @@ Requires:       rpm
 Requires:       systemd
 Requires:       util-linux-core
 Requires:       nabu-boot-integration >= 2.0.0
+Provides:       nabu-kernel-maintenance-api = 1
 
 %description
 Selects the kernel package from the installed Nabu CORE branch, serializes
@@ -53,7 +54,9 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.tim
 %systemd_postun_with_restart nabu-kernel-maintenance.timer
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+- Export a stable maintenance API independent of implementation releases.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-1
 - Replace the hard-coded kernel timer with branch-aware serialized maintenance.
 - Preserve Android, the known-good fallback and the loader default.
-

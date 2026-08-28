@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name: nabu-kde-mobile-base
-Version: 1.0.0
-Release: 33.test%{?dist}
+Version: 1.1.0
+Release: 1%{?dist}
 Summary: KDE Plasma Mobile session foundation for Nabu
 License: MIT
 URL: https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -11,11 +11,11 @@ Source2: 90-nabu-mobile-login.conf
 Source3: 95-nabu-plasma-mobile.preset
 BuildArch: noarch
 BuildRequires: systemd-rpm-macros
-Requires: nabu-core-abi >= 1
+Requires: nabu-core-abi = 1
 Requires: nabu-core-branch
 Requires: nabu-system-integration >= 2.0.0-5.test
 Requires: nabu-kde-config >= 1.4.0.1-6.test
-Requires: nabu-plasma-login-theme-abi >= 1
+Requires: nabu-plasma-login-theme-abi = 1
 Requires: glibc-all-langpacks
 Recommends: nabu-language-support >= 1.1.0-1.test
 Recommends: nabu-kde-l10n >= 1.1.0-1.test
@@ -52,6 +52,7 @@ Obsoletes: nabu-plasma-mobile-setup < 1:6.7.4-1.nabu3
 Obsoletes: nabu-kde-plasma-mobile-base < %{version}-%{release}
 Provides: nabu-kde-plasma-mobile-base = %{version}-%{release}
 Provides: nabu-desktop-session = %{version}-%{release}
+Provides: nabu-kde-mobile-base-abi = 1
 Conflicts: nabu-desktop-session
 
 %description
@@ -95,5 +96,8 @@ fi
 %systemd_postun_with_restart plasmalogin.service
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+- Adopt the independent session-manifest version and ABI.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-33.test
 - Publish the Plasma Mobile base independently without broad transition metadata.

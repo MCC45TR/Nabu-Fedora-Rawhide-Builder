@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           nabu-branch-manager
 Version:        1.1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Safe CORE branch manager for Nabu Linux
 License:        MIT
 URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder
@@ -15,6 +15,7 @@ Requires:       rpm
 Requires:       sudo
 Requires:       nabu-boot-integration >= 2.0.0
 Requires:       nabu-kernel-maintenance >= 1.0.0-1
+Provides:       nabu-branch-manager-api = 1
 
 %description
 Installs the system-wide nabu command used to inspect and switch between the
@@ -35,6 +36,9 @@ install -Dm0644 %{SOURCE1} %{buildroot}%{_mandir}/man8/nabu.8
 %{_mandir}/man8/nabu.8*
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-2
+- Export a stable API capability for dependency manifests.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
 - Delegate explicit desktop migrations to the independently packaged helper.
 

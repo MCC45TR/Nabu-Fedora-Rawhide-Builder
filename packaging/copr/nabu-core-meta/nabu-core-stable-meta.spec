@@ -1,13 +1,13 @@
 %global debug_package %{nil}
 Name:           nabu-core-stable-meta
-Version:        1.0.0
-Release:        3%{?dist}
+Version:        1.1.0
+Release:        1%{?dist}
 Summary:        Stable Nabu CORE branch
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
 BuildArch:      noarch
-Requires:       nabu-core-abi >= 1
-Requires:       senemos-nabu-kernel < 1:7
+Requires:       nabu-core-abi = 1
+Requires:       senemos-nabu-kernel
 # Highest branch capability EVR makes stable the deterministic default when a
 # desktop profile is installed without an explicit branch selection.
 Provides:       nabu-core-branch = 3
@@ -25,6 +25,9 @@ may remain available as boot fallbacks.
 %files
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+- Treat the package as a branch manifest and remove cosmetic kernel minimums.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-3
 - Preserve installed branch selection while making stable the fresh-install default.
 - Depend on the independent CORE ABI instead of a lockstep package release.

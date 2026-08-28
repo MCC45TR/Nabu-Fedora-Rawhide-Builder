@@ -1,13 +1,13 @@
 %global debug_package %{nil}
 Name:           nabu-core-alpha-meta
-Version:        1.0.0
-Release:        3%{?dist}
+Version:        1.1.0
+Release:        1%{?dist}
 Summary:        Alpha Nabu CORE branch
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
 BuildArch:      noarch
-Requires:       nabu-core-abi >= 1
-Requires:       senemos-nabu-kernel-alpha >= 1:1.17.0-0.3.alpha.v1.4.0.9
+Requires:       nabu-core-abi = 1
+Requires:       senemos-nabu-kernel-alpha
 Provides:       nabu-core-branch = 2
 Provides:       nabu-core-meta = %{version}-%{release}
 Conflicts:      nabu-core-stable-meta
@@ -23,6 +23,9 @@ evidence and still requires physical device acceptance.
 %files
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+- Treat the package as a branch manifest and remove cosmetic kernel minimums.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-3
 - Preserve installed branch selection while making stable the fresh-install default.
 - Depend on the independent CORE ABI instead of a lockstep package release.

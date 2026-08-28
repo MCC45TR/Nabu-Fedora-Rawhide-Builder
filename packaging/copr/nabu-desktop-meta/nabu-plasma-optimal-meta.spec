@@ -1,12 +1,12 @@
 %global debug_package %{nil}
 Name:           nabu-plasma-optimal-meta
-Version:        1.0.0
-Release:        24.test%{?dist}
+Version:        1.1.0
+Release:        1%{?dist}
 Summary:        Optimal KDE Plasma desktop profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
 BuildArch:      noarch
-Requires:       nabu-plasma-base >= 1.0.0-23.test
+Requires:       nabu-plasma-base-abi = 1
 Requires:       plasma-discover
 Requires:       plasma-discover-packagekit
 Requires:       plasma-discover-notifier
@@ -40,6 +40,9 @@ Nabu. No Fedora or KDE application is forked or modified.
 %files
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+- Adopt independent profile-manifest versioning and base ABI dependencies.
+
 * Thu Aug 27 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-24.test
 - Use KWrite without the separate Kate application.
 - Add Spectacle and Discover offline-update integration.

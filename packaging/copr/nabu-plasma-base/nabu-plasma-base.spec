@@ -1,18 +1,18 @@
 %global debug_package %{nil}
 Name:           nabu-plasma-base
-Version:        1.0.0
-Release:        33.test%{?dist}
+Version:        1.1.0
+Release:        1%{?dist}
 Summary:        Stock KDE Plasma desktop foundation for Nabu
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
 Source0:        95-nabu-plasma-login.preset
 BuildArch:      noarch
 BuildRequires:  systemd-rpm-macros
-Requires:       nabu-core-abi >= 1
+Requires:       nabu-core-abi = 1
 Requires:       nabu-core-branch
 Requires:       nabu-kde-config >= 1.4.0.1-11.test
 Requires:       nabu-kde-widgets
-Requires:       nabu-plasma-login-theme-abi >= 1
+Requires:       nabu-plasma-login-theme-abi = 1
 Requires:       glibc-all-langpacks
 Recommends:     nabu-language-support >= 1.1.0-1.test
 Recommends:     nabu-kde-l10n >= 1.1.0-1.test
@@ -40,6 +40,7 @@ Requires:       plasma-setup(aarch-64)
 Conflicts:      nabu-plasma-mobile-setup
 Conflicts:      kcm_wacomtablet
 Provides:       nabu-desktop-session = %{version}-%{release}
+Provides:       nabu-plasma-base-abi = 1
 Conflicts:      nabu-desktop-session
 Obsoletes:      nabu-kde-meta < %{version}-%{release}
 Provides:       nabu-kde-meta = %{version}-%{release}
@@ -71,7 +72,10 @@ fi
 %systemd_postun_with_restart plasmalogin.service plasma-setup.service
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+- Decouple the Plasma manifest from the former repository-wide release counter.
+- Require component ABIs instead of unrelated minimum EVRs.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-33.test
 - Remove the mandatory broad Qt5 and KF5 obsoletes transition.
 - Link independent components through stable virtual ABI capabilities.
-
