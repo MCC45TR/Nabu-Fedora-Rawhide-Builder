@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -199,9 +199,9 @@ bash -n system-integration/runtime/nabu-pmic-rtc-sync
 bash -n system-integration/runtime/nabu-slpi-suspend
 bash -n system-integration/runtime/nabu-sensor-session-gate
 bash -n system-integration/runtime/nabu-prepare-selinux-labels
-bash system-integration/tests/test-sensor-session-gate.sh
-bash system-integration/tests/test-selinux-label-preparation.sh
-bash system-integration/tests/test-suspend-user-slice-policy.sh
+(cd system-integration && bash tests/test-sensor-session-gate.sh)
+(cd system-integration && bash tests/test-selinux-label-preparation.sh)
+(cd system-integration && bash tests/test-suspend-user-slice-policy.sh)
 bash -n system-integration/runtime/senemos-nabu-status
 udevadm verify %{buildroot}%{_udevrulesdir}/99-libinput-calibration-matrix.rules
 meson test -C sar-build --print-errorlogs
@@ -310,6 +310,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
+- Run inherited system-policy tests from their source root in clean build
+  chroots.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-1
 - Merge the complete noarch system policy, native flashlight/USB helpers, SAR
   service and SSC probe into the CORE release package.
