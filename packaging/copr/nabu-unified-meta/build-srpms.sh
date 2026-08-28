@@ -1,0 +1,36 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+copr_dir=$(cd -- "$source_dir/.." && pwd)
+top_dir=${1:-"$source_dir/rpmbuild"}
+mkdir -p "$top_dir"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+
+install -m0644 "$copr_dir/nabu-repository-config/nabu-linux-copr.repo" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-repository-config/90-nabu-disable-cisco-openh264.repo" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.service" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.timer" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-kernel-maintenance/90-nabu-kernel-maintenance.preset" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-plasma-base/95-nabu-plasma-login.preset" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-plasma-login-theme/80-nabu-plasma-login-theme.conf" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-plasma-login-theme/nabu-plasma-login.svg" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-kde-mobile-base/plasma-mobile.desktop" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-kde-mobile-base/20-nabu-mobile-session.conf" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-kde-mobile-base/90-nabu-mobile-login.conf" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-kde-mobile-base/95-nabu-plasma-mobile.preset" "$top_dir/SOURCES/"
+install -m0755 "$source_dir/nabu" "$source_dir/nabu-kernel-maintenance" "$top_dir/SOURCES/"
+install -m0644 "$source_dir/nabu.8" "$source_dir/kernel.conf" "$top_dir/SOURCES/"
+
+for spec in "$source_dir"/*.spec; do
+    staged="$top_dir/SPECS/$(basename -- "$spec")"
+    install -m0644 "$spec" "$staged"
+    rpmbuild -bs --define "_topdir $top_dir" "$staged"
+done
+
+count=$(find "$top_dir/SRPMS" -maxdepth 1 -type f -name '*.src.rpm' | wc -l)
+[[ $count -eq 6 ]] || {
+    printf 'Expected six unified meta SRPMs, found %s\n' "$count" >&2
+    exit 1
+}
+printf 'Built one CORE and five DE meta SRPMs: %s\n' "$top_dir/SRPMS"
+

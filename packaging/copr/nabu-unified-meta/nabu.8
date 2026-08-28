@@ -1,0 +1,26 @@
+.TH NABU 8 "29 August 2026" "nabu-core-meta 2.0.0" "System Administration"
+.SH NAME
+nabu \- inspect and manage co-installable Nabu kernel families
+.SH SYNOPSIS
+.B nabu kernel status
+.br
+.B nabu kernel list
+.br
+.B nabu kernel use
+.RI alpha | stable | mainline | lts
+.br
+.B nabu kernel add
+.RI alpha | stable | mainline | lts
+.SH DESCRIPTION
+The nabu-core-meta package requires at least one Nabu kernel family and
+recommends alpha for fresh installations. Stable, alpha, mainline and the
+future LTS family may coexist as install-only fallbacks.
+.PP
+The use command installs the requested family and records it as the preferred
+canonical UKI target. The add command installs an additional family without
+changing the preference. Neither operation reboots or removes older kernels.
+The legacy branch, brunch and brucnh forms remain compatibility aliases.
+.SH FILES
+.I /etc/nabu/kernel.conf
+stores the preferred family and is preserved as an RPM noreplace configuration.
+

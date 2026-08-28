@@ -1,0 +1,137 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+PATH=/usr/sbin:/usr/bin
+export PATH
+
+readonly PROGRAM=${0##*/}
+readonly CONFIG=/etc/nabu/kernel.conf
+readonly -a FAMILIES=(alpha stable mainline lts)
+
+selector_for() {
+    case ${1:-} in
+        alpha) printf '%s\n' senemos-nabu-kernel-alpha ;;
+        stable) printf '%s\n' senemos-nabu-kernel ;;
+        mainline|unstable) printf '%s\n' senemos-nabu-kernel-mainline-alpha ;;
+        lts) printf '%s\n' senemos-nabu-kernel-lts ;;
+        *) return 2 ;;
+    esac
+}
+
+preferred_family() {
+    local value=alpha
+    if [[ -r $CONFIG ]]; then
+        value=$(sed -nE 's/^preferred=(alpha|stable|mainline|lts)$/\1/p' "$CONFIG" | tail -n1)
+    fi
+    printf '%s\n' "${value:-alpha}"
+}
+
+installed_families() {
+    local family selector
+    for family in "${FAMILIES[@]}"; do
+        selector=$(selector_for "$family")
+        rpm -q "$selector" >/dev/null 2>&1 && printf '%s\n' "$family"
+    done
+}
+
+available_family() {
+    local selector available
+    selector=$(selector_for "$1") || return 2
+    available=$(dnf5 -q repoquery --available --queryformat '%{name}' "$selector" 2>/dev/null || :)
+    [[ $available == *"$selector"* ]]
+}
+
+usage() {
+    cat <<'EOF'
+Usage:
+  nabu kernel status
+  nabu kernel list
+  nabu kernel use alpha|stable|mainline|lts
+  nabu kernel add alpha|stable|mainline|lts
+  nabu branch [status|list|alpha|stable|unstable]
+
+At least one Nabu kernel family is always required by nabu-core-meta. "use"
+installs a family and makes it the preferred UKI target; "add" installs an
+additional fallback family. Neither command reboots or removes older kernels.
+EOF
+}
+
+show_status() {
+    local -a installed=()
+    mapfile -t installed < <(installed_families)
+    printf 'Running kernel: %s\n' "$(uname -r)"
+    printf 'Preferred kernel family: %s\n' "$(preferred_family)"
+    printf 'Installed kernel families: %s\n' "${installed[*]:-none}"
+    [[ ${#installed[@]} -ge 1 ]]
+}
+
+list_families() {
+    local family state preferred
+    preferred=$(preferred_family)
+    for family in "${FAMILIES[@]}"; do
+        state=unavailable
+        available_family "$family" && state=available
+        rpm -q "$(selector_for "$family")" >/dev/null 2>&1 && state=installed
+        [[ $family == "$preferred" ]] && state="$state,preferred"
+        printf '%-9s %s\n' "$family" "$state"
+    done
+}
+
+install_family() {
+    local mode=$1 family=$2 selector temporary
+    [[ $family == unstable ]] && family=mainline
+    selector=$(selector_for "$family") || {
+        printf '%s: unknown kernel family: %s\n' "$PROGRAM" "$family" >&2
+        return 2
+    }
+    available_family "$family" || {
+        printf '%s: kernel family is unavailable for this Fedora release: %s\n' "$PROGRAM" "$family" >&2
+        return 3
+    }
+
+    /usr/bin/sudo -v
+    /usr/bin/sudo /usr/bin/flock /run/nabu-package-management.lock \
+        /usr/bin/dnf5 -y install "$selector"
+
+    if [[ $mode == use ]]; then
+        temporary=$(mktemp)
+        trap 'rm -f -- "${temporary:-}"' RETURN
+        printf 'preferred=%s\n' "$family" >"$temporary"
+        /usr/bin/sudo /usr/bin/install -Dm0644 "$temporary" "$CONFIG"
+    fi
+
+    rpm -q "$selector" >/dev/null
+    /usr/bin/sudo /usr/libexec/nabu-kernel-maintenance --prepare-only
+    printf '%s kernel family installed%s. Reboot was not requested.\n' \
+        "$family" "$([[ $mode == use ]] && printf ' and preferred' || :)"
+}
+
+main() {
+    local command=${1:-help} action=${2:-status} family=${3:-}
+    case $command in
+        kernel)
+            case $action in
+                status) show_status ;;
+                list) list_families ;;
+                use|add) [[ -n $family ]] || { usage >&2; return 2; }; install_family "$action" "$family" ;;
+                help|-h|--help) usage ;;
+                *) usage >&2; return 2 ;;
+            esac
+            ;;
+        branch|brunch|brucnh)
+            case $action in
+                status) show_status ;;
+                list) list_families ;;
+                alpha|stable|unstable|mainline|lts) install_family use "$action" ;;
+                help|-h|--help) usage ;;
+                *) usage >&2; return 2 ;;
+            esac
+            ;;
+        help|-h|--help|'') usage ;;
+        *) usage >&2; return 2 ;;
+    esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+    main "$@"
+fi
+
