@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        2.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -70,6 +70,7 @@ Obsoletes:      nabu-repository-config < %{legacy_meta_max}
 Obsoletes:      nabu-branch-manager < %{legacy_meta_max}
 Obsoletes:      nabu-kernel-maintenance < %{legacy_meta_max}
 Obsoletes:      nabu-obsolete-packages < %{legacy_meta_max}
+Obsoletes:      nabu-desktop-migration < %{legacy_meta_max}
 
 %description
 The single hardware-side release manifest for Fedora on Xiaomi Pad 5 (nabu).
@@ -121,10 +122,13 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.tim
 %systemd_postun_with_restart nabu-kernel-maintenance.timer
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-2
+- Retire the shared one-shot desktop migration helper from the unambiguous CORE
+  transition instead of making multiple DE manifests compete for it.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-1
 - Replace the split CORE base, branch selectors and control packages with one
   release manifest while retaining all install-only kernel payloads.
 - Require at least one kernel family, recommend alpha and permit co-installing
   stable, alpha, mainline and the future LTS family.
 - Make firmware, flashlight and SAR hardware support explicit dependencies.
-

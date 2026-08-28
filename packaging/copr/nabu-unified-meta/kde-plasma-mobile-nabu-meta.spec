@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        2.0.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -10,8 +10,6 @@ Source0:        plasma-mobile.desktop
 Source1:        20-nabu-mobile-session.conf
 Source2:        90-nabu-mobile-login.conf
 Source3:        95-nabu-plasma-mobile.preset
-Source4:        80-nabu-plasma-login-theme.conf
-Source5:        nabu-plasma-login.svg
 BuildArch:      noarch
 BuildRequires:  systemd-rpm-macros
 Requires:       nabu-core-meta >= 2.0.0
@@ -20,6 +18,7 @@ Requires:       nabu-kde-config >= 1.4.0.1-12.test
 Requires:       nabu-kde-widgets >= 1.0.1-3.test
 Requires:       nabu-kde-color-profiles
 Requires:       nabu-flashlight-integration-plasma
+Requires:       nabu-plasma-login-theme-abi = 1
 Requires:       glibc-all-langpacks
 Requires:       nabu-language-support >= 1.1.0-1.test
 Requires:       nabu-kde-l10n >= 1.1.0-1.test
@@ -71,14 +70,11 @@ Provides:       nabu-desktop-profile-meta = %{version}-%{release}
 Provides:       nabu-desktop-session = %{version}-%{release}
 Provides:       plasmashell
 Provides:       nabu-kde-mobile-base-abi = 2
-Provides:       nabu-plasma-login-theme-abi = 2
 Provides:       nabu-kde-plasma-mobile = %{version}-%{release}
 Provides:       nabu-kde-plasma-mobile-optimal = %{version}-%{release}
 Obsoletes:      nabu-kde-mobile-base < %{legacy_meta_max}
 Obsoletes:      nabu-kde-mobile-minimal-meta < %{legacy_meta_max}
 Obsoletes:      nabu-kde-mobile-optimal-meta < %{legacy_meta_max}
-Obsoletes:      nabu-plasma-login-theme < %{legacy_meta_max}
-Obsoletes:      nabu-desktop-migration < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-mobile-setup < %{legacy_meta_max}
 
 %description
@@ -94,8 +90,6 @@ install -Dm0644 %{SOURCE0} %{buildroot}%{_datadir}/nabu-plasma-mobile/wayland-se
 install -Dm0644 %{SOURCE1} %{buildroot}%{_unitdir}/plasmalogin.service.d/20-nabu-mobile-session.conf
 install -Dm0644 %{SOURCE2} %{buildroot}%{_prefix}/lib/plasmalogin/plasmalogin.conf.d/90-nabu-mobile-login.conf
 install -Dm0644 %{SOURCE3} %{buildroot}%{_presetdir}/95-nabu-plasma-mobile.preset
-install -Dm0644 %{SOURCE4} %{buildroot}%{_prefix}/lib/plasmalogin/plasmalogin.conf.d/80-nabu-plasma-login-theme.conf
-install -Dm0644 %{SOURCE5} %{buildroot}%{_datadir}/backgrounds/nabu/nabu-plasma-login.svg
 install -d %{buildroot}%{_datadir}/nabu-plasma-mobile/xsessions
 
 %files
@@ -108,10 +102,7 @@ install -d %{buildroot}%{_datadir}/nabu-plasma-mobile/xsessions
 %dir %{_prefix}/lib/plasmalogin
 %dir %{_prefix}/lib/plasmalogin/plasmalogin.conf.d
 %{_prefix}/lib/plasmalogin/plasmalogin.conf.d/90-nabu-mobile-login.conf
-%{_prefix}/lib/plasmalogin/plasmalogin.conf.d/80-nabu-plasma-login-theme.conf
 %{_presetdir}/95-nabu-plasma-mobile.preset
-%dir %{_datadir}/backgrounds/nabu
-%{_datadir}/backgrounds/nabu/nabu-plasma-login.svg
 
 %post
 %systemd_post plasmalogin.service
@@ -127,6 +118,10 @@ fi
 %systemd_postun_with_restart plasmalogin.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-4
+- Keep the shared login theme as an implementation dependency and let CORE own
+  retirement of the common migration helper, eliminating DE-selection ambiguity.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-3
 - Keep Plasma Mobile on the independent Nabu KDE configuration payload; the
   desktop integration meta requires plasma-setup and plasma-desktop.

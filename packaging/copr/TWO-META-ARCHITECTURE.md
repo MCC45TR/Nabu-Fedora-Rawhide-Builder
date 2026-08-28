@@ -47,9 +47,9 @@ dependencies, image history or a one-time setup script.
 
 | New package | Replaces |
 |---|---|
-| `nabu-core-meta` | `nabu-meta`, `nabu-core-base`, three branch metas, repository config, branch manager, kernel maintenance and obsolete-package manifest |
-| `kde-plasma-nabu-meta` | Plasma base, minimal/optimal metas, login theme and desktop migration helper |
-| `kde-plasma-mobile-nabu-meta` | KDE Mobile base, minimal/optimal metas, login theme and legacy mobile setup |
+| `nabu-core-meta` | `nabu-meta`, `nabu-core-base`, three branch metas, repository config, branch manager, kernel maintenance, obsolete-package manifest and desktop migration helper |
+| `kde-plasma-nabu-meta` | Plasma base and minimal/optimal metas |
+| `kde-plasma-mobile-nabu-meta` | KDE Mobile base, minimal/optimal metas and legacy mobile setup |
 | `gnome-nabu-meta` | GNOME base and minimal/optimal metas |
 | `gnome-mobile-nabu-meta` | GNOME Mobile base and minimal/optimal metas |
 | `phosh-nabu-meta` | Posh base and minimal/optimal metas |
@@ -58,3 +58,7 @@ The first `dnf update` performs the name transition through RPM obsoletes. The
 installed kernel payloads, Android entry and known-good fallback are outside
 the transition and remain protected.
 
+The Plasma login theme stays an independently versioned implementation RPM
+required by both KDE manifests. Moving its files into both mutually exclusive
+DE packages would give DNF two competing replacements for the same installed
+package during migration.
