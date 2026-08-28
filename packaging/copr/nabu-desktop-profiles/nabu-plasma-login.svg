@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1600" viewBox="0 0 2560 1600">
+  <title>Nabu Plasma Login background</title>
+  <desc>Dark blue abstract background for Fedora Rawhide on Xiaomi Pad 5.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="0.52" stop-color="#102b48"/>
+      <stop offset="1" stop-color="#251b4b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="45%" r="62%">
+      <stop offset="0" stop-color="#56b6ff" stop-opacity="0.26"/>
+      <stop offset="0.58" stop-color="#5f6fff" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#10182d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#62d8ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#62d8ff" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#9978ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="blur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="34"/>
+    </filter>
+  </defs>
+  <rect width="2560" height="1600" fill="url(#background)"/>
+  <rect width="2560" height="1600" fill="url(#glow)"/>
+  <ellipse cx="2220" cy="250" rx="520" ry="310" fill="#6d5cff" opacity="0.10" filter="url(#blur)"/>
+  <ellipse cx="260" cy="1370" rx="610" ry="380" fill="#27b8e8" opacity="0.10" filter="url(#blur)"/>
+  <g fill="none" stroke-linecap="round">
+    <path d="M-120 1190 C520 870 770 1030 1280 780 S2110 440 2690 650" stroke="#55cfff" stroke-opacity="0.13" stroke-width="3"/>
+    <path d="M-180 1270 C460 950 850 1090 1370 830 S2160 500 2740 710" stroke="#8c7cff" stroke-opacity="0.12" stroke-width="2"/>
+    <path d="M240 410 C780 170 1320 190 1860 390 S2390 560 2740 390" stroke="url(#edge)" stroke-width="2"/>
+  </g>
+  <g transform="translate(1280 1380)" text-anchor="middle" fill="#eaf6ff">
+    <text y="0" font-family="Noto Sans, sans-serif" font-size="42" font-weight="600" letter-spacing="12">NABU</text>
+    <text y="58" font-family="Noto Sans, sans-serif" font-size="20" font-weight="400" letter-spacing="5" fill="#b9cee2">FEDORA RAWHIDE · PLASMA</text>
+  </g>
+</svg>

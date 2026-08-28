@@ -1,0 +1,12 @@
+[Unit]
+Description=Maintain the selected Nabu kernel branch and canonical UKI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-inhibit --what=shutdown:sleep --mode=block --why=Nabu-kernel-and-UKI-maintenance /usr/libexec/nabu-kernel-maintenance
+TimeoutStartSec=45min
+Nice=10
+IOSchedulingClass=idle
+
