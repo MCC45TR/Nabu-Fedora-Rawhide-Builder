@@ -1,10 +1,12 @@
 %global debug_package %{nil}
+%global nabu_meta_version %(cat %{_sourcedir}/nabu-meta-version)
 Name:           nabu-gnome-optimal-meta
-Version:        1.2.0
+Version:        %{nabu_meta_version}
 Release:        1%{?dist}
 Summary:        Optimal GNOME tablet profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
+Source0:        nabu-meta-version
 BuildArch:      noarch
 Requires:       nabu-gnome-base-abi = 1
 Requires:       gnome-software
@@ -51,6 +53,9 @@ desktop-neutral applications and the same provisional coverage as Posh.
 %files
 
 %changelog
+* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - %{nabu_meta_version}-1
+- Adopt the shared Istanbul YYMMDDHHMM meta-package version.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.2.0-1
 - Align terminal and video applications with the Fedora Workstation ISO.
 - Add GNOME System Monitor and the selected mandatory session components.
