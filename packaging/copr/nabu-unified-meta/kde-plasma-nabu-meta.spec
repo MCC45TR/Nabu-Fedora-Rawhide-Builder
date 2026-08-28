@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        2.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -12,8 +12,8 @@ Source2:        nabu-plasma-login.svg
 BuildArch:      noarch
 BuildRequires:  systemd-rpm-macros
 Requires:       nabu-core-meta >= 2.0.0
-Requires:       nabu-kde-integration >= 1.4.0.1-13.test
-Requires:       nabu-kde-config >= 1.4.0.1-13.test
+Requires:       nabu-kde-integration >= 1.4.0.1-12.test
+Requires:       nabu-kde-config >= 1.4.0.1-12.test
 Requires:       nabu-kde-widgets >= 1.0.1-3.test
 Requires:       nabu-kde-color-profiles
 Requires:       nabu-flashlight-integration-plasma
@@ -104,7 +104,10 @@ fi
 %systemd_postun_with_restart plasmalogin.service plasma-setup.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-2
+- Match the newest KDE integration and configuration EVRs actually retained in
+  the COPR so clean AArch64 installations remain solvable.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-1
 - Merge Plasma base, optimal profile, login theme and migration ownership.
 - Make all Nabu locale packages hard dependencies.
-
