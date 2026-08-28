@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -94,6 +94,15 @@ Provides:       nabu-flashlight-integration-plasma = %{version}-%{release}
 Obsoletes:      nabu-plasma-base < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-minimal-meta < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-optimal-meta < %{legacy_meta_max}
+Obsoletes:      nabu-kde-integration < %{legacy_meta_max}
+Obsoletes:      nabu-kde-config < %{legacy_meta_max}
+Obsoletes:      nabu-kde-color-profiles < %{legacy_meta_max}
+Obsoletes:      nabu-kde-widgets < %{legacy_meta_max}
+Obsoletes:      nabu-language-support < %{legacy_meta_max}
+Obsoletes:      nabu-kde-l10n < %{legacy_meta_max}
+Obsoletes:      nabu-plasma-setup-l10n < %{legacy_meta_max}
+Obsoletes:      nabu-plasma-login-theme < %{legacy_meta_max}
+Obsoletes:      nabu-flashlight-integration-plasma < %{legacy_meta_max}
 
 %description
 The only KDE Plasma desktop manifest for Nabu. It contains the formerly
@@ -206,6 +215,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
+- Own the bounded KDE desktop compatibility transition together with its
+  version-locked integration payloads.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
 - Leave retirement of shared integration names to CORE; this DE owns only its
   replacement payload and profile-specific legacy names.
