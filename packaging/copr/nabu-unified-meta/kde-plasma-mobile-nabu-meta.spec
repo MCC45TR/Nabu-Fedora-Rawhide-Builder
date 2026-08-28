@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        2.0.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -16,7 +16,6 @@ BuildArch:      noarch
 BuildRequires:  systemd-rpm-macros
 Requires:       nabu-core-meta >= 2.0.0
 Requires:       nabu-system-integration >= 2.0.0-5.test
-Requires:       nabu-kde-integration >= 1.4.0.1-12.test
 Requires:       nabu-kde-config >= 1.4.0.1-12.test
 Requires:       nabu-kde-widgets >= 1.0.1-3.test
 Requires:       nabu-kde-color-profiles
@@ -70,6 +69,7 @@ Conflicts:      nabu-plasma-mobile-setup
 Conflicts:      plasma-desktop
 Provides:       nabu-desktop-profile-meta = %{version}-%{release}
 Provides:       nabu-desktop-session = %{version}-%{release}
+Provides:       plasmashell
 Provides:       nabu-kde-mobile-base-abi = 2
 Provides:       nabu-plasma-login-theme-abi = 2
 Provides:       nabu-kde-plasma-mobile = %{version}-%{release}
@@ -127,6 +127,11 @@ fi
 %systemd_postun_with_restart plasmalogin.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-3
+- Keep Plasma Mobile on the independent Nabu KDE configuration payload; the
+  desktop integration meta requires plasma-setup and plasma-desktop.
+- Provide the plasmashell capability directly for the mobile shell.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-2
 - Match the KDE integration/configuration EVRs retained in the live COPR.
 
