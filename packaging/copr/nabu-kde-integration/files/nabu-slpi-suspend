@@ -4,6 +4,7 @@ set -euo pipefail
 state_dir=${NABU_SLPI_STATE_DIR:-/run/nabu-slpi-suspend}
 iio_marker=${state_dir}/iio-sensor-proxy.was-active
 sdsp_marker=${state_dir}/hexagonrpcd-sdsp.was-active
+adsp_marker=${state_dir}/hexagonrpcd-adsp-rootpd.was-active
 
 record_and_stop() {
 	local unit=$1
@@ -32,10 +33,13 @@ case ${1:-} in
 		# resume so a later cycle still restores every previously active client.
 		record_and_stop iio-sensor-proxy.service "${iio_marker}"
 		record_and_stop hexagonrpcd-sdsp.service "${sdsp_marker}"
+		record_and_stop hexagonrpcd-adsp-rootpd.service "${adsp_marker}"
 		! systemctl is-active --quiet iio-sensor-proxy.service
 		! systemctl is-active --quiet hexagonrpcd-sdsp.service
+		! systemctl is-active --quiet hexagonrpcd-adsp-rootpd.service
 		;;
 	resume)
+		start_if_recorded hexagonrpcd-adsp-rootpd.service "${adsp_marker}"
 		start_if_recorded hexagonrpcd-sdsp.service "${sdsp_marker}"
 		start_if_recorded iio-sensor-proxy.service "${iio_marker}"
 		;;

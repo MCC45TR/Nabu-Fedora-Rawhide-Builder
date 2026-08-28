@@ -113,19 +113,23 @@ EOF
 
     : >"$SLPI_MOCK_UNIT_DIR/iio-sensor-proxy.service.active"
     : >"$SLPI_MOCK_UNIT_DIR/hexagonrpcd-sdsp.service.active"
+    : >"$SLPI_MOCK_UNIT_DIR/hexagonrpcd-adsp-rootpd.service.active"
     bash "$helper" prepare
     [[ ! -e "$SLPI_MOCK_UNIT_DIR/iio-sensor-proxy.service.active" ]]
     [[ ! -e "$SLPI_MOCK_UNIT_DIR/hexagonrpcd-sdsp.service.active" ]]
+    [[ ! -e "$SLPI_MOCK_UNIT_DIR/hexagonrpcd-adsp-rootpd.service.active" ]]
     mapfile -t calls <"$mock_log"
-    [[ ${calls[*]} == 'stop iio-sensor-proxy.service stop hexagonrpcd-sdsp.service' ]]
+    [[ ${calls[*]} == 'stop iio-sensor-proxy.service stop hexagonrpcd-sdsp.service stop hexagonrpcd-adsp-rootpd.service' ]]
 
     bash "$helper" resume
     [[ -e "$SLPI_MOCK_UNIT_DIR/iio-sensor-proxy.service.active" ]]
     [[ -e "$SLPI_MOCK_UNIT_DIR/hexagonrpcd-sdsp.service.active" ]]
+    [[ -e "$SLPI_MOCK_UNIT_DIR/hexagonrpcd-adsp-rootpd.service.active" ]]
     [[ ! -e "$NABU_SLPI_STATE_DIR/iio-sensor-proxy.was-active" ]]
     [[ ! -e "$NABU_SLPI_STATE_DIR/hexagonrpcd-sdsp.was-active" ]]
+    [[ ! -e "$NABU_SLPI_STATE_DIR/hexagonrpcd-adsp-rootpd.was-active" ]]
     mapfile -t calls <"$mock_log"
-    [[ ${calls[*]} == 'stop iio-sensor-proxy.service stop hexagonrpcd-sdsp.service start hexagonrpcd-sdsp.service start iio-sensor-proxy.service' ]]
+    [[ ${calls[*]} == 'stop iio-sensor-proxy.service stop hexagonrpcd-sdsp.service stop hexagonrpcd-adsp-rootpd.service start hexagonrpcd-adsp-rootpd.service start hexagonrpcd-sdsp.service start iio-sensor-proxy.service' ]]
 
     : >"$mock_log"
     bash "$helper" prepare
@@ -135,17 +139,22 @@ EOF
     fi
     [[ -e "$NABU_SLPI_STATE_DIR/iio-sensor-proxy.was-active" ]]
     [[ ! -e "$NABU_SLPI_STATE_DIR/hexagonrpcd-sdsp.was-active" ]]
+    [[ ! -e "$NABU_SLPI_STATE_DIR/hexagonrpcd-adsp-rootpd.was-active" ]]
     [[ -e "$SLPI_MOCK_UNIT_DIR/hexagonrpcd-sdsp.service.active" ]]
+    [[ -e "$SLPI_MOCK_UNIT_DIR/hexagonrpcd-adsp-rootpd.service.active" ]]
     [[ ! -e "$SLPI_MOCK_UNIT_DIR/iio-sensor-proxy.service.active" ]]
 
     bash "$helper" prepare
     [[ -e "$NABU_SLPI_STATE_DIR/iio-sensor-proxy.was-active" ]]
     [[ -e "$NABU_SLPI_STATE_DIR/hexagonrpcd-sdsp.was-active" ]]
+    [[ -e "$NABU_SLPI_STATE_DIR/hexagonrpcd-adsp-rootpd.was-active" ]]
     bash "$helper" resume
     [[ -e "$SLPI_MOCK_UNIT_DIR/iio-sensor-proxy.service.active" ]]
     [[ -e "$SLPI_MOCK_UNIT_DIR/hexagonrpcd-sdsp.service.active" ]]
+    [[ -e "$SLPI_MOCK_UNIT_DIR/hexagonrpcd-adsp-rootpd.service.active" ]]
     [[ ! -e "$NABU_SLPI_STATE_DIR/iio-sensor-proxy.was-active" ]]
     [[ ! -e "$NABU_SLPI_STATE_DIR/hexagonrpcd-sdsp.was-active" ]]
+    [[ ! -e "$NABU_SLPI_STATE_DIR/hexagonrpcd-adsp-rootpd.was-active" ]]
 )
 
 mock_dir="$(mktemp -d "${TMPDIR:-/tmp}/senemos-nabu-kscreen-mock.XXXXXX")"

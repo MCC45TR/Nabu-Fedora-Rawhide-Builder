@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           nabu-kde-integration
 Version:        1.4.0.1
-Release:        6.test%{?dist}
+Release:        7.test%{?dist}
 Summary:        KDE Plasma integration for Xiaomi Pad 5 (nabu)
 License:        MIT
 URL:            https://github.com/mcc45tr
@@ -59,7 +59,7 @@ Requires:       kernel-nabu-core-uname-r
 
 %description -n nabu-runtime-integration
 Device-level userspace integration for Nabu: PMIC RTC synchronization, orderly
-SLPI client quiescing across sleep, display recovery, wake-source policy,
+DSP client quiescing across sleep, display recovery, wake-source policy,
 boot-noise cleanup, hardware identity and shared diagnostics.
 
 %package -n nabu-kde-config
@@ -213,6 +213,11 @@ fi
 %config(noreplace) %{_sysconfdir}/xdg/powerdevilrc
 
 %changelog
+* Fri Aug 28 2026 SENEMOS Project <senemos@localhost> - 1.4.0.1-7.test
+- Quiesce the ADSP FastRPC root process together with SLPI sensor clients
+  before sleep and restore only services that were previously active.
+- Run the DSP sleep hook even when the SDSP FastRPC node is temporarily absent.
+
 * Sun Aug 23 2026 SENEMOS Project <senemos@localhost> - 1.4.0.1-6.test
 - Keep the reusable Nabu KDE configuration independent of a particular
   display manager so Plasma Mobile can use Plasma Login Manager without

@@ -1,9 +1,8 @@
 [Unit]
-Description=Quiesce Nabu SLPI userspace clients across system sleep
+Description=Quiesce Nabu DSP userspace clients across system sleep
 Documentation=man:systemd.special(7)
 Before=sleep.target
 StopWhenUnneeded=yes
-ConditionPathExists=/dev/fastrpc-sdsp
 
 [Service]
 Type=oneshot
