@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        2.0.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -83,7 +83,6 @@ install -Dm0644 %{SOURCE0} %{buildroot}%{_presetdir}/95-nabu-plasma-login.preset
 %{_presetdir}/95-nabu-plasma-login.preset
 
 %post
-%systemd_post plasmalogin.service plasma-setup.service
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable sddm.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
@@ -94,16 +93,20 @@ fi
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable plasma-setup.service >/dev/null 2>&1 || :
-    if /usr/bin/systemctl is-active --quiet graphical.target; then
+    if /usr/bin/systemctl is-active --quiet graphical.target &&
+       ! /usr/bin/systemctl is-active --quiet plasmalogin.service; then
+        /usr/bin/loginctl terminate-user plasmalogin >/dev/null 2>&1 || :
+        /usr/bin/systemctl reset-failed plasmalogin.service >/dev/null 2>&1 || :
         /usr/bin/systemctl start plasmalogin.service >/dev/null 2>&1 || :
     fi
 fi
-%preun
-%systemd_preun plasmalogin.service plasma-setup.service
-%postun
-%systemd_postun_with_restart plasmalogin.service plasma-setup.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-6
+- Stop applying ownership lifecycle macros to service units supplied by Plasma.
+- Recover only an inactive login manager after legacy scriptlets, terminating a
+  stale greeter user session before one clean start; leave active sessions alone.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-5
 - Start Plasma Login Manager after the legacy base package has finished its
   removal scriptlet, but only on systems already in graphical.target.

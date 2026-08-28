@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        2.0.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -105,7 +105,6 @@ install -d %{buildroot}%{_datadir}/nabu-plasma-mobile/xsessions
 %{_presetdir}/95-nabu-plasma-mobile.preset
 
 %post
-%systemd_post plasmalogin.service
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable sddm.service >/dev/null 2>&1 || :
     /usr/bin/systemctl disable plasma-setup.service >/dev/null 2>&1 || :
@@ -116,16 +115,20 @@ fi
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable sshd.service >/dev/null 2>&1 || :
-    if /usr/bin/systemctl is-active --quiet graphical.target; then
+    if /usr/bin/systemctl is-active --quiet graphical.target &&
+       ! /usr/bin/systemctl is-active --quiet plasmalogin.service; then
+        /usr/bin/loginctl terminate-user plasmalogin >/dev/null 2>&1 || :
+        /usr/bin/systemctl reset-failed plasmalogin.service >/dev/null 2>&1 || :
         /usr/bin/systemctl start plasmalogin.service >/dev/null 2>&1 || :
     fi
 fi
-%preun
-%systemd_preun plasmalogin.service
-%postun
-%systemd_postun_with_restart plasmalogin.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-6
+- Do not run owner lifecycle macros for the Plasma-owned login service.
+- Repair only an inactive manager left by legacy removal scriptlets, while
+  preserving an already active graphical login session on normal upgrades.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-5
 - Reassert and start Plasma Login Manager after legacy mobile removal scriptlets
   when the machine is already running the graphical target.
