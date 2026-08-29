@@ -42,7 +42,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           sudo apt-get update
-          sudo apt-get install -y dosfstools e2fsprogs fuse3 mtools zstd
+          sudo apt-get install -y dosfstools e2fsprogs fuse2fs fuse3 mtools zstd
 
       - name: Run source contracts
         run: |
