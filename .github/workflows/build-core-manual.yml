@@ -1,0 +1,62 @@
+name: Build Nabu Fedora CORE manually
+
+on:
+  workflow_dispatch:
+    inputs:
+      solve_only:
+        description: Only validate current Rawhide AArch64 DNF closure
+        required: true
+        type: boolean
+        default: false
+      keep_uncompressed:
+        description: Upload uncompressed system and ESP images too
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nabu-core-manual
+  cancel-in-progress: false
+
+jobs:
+  core:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 240
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify native AArch64 runner
+        run: |
+          set -Eeuo pipefail
+          test "$(uname -m)" = aarch64
+          docker version
+
+      - name: Run source contracts
+        run: |
+          set -Eeuo pipefail
+          make test
+
+      - name: Build CORE with the shared local/CI entry point
+        env:
+          CORE_KEEP_UNCOMPRESSED: ${{ inputs.keep_uncompressed && '1' || '0' }}
+        run: |
+          set -Eeuo pipefail
+          args=(--runtime docker --output "$GITHUB_WORKSPACE/output/core")
+          if [[ '${{ inputs.solve_only }}' == 'true' ]]; then
+            args+=(--solve-only)
+          fi
+          core-builder/build-core.sh "${args[@]}"
+
+      - name: Upload CORE artifacts and validation evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nabu-fedora-core-${{ github.run_id }}
+          path: output/core/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
