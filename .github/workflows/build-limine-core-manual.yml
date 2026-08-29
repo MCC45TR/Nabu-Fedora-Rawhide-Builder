@@ -1,0 +1,58 @@
+name: Build Limine CORE image (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      solve_only:
+        description: Only verify the live DNF dependency closure
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: limine-core-manual
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Fedora Rawhide AArch64 Limine CORE
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 240
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify native AArch64 runner and Docker
+        run: |
+          set -Eeuo pipefail
+          test "$(uname -m)" = aarch64
+          docker version
+
+      - name: Run builder contract tests
+        run: |
+          set -Eeuo pipefail
+          bash -n limine-core-builder/*.sh limine-core-builder/lib/*.sh tests/test_limine_core_builder.sh
+          ./tests/test_limine_core_builder.sh
+
+      - name: Compose CORE image
+        env:
+          LIMINE_CORE_CONTAINER_RUNTIME: docker
+          LIMINE_CORE_KEEP_UNCOMPRESSED: "0"
+        run: |
+          set -Eeuo pipefail
+          args=()
+          if [[ "${{ inputs.solve_only }}" == true ]]; then args+=(--solve-only); fi
+          ./limine-core-builder/build-core.sh "${args[@]}"
+
+      - name: Upload build evidence and images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nabu-fedora-rawhide-limine-core-${{ github.run_id }}
+          path: output/limine-core/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
