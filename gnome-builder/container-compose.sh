@@ -23,15 +23,26 @@ die() {
 }
 
 [[ "$(uname -m)" == aarch64 ]] || die "GNOME compose is not native AArch64: $(uname -m)"
-[[ -d "$TARGET/etc" && -d "$TARGET/var" ]] || die "CORE target is not mounted at $TARGET"
 [[ "$GNOME_PROFILE" == minimal || "$GNOME_PROFILE" == optimal ]] || die "Unsupported GNOME profile: $GNOME_PROFILE"
 
 mkdir -p "$META" "$LOGS" /work/dnf-cache
 
 log "Installing GNOME compose tools in the identical Rawhide AArch64 container"
 dnf5 -y --disablerepo='*openh264*' --setopt=install_weak_deps=False install \
-    ca-certificates curl dnf5 findutils python3 rpm systemd util-linux-core \
+    ca-certificates curl dnf5 e2fsprogs findutils fuse3 python3 rpm systemd util-linux \
     >"$LOGS/container-tools.log" 2>&1
+
+mkdir -p "$TARGET"
+fuse2fs -o fakeroot /work/system.img "$TARGET" >"$LOGS/fuse-mount.log" 2>&1
+mountpoint -q "$TARGET" || die 'Could not mount the cloned CORE image inside the container'
+[[ -d "$TARGET/etc" && -d "$TARGET/var" ]] || die "CORE target is not mounted at $TARGET"
+cleanup_target() {
+    if mountpoint -q "$TARGET" 2>/dev/null; then
+        sync || true
+        fusermount3 -u "$TARGET" || true
+    fi
+}
+trap cleanup_target EXIT
 
 rpm --root "$TARGET" -qa --qf '%{NAME}\t%{EVR}\t%{ARCH}\n' | sort >"$META/packages-before.tsv"
 
@@ -201,3 +212,5 @@ nabu_capture_rpm_special_modes "$TARGET" "$META/rpm-special-modes.tsv"
 [[ -s "$META/rpm-special-modes.tsv" ]] || die 'RPM special-mode metadata is empty'
 
 log "GNOME layer completed; host-side ext4 ownership restoration is required"
+cleanup_target
+trap - EXIT

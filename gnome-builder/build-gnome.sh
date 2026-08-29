@@ -114,10 +114,6 @@ core_log "Pulling identical Fedora environment: $GNOME_CONTAINER_IMAGE"
 image_digest="$($RUNTIME image inspect "$GNOME_CONTAINER_IMAGE" --format '{{.Id}}')"
 printf '%s\n' "$image_digest" >"$META/container-image-id-host.txt"
 
-core_log "Mounting only the cloned EXT4 image"
-fuse2fs -o fakeroot "$WORKING_IMAGE" "$MOUNT_DIR" >"$LOGS/fuse-mount.log" 2>&1
-mountpoint -q "$MOUNT_DIR" || core_die 'Could not mount the cloned CORE image'
-
 run_args=(run --rm --privileged --platform linux/arm64)
 if [[ "$RUNTIME" == podman ]]; then
     run_args+=(--security-opt label=disable)
@@ -126,7 +122,6 @@ run_args+=(
     -e "GNOME_PROFILE=$GNOME_PROFILE"
     -e "GNOME_CONTAINER_IMAGE_ID=$image_digest"
     -v "$WORK:/work:rw"
-    -v "$MOUNT_DIR:/target:rw"
     -v "$META:/meta:rw"
     -v "$LOGS:/logs:rw"
     -v "$REPO_ROOT:/builder-source:ro"

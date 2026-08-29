@@ -41,7 +41,7 @@ check 'RPM ownership and special modes are restored after FUSE' \
 check 'ESP keeps alpha UKI and Android return path' \
     bash -c 'grep -Fq "Reboot2Android.efi" "$1" && grep -Fq "EFI/SENEMOS/SENEMOS" "$1" && grep -Fq "core_verify_esp" "$1"' _ "$WRAPPER"
 check 'workflow is manual-only and rebuilds CORE on native ARM64' \
-    bash -c '[[ -f "$1" ]] && grep -Eq "^[[:space:]]*workflow_dispatch:" "$1" && ! grep -Eq "^[[:space:]]*(push|pull_request|schedule):" "$1" && grep -Fq "runs-on: ubuntu-24.04-arm" "$1" && grep -Fq "fuse2fs" "$1" && grep -Fq "build-core.sh" "$1" && grep -Fq "build-gnome.sh" "$1"' _ "$WORKFLOW"
+    bash -c '[[ -f "$1" ]] && grep -Eq "^[[:space:]]*workflow_dispatch:" "$1" && ! grep -Eq "^[[:space:]]*(push|pull_request|schedule):" "$1" && grep -Fq "runs-on: ubuntu-24.04-arm" "$1" && grep -Fq "e2fsprogs" "$1" && grep -Fq "build-core.sh" "$1" && grep -Fq "build-gnome.sh" "$1"' _ "$WORKFLOW"
 check 'README documents the copy and nobody gate' \
     bash -c 'grep -Fq "verified CORE image" "$1" && grep -Fq "UID/GID 65534" "$1"' _ "$README"
 
