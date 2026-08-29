@@ -26,6 +26,7 @@ for spec in "$root"/*-nabu-meta.spec; do
     grep -Fq 'Requires:       glibc-all-langpacks' "$spec" || fail "missing hard locale dependency in $spec"
     grep -Fq 'Provides:       nabu-language-support' "$spec" || fail "locale payload not merged into $spec"
     grep -Fq 'Provides:       nabu-desktop-profile-meta = 3' "$spec" || fail "manifest ABI mismatch in $spec"
+    grep -Fq 'Conflicts:      nabu-desktop-profile-meta' "$spec" && fail "self-conflicting DE transition in $spec"
     grep -Eq '^Recommends:' "$spec" && fail "weak dependency in release manifest $spec"
 done
 

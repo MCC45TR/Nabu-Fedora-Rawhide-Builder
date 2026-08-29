@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -75,7 +75,10 @@ Requires:       kinfocenter
 Requires:       libcanberra-backend-pulse
 Requires:       mesa-vulkan-drivers
 Requires:       vulkan-tools
-Conflicts:      nabu-desktop-profile-meta
+Conflicts:      kde-plasma-mobile-nabu-meta
+Conflicts:      gnome-nabu-meta
+Conflicts:      gnome-mobile-nabu-meta
+Conflicts:      phosh-nabu-meta
 Provides:       nabu-desktop-profile-meta = 3
 Provides:       nabu-desktop-session = %{version}-%{release}
 Provides:       nabu-plasma-base-abi = 2
@@ -218,6 +221,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-5
+- Make DE exclusivity explicit by package name; do not conflict with the
+  preceding version of this same updateable KDE manifest.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-4
 - Provide the final split KDE and locale EVRs during migration so normal DNF
   updates can retire the internally version-locked legacy packages.

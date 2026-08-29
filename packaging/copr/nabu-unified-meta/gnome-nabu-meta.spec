@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           gnome-nabu-meta
 Version:        3.0.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Complete GNOME release profile for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -55,7 +55,10 @@ Requires:       gvfs-smb
 Requires:       librsvg2
 Requires:       papers-nautilus
 Requires:       sushi
-Conflicts:      nabu-desktop-profile-meta
+Conflicts:      kde-plasma-nabu-meta
+Conflicts:      kde-plasma-mobile-nabu-meta
+Conflicts:      gnome-mobile-nabu-meta
+Conflicts:      phosh-nabu-meta
 Provides:       nabu-desktop-profile-meta = 3
 Provides:       nabu-desktop-session = %{version}-%{release}
 Provides:       nabu-gnome-base-abi = 2
@@ -95,6 +98,9 @@ python3 -m json.tool flashlight/gnome/metadata.json >/dev/null
 %{_sysconfdir}/rpm/macros.nabu-languages
 %{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
+- Make DE exclusivity explicit by package name so this manifest updates itself.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
 - Leave retirement of shared locale and tablet-control names to CORE.
 
