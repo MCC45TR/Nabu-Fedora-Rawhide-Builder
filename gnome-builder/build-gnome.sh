@@ -62,7 +62,7 @@ esac
 [[ -f "$SPECIAL_MODES" ]] || core_die "RPM special-mode helper is missing: $SPECIAL_MODES"
 
 for command in cp debugfs dumpe2fs e2fsck file fsck.vfat fuse2fs fusermount3 \
-    mcopy mdir mountpoint mtype sha256sum stat zstd; do
+    mcopy mdir mountpoint mtype rpm sha256sum stat zstd; do
     core_require_command "$command"
 done
 
@@ -96,7 +96,7 @@ mkdir -p "$WORK" "$META" "$REPORTS" "$LOGS" "$MOUNT_DIR"
 cleanup_mount() {
     if mountpoint -q "$MOUNT_DIR" 2>/dev/null; then
         sync || true
-        fusermount3 -u "$MOUNT_DIR" || true
+        fusermount3 -u "$MOUNT_DIR" || fusermount3 -uz "$MOUNT_DIR" || true
     fi
 }
 trap cleanup_mount EXIT INT TERM
@@ -170,7 +170,10 @@ find "$MOUNT_DIR" -xdev \( -uid 65534 -o -gid 65534 \) \
     -printf '%u:%g %m %p\n' >"$REPORTS/final-overflow-ownership.txt"
 [[ ! -s "$REPORTS/final-overflow-ownership.txt" ]] || core_die 'Final GNOME root contains nobody/nobody ownership'
 sync
-fusermount3 -u "$MOUNT_DIR"
+cleanup_mount
+if mountpoint -q "$MOUNT_DIR" 2>/dev/null; then
+    core_die 'Final GNOME EXT4 mount could not be released'
+fi
 
 core_log "Updating only the copied rEFInd titles while preserving UKI and Android"
 android_before="$WORK/android-before.efi"

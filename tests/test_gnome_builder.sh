@@ -38,6 +38,8 @@ check 'CORE alpha, meta and rEFInd are read back after layering' \
     bash -c 'grep -Fq "nabu-core-meta senemos-nabu-kernel-alpha nabu-boot-refind" "$1" && grep -Fq "core-selection-readback.txt" "$2"' _ "$COMPOSE" "$WRAPPER"
 check 'RPM ownership and special modes are restored after FUSE' \
     bash -c 'grep -Fq "rpm-file-ownership.tsv" "$1" && grep -Fq "nabu_restore_rpm_special_modes" "$2" && grep -Fq "nabu_verify_rpm_special_modes" "$2" && grep -Fq "core_verify_no_overflow_ownership" "$2"' _ "$COMPOSE" "$WRAPPER"
+check 'final FUSE unmount tolerates nonzero helper status but verifies release' \
+    bash -c 'grep -Fq "fusermount3 -u \"\$MOUNT_DIR\" || fusermount3 -uz \"\$MOUNT_DIR\" || true" "$1" && grep -Fq "Final GNOME EXT4 mount could not be released" "$1"' _ "$WRAPPER"
 check 'ESP keeps alpha UKI and Android return path' \
     bash -c 'grep -Fq "Reboot2Android.efi" "$1" && grep -Fq "EFI/SENEMOS/SENEMOS" "$1" && grep -Fq "core_verify_esp" "$1"' _ "$WRAPPER"
 check 'workflow is manual-only and rebuilds CORE on native ARM64' \
