@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -84,9 +84,12 @@ Provides:       nabu-kde-plasma-optimal = %{version}-%{release}
 Provides:       nabu-kde-plasma-full = %{version}-%{release}
 Provides:       nabu-kde-integration = %{version}-%{release}
 Provides:       nabu-kde-config = %{version}-%{release}
+Provides:       nabu-kde-config = 1.4.0.1-13.test.fc46
 Provides:       nabu-kde-color-profiles = %{version}-%{release}
+Provides:       nabu-kde-color-profiles = 1.4.0.1-13.test.fc46
 Provides:       nabu-kde-widgets = %{version}-%{release}
 Provides:       nabu-language-support = %{version}-%{release}
+Provides:       nabu-language-support = 1.1.0-1.test.fc46
 Provides:       nabu-kde-l10n = %{version}-%{release}
 Provides:       nabu-plasma-setup-l10n = %{version}-%{release}
 Provides:       nabu-plasma-login-theme-abi = 1
@@ -215,6 +218,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-4
+- Provide the final split KDE and locale EVRs during migration so normal DNF
+  updates can retire the internally version-locked legacy packages.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
 - Own the bounded KDE desktop compatibility transition together with its
   version-locked integration payloads.

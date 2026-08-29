@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -92,6 +92,7 @@ Provides:       nabu-core-config = %{version}-%{release}
 Provides:       nabu-device-config = %{version}-%{release}
 Provides:       nabu-audio-config = %{version}-%{release}
 Provides:       nabu-flashlight-integration = %{version}-%{release}
+Provides:       nabu-flashlight-integration = 1.0.0-10.fc46
 Provides:       nabu-sar-service = %{version}-%{release}
 Provides:       nabu-ssc-probe = %{version}-%{release}
 
@@ -309,6 +310,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-5
+- Provide the final split flashlight EVR during migration so normal DNF
+  updates can remove its version-locked Plasma companion without erasing.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-4
 - Keep desktop-owned compatibility transitions in the selected DE manifest so
   version-locked legacy KDE integrations retire in one solvable transaction.
