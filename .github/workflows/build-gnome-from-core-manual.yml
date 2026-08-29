@@ -1,0 +1,84 @@
+name: Build Nabu Fedora GNOME from CORE manually
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: GNOME package profile to apply on the CORE image
+        required: true
+        type: choice
+        options:
+          - minimal
+          - optimal
+        default: minimal
+      keep_uncompressed:
+        description: Upload uncompressed EXT4 and ESP images too
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nabu-gnome-from-core-manual
+  cancel-in-progress: false
+
+jobs:
+  gnome:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 300
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify native AArch64 runner
+        run: |
+          set -Eeuo pipefail
+          test "$(uname -m)" = aarch64
+          docker version
+
+      - name: Install image transformation tools
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y dosfstools e2fsprogs fuse3 mtools zstd
+
+      - name: Run source contracts
+        run: |
+          set -Eeuo pipefail
+          make test
+
+      - name: Build the source CORE image with the shared entry point
+        env:
+          CORE_KEEP_UNCOMPRESSED: '1'
+        run: |
+          set -Eeuo pipefail
+          core-builder/build-core.sh --runtime docker --output "$GITHUB_WORKSPACE/output/core"
+
+      - name: Apply GNOME to the produced CORE image
+        env:
+          GNOME_KEEP_UNCOMPRESSED: ${{ inputs.keep_uncompressed && '1' || '0' }}
+        run: |
+          set -Eeuo pipefail
+          core_dir="$(find "$GITHUB_WORKSPACE/output/core" -mindepth 1 -maxdepth 1 -type d -name 'core-rawhide-*' -print | sort | tail -n1)"
+          test -n "$core_dir"
+          system_img="$(find "$core_dir" -maxdepth 1 -type f -name '*-system.img' -print -quit)"
+          esp_img="$(find "$core_dir" -maxdepth 1 -type f -name '*-esp.img' -print -quit)"
+          test -s "$system_img" -a -s "$esp_img"
+          gnome-builder/build-gnome.sh \
+            --core-system "$system_img" \
+            --core-esp "$esp_img" \
+            --profile '${{ inputs.profile }}' \
+            --runtime docker \
+            --output "$GITHUB_WORKSPACE/output/gnome"
+
+      - name: Upload GNOME artifacts and validation evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nabu-fedora-gnome-${{ inputs.profile }}-${{ github.run_id }}
+          path: output/gnome/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
