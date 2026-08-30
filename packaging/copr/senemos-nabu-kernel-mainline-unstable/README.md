@@ -14,3 +14,7 @@ The package is intentionally separate from `senemos-nabu-kernel-mainline-alpha`:
 
 It does not obsolete or conflict with the 6.17 fallback, Android return entry,
 or the existing 7.2 alpha family.
+
+The daily updater checks the official Linux 7.2.y checksum list. It commits a
+new point release only after all 22 checksum-locked Nabu patches apply cleanly;
+a conflict stops publication and leaves the preceding COPR build untouched.

@@ -1,0 +1,36 @@
+name: Update Nabu mainline unstable kernel
+
+on:
+  schedule:
+    - cron: "27 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nabu-mainline-unstable-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Apply the Nabu series to the latest Linux 7.2.y
+        run: packaging/copr/senemos-nabu-kernel-mainline-unstable/update-upstream.sh
+      - name: Publish an accepted point update
+        run: |
+          if git diff --quiet; then
+            echo "No upstream point update."
+            exit 0
+          fi
+          git config user.name "SENEMOS kernel updater"
+          git config user.email "mcc45tr@gmail.com"
+          git add \
+            packaging/copr/senemos-nabu-kernel-mainline-unstable/upstream.sha256 \
+            packaging/copr/senemos-nabu-kernel-mainline-unstable/senemos-nabu-kernel-mainline-unstable.spec
+          git commit -m "packaging: update Nabu mainline unstable kernel"
+          git push origin HEAD:main
