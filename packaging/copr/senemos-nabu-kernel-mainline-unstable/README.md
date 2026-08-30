@@ -1,0 +1,16 @@
+# SENEMOS Nabu mainline unstable kernel
+
+This package builds the official `linux-7.2.y` source in COPR and applies the
+ordered Nabu patch series from `patches/`. The upstream archive and every patch
+are checksum-locked. A stable point update is accepted only when the complete
+series applies without conflict and the package gates pass.
+
+The package is intentionally separate from `senemos-nabu-kernel-mainline-alpha`:
+
+- RPM: `senemos-nabu-kernel-mainline-unstable`
+- ABI: `7.2.x-nabu-senemos-mainline-unstable`
+- maintenance queue: `mainline-unstable`
+- EFI/UKI family: `SENEMOS7U`
+
+It does not obsolete or conflict with the 6.17 fallback, Android return entry,
+or the existing 7.2 alpha family.

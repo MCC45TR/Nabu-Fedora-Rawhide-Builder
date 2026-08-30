@@ -1,0 +1,324 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: MCC45TR <mcc45tr@users.noreply.github.com>
+Date: Tue, 25 Aug 2026 17:37:26 +0300
+Subject: [PATCH 12/21] ASoC: qcom: port Nabu speaker routing and stream fixes
+ to 7.2
+
+---
+ senemos/configs/nabu-minimal.config |  9 +++++
+ sound/soc/codecs/wm_adsp.c          | 63 ++++++++++++++++++++++++++++-
+ sound/soc/qcom/Kconfig              | 11 +++++
+ sound/soc/qcom/Makefile             |  2 +
+ sound/soc/qcom/qdsp6/q6afe-dai.c    |  3 ++
+ sound/soc/qcom/qdsp6/q6afe.c        | 10 +++++
+ sound/soc/qcom/qdsp6/q6afe.h        |  3 ++
+ sound/soc/qcom/qdsp6/q6asm-dai.c    | 27 +++++++++++--
+ sound/soc/qcom/qdsp6/q6asm.c        | 10 +++--
+ 9 files changed, 129 insertions(+), 9 deletions(-)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 1491aaa8c4f9..fd0ceaacfa0b 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -39,6 +39,15 @@ CONFIG_INPUT_XIAOMI_NABU_TABLET_MODE=y
+ # The optional pogo-keyboard XHCI controller must not block built-in init.
+ CONFIG_USB_XHCI_HCD=m
+ 
++# Nabu ADSP/APR audio machine and four CS35L41 amplifiers.
++CONFIG_QCOM_APR=m
++CONFIG_SLIMBUS=m
++CONFIG_SOUNDWIRE=m
++CONFIG_SND_SOC_QDSP6=m
++CONFIG_SND_SOC_SM8150=m
++CONFIG_SND_SOC_CS35L41_I2C=m
++CONFIG_SND_SOC_WCD934X=m
++
+ # Remote processors, FastRPC, connectivity and persistent diagnostics.
+ CONFIG_REMOTEPROC=y
+ CONFIG_QCOM_Q6V5_PAS=m
+diff --git a/sound/soc/codecs/wm_adsp.c b/sound/soc/codecs/wm_adsp.c
+index baa75e7ff53b..53133d531ba6 100644
+--- a/sound/soc/codecs/wm_adsp.c
++++ b/sound/soc/codecs/wm_adsp.c
+@@ -801,6 +801,57 @@ static int wm_adsp_request_firmware_file(struct wm_adsp *dsp,
+ 	return 0;
+ }
+ 
++/*
++ * Nabu firmware packages use the component prefix to select per-speaker
++ * tuning, for example BR-cs35l41-dsp1-spk-prot.bin.  Preserve the upstream
++ * generic lookup order and use this device convention only as a fallback.
++ */
++static int wm_adsp_request_prefixed_coeff_file(struct wm_adsp *dsp,
++					       struct wm_adsp_fw_file *fw,
++					       const char *dir,
++					       const char *prefix)
++{
++	const char *fwf = dsp->fwf_name ?: dsp->cs_dsp.name;
++	char *s;
++	int ret;
++
++	if (!prefix)
++		return 0;
++
++	fw->filename = kasprintf(GFP_KERNEL, "%s%s-%s-%s-%s.bin", dir,
++				prefix, dsp->part, fwf, wm_adsp_fw[dsp->fw].file);
++	if (!fw->filename)
++		return -ENOMEM;
++
++	/* Keep the component prefix while normalizing the firmware stem. */
++	s = fw->filename + strlen(dir) + strlen(prefix) + 1;
++	while (*s) {
++		char c = *s;
++
++		if (isalnum(c))
++			*s = tolower(c);
++		else if (c != '.')
++			*s = '-';
++		s++;
++	}
++
++	ret = wm_adsp_firmware_request(&fw->firmware, fw->filename,
++				       dsp->cs_dsp.dev);
++	if (ret < 0) {
++		adsp_dbg(dsp, "Failed to request '%s': %d\n", fw->filename,
++			 ret);
++		kfree(fw->filename);
++		fw->filename = NULL;
++		if (ret != -ENOENT)
++			return ret;
++	} else {
++		adsp_dbg(dsp, "Found prefix-specific tuning '%s'\n",
++			 fw->filename);
++	}
++
++	return 0;
++}
++
+ static const char * const cirrus_dir = "cirrus/";
+ VISIBLE_IF_KUNIT int wm_adsp_request_firmware_files(struct wm_adsp *dsp,
+ 						    struct wm_adsp_fw_files *fw)
+@@ -876,11 +927,19 @@ VISIBLE_IF_KUNIT int wm_adsp_request_firmware_files(struct wm_adsp *dsp,
+ 		goto err;
+ 
+ 	if (fw->wmfw.firmware || dsp->wmfw_optional) {
+-		ret = wm_adsp_request_firmware_file(dsp, &fw->coeff,
+-						    cirrus_dir, NULL, NULL, "bin");
++		ret = wm_adsp_request_prefixed_coeff_file(dsp, &fw->coeff,
++						     cirrus_dir, suffix);
+ 		if (ret < 0)
+ 			goto err;
+ 
++		if (!fw->coeff.firmware) {
++			ret = wm_adsp_request_firmware_file(dsp, &fw->coeff,
++							    cirrus_dir, NULL, NULL,
++							    "bin");
++			if (ret < 0)
++				goto err;
++		}
++
+ 		return 0;
+ 	}
+ 
+diff --git a/sound/soc/qcom/Kconfig b/sound/soc/qcom/Kconfig
+index e6e24f3b9922..0345e19d5691 100644
+--- a/sound/soc/qcom/Kconfig
++++ b/sound/soc/qcom/Kconfig
+@@ -182,6 +182,17 @@ config SND_SOC_SDM845
+ 	  SDM845 SoC-based systems.
+ 	  Say Y if you want to use audio device on this SoCs.
+ 
++config SND_SOC_SM8150
++	tristate "SoC Machine driver for SM8150 boards"
++	depends on QCOM_APR && SOUNDWIRE
++	depends on COMMON_CLK
++	select SND_SOC_QDSP6
++	select SND_SOC_QCOM_COMMON
++	select SND_SOC_QCOM_SDW
++	help
++	  Add support for audio on Qualcomm SM8150 systems, including the
++	  Xiaomi Pad 5 speaker and microphone topology.
++
+ config SND_SOC_SM8250
+ 	tristate "SoC Machine driver for SM8250 boards"
+ 	depends on QCOM_APR && SOUNDWIRE
+diff --git a/sound/soc/qcom/Makefile b/sound/soc/qcom/Makefile
+index 985ce2ae286b..712e4aa0144e 100644
+--- a/sound/soc/qcom/Makefile
++++ b/sound/soc/qcom/Makefile
+@@ -25,6 +25,7 @@ snd-soc-apq8096-y := apq8096.o
+ snd-soc-sc7180-y := sc7180.o
+ snd-soc-sc7280-y := sc7280.o
+ snd-soc-sdm845-y := sdm845.o
++snd-soc-sm8150-y := sm8150.o
+ snd-soc-sm8250-y := sm8250.o
+ snd-soc-sc8280xp-y := sc8280xp.o
+ snd-soc-qcom-common-y := common.o
+@@ -39,6 +40,7 @@ obj-$(CONFIG_SND_SOC_SC7180) += snd-soc-sc7180.o
+ obj-$(CONFIG_SND_SOC_SC7280) += snd-soc-sc7280.o
+ obj-$(CONFIG_SND_SOC_SC8280XP) += snd-soc-sc8280xp.o
+ obj-$(CONFIG_SND_SOC_SDM845) += snd-soc-sdm845.o
++obj-$(CONFIG_SND_SOC_SM8150) += snd-soc-sm8150.o
+ obj-$(CONFIG_SND_SOC_SM8250) += snd-soc-sm8250.o
+ obj-$(CONFIG_SND_SOC_QCOM_COMMON) += snd-soc-qcom-common.o
+ obj-$(CONFIG_SND_SOC_QCOM_SDW) += snd-soc-qcom-sdw.o
+diff --git a/sound/soc/qcom/qdsp6/q6afe-dai.c b/sound/soc/qcom/qdsp6/q6afe-dai.c
+index a0d21034a626..6d3a790df79b 100644
+--- a/sound/soc/qcom/qdsp6/q6afe-dai.c
++++ b/sound/soc/qcom/qdsp6/q6afe-dai.c
+@@ -278,6 +278,9 @@ static int q6tdm_hw_params(struct snd_pcm_substream *substream,
+ 	tdm->data_align_type = dai_data->priv[dai->id].data_align;
+ 	tdm->sync_src = dai_data->priv[dai->id].sync_src;
+ 	tdm->sync_mode = dai_data->priv[dai->id].sync_mode;
++	tdm->data_out_enable = dai_data->priv[dai->id].data_out_enable;
++	tdm->invert_sync = dai_data->priv[dai->id].invert_sync;
++	tdm->data_delay = dai_data->priv[dai->id].data_delay;
+ 
+ 	return 0;
+ }
+diff --git a/sound/soc/qcom/qdsp6/q6afe.c b/sound/soc/qcom/qdsp6/q6afe.c
+index 40237267fda0..1f544264374a 100644
+--- a/sound/soc/qcom/qdsp6/q6afe.c
++++ b/sound/soc/qcom/qdsp6/q6afe.c
+@@ -1362,9 +1362,19 @@ void q6afe_tdm_port_prepare(struct q6afe_port *port,
+ 	pcfg->tdm_cfg.sync_mode = cfg->sync_mode;
+ 	pcfg->tdm_cfg.sync_src = cfg->sync_src;
+ 	pcfg->tdm_cfg.nslots_per_frame = cfg->nslots_per_frame;
++	pcfg->tdm_cfg.ctrl_data_out_enable = cfg->data_out_enable;
++	pcfg->tdm_cfg.ctrl_invert_sync_pulse = cfg->invert_sync;
++	pcfg->tdm_cfg.ctrl_sync_data_delay = cfg->data_delay;
+ 
+ 	pcfg->tdm_cfg.slot_width = cfg->slot_width;
+ 	pcfg->tdm_cfg.slot_mask = cfg->slot_mask;
++	dev_info_once(port->afe->dev,
++		      "TDM port 0x%x: channels=%u rate=%u bits=%u sync=%u/%u data=%u/%u/%u slots=%u width=%u mask=0x%x (frame=0x%x)\n",
++		      port->id, cfg->num_channels, cfg->sample_rate,
++		      cfg->bit_width, cfg->sync_mode, cfg->sync_src,
++		      cfg->data_out_enable, cfg->invert_sync, cfg->data_delay,
++		      cfg->nslots_per_frame, cfg->slot_width,
++		      pcfg->tdm_cfg.slot_mask, cfg->slot_mask);
+ 	port->scfg = kzalloc_obj(*port->scfg);
+ 	if (!port->scfg)
+ 		return;
+diff --git a/sound/soc/qcom/qdsp6/q6afe.h b/sound/soc/qcom/qdsp6/q6afe.h
+index 0b8c3ec1315c..bf9f72afa3e5 100644
+--- a/sound/soc/qcom/qdsp6/q6afe.h
++++ b/sound/soc/qcom/qdsp6/q6afe.h
+@@ -190,6 +190,9 @@ struct q6afe_tdm_cfg {
+ 	u16	sync_mode;
+ 	u16	sync_src;
+ 	u16	nslots_per_frame;
++	u16	data_out_enable;
++	u16	invert_sync;
++	u16	data_delay;
+ 	u16	slot_width;
+ 	u16	slot_mask;
+ 	u32	data_align_type;
+diff --git a/sound/soc/qcom/qdsp6/q6asm-dai.c b/sound/soc/qcom/qdsp6/q6asm-dai.c
+index 4f09fdd40905..1352a0b7db8f 100644
+--- a/sound/soc/qcom/qdsp6/q6asm-dai.c
++++ b/sound/soc/qcom/qdsp6/q6asm-dai.c
+@@ -3,6 +3,7 @@
+ // Copyright (c) 2018, Linaro Limited
+ 
+ #include <dt-bindings/sound/qcom,q6asm.h>
++#include <linux/completion.h>
+ #include <linux/init.h>
+ #include <linux/err.h>
+ #include <linux/module.h>
+@@ -71,6 +72,7 @@ struct q6asm_dai_rtd {
+ 	uint32_t stream_id;
+ 	uint16_t session_id;
+ 	enum stream_state state;
++	struct completion eos_done;
+ 	uint32_t initial_samples_drop;
+ 	uint32_t trailing_samples_drop;
+ 	bool notify_on_drain;
+@@ -186,6 +188,8 @@ static void event_handler(uint32_t opcode, uint32_t token,
+ 	case ASM_CLIENT_EVENT_CMD_RUN_DONE:
+ 		break;
+ 	case ASM_CLIENT_EVENT_CMD_EOS_DONE:
++		prtd->state = Q6ASM_STREAM_STOPPED;
++		complete_all(&prtd->eos_done);
+ 		break;
+ 	case ASM_CLIENT_EVENT_DATA_WRITE_DONE:
+ 		snd_pcm_period_elapsed(substream);
+@@ -347,8 +351,17 @@ static int q6asm_dai_trigger(struct snd_soc_component *component,
+ 				       0, 0, 0);
+ 		break;
+ 	case SNDRV_PCM_TRIGGER_STOP:
+-		ret = q6asm_cmd_nowait(prtd->audio_client, prtd->stream_id,
+-				       CMD_EOS);
++		prtd->state = Q6ASM_STREAM_STOPPED;
++		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
++			reinit_completion(&prtd->eos_done);
++			ret = q6asm_cmd_nowait(prtd->audio_client,
++					       prtd->stream_id, CMD_EOS);
++			if (ret < 0)
++				complete_all(&prtd->eos_done);
++		} else {
++			ret = q6asm_cmd_nowait(prtd->audio_client,
++					       prtd->stream_id, CMD_PAUSE);
++		}
+ 		break;
+ 	case SNDRV_PCM_TRIGGER_SUSPEND:
+ 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+@@ -388,6 +401,7 @@ static int q6asm_dai_open(struct snd_soc_component *component,
+ 		return -ENOMEM;
+ 
+ 	prtd->substream = substream;
++	init_completion(&prtd->eos_done);
+ 	prtd->audio_client = q6asm_audio_client_alloc(dev,
+ 				(q6asm_cb)event_handler, prtd, stream_id,
+ 				LEGACY_PCM_MODE);
+@@ -462,7 +476,14 @@ static int q6asm_dai_close(struct snd_soc_component *component,
+ 	struct q6asm_dai_rtd *prtd = runtime->private_data;
+ 
+ 	if (prtd->audio_client) {
+-		if (prtd->state == Q6ASM_STREAM_RUNNING) {
++		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
++		    prtd->state == Q6ASM_STREAM_STOPPED &&
++		    !wait_for_completion_timeout(&prtd->eos_done,
++					 msecs_to_jiffies(1000)))
++			dev_warn(component->dev,
++				 "rendered EOS timed out before stream close\n");
++
++		if (prtd->state != Q6ASM_STREAM_IDLE) {
+ 			q6asm_cmd(prtd->audio_client, prtd->stream_id,
+ 				  CMD_CLOSE);
+ 			q6asm_unmap_memory_regions(substream->stream,
+diff --git a/sound/soc/qcom/qdsp6/q6asm.c b/sound/soc/qcom/qdsp6/q6asm.c
+index de0bd8fd08ee..4c0207efac02 100644
+--- a/sound/soc/qcom/qdsp6/q6asm.c
++++ b/sound/soc/qcom/qdsp6/q6asm.c
+@@ -530,7 +530,9 @@ int q6asm_map_memory_regions(unsigned int dir, struct audio_client *ac,
+ 
+ 	rc = __q6asm_memory_map_regions(ac, dir, period_sz, periods, 1);
+ 	if (rc < 0) {
+-		dev_err(ac->dev, "Memory_map_regions failed\n");
++		dev_err(ac->dev,
++			"Memory_map_regions failed: rc=%d dir=%u phys=%pa period=%zu periods=%u\n",
++			rc, dir, &phys, period_sz, periods);
+ 		q6asm_audio_client_free_buf(ac, &ac->port[dir]);
+ 	}
+ 
+@@ -636,6 +638,7 @@ static int32_t q6asm_stream_callback(struct apr_device *adev,
+ 			client_event = ASM_CLIENT_EVENT_CMD_OUT_FLUSH_DONE;
+ 			break;
+ 		case ASM_STREAM_CMD_OPEN_WRITE_V3:
++		case ASM_DATA_CMD_WRITE_V2:
+ 		case ASM_STREAM_CMD_OPEN_READ_V3:
+ 		case ASM_STREAM_CMD_OPEN_READWRITE_V2:
+ 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
+@@ -654,9 +657,8 @@ static int32_t q6asm_stream_callback(struct apr_device *adev,
+ 			break;
+ 		case ASM_DATA_CMD_EOS:
+ 		case ASM_DATA_CMD_READ_V2:
+-		case ASM_DATA_CMD_WRITE_V2:
+-			/* response as result of close stream */
+-			goto done;
++			/* Responses generated while a stream is being closed. */
++			break;
+ 		default:
+ 			dev_err(ac->dev, "command[0x%x] not expecting rsp\n",
+ 				result->opcode);

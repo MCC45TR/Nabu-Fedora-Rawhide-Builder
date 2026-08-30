@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: MCC45TR <mcc45tr@users.noreply.github.com>
+Date: Tue, 25 Aug 2026 17:31:44 +0300
+Subject: [PATCH 09/21] nabu: carry 90 Hz touch policy and defer optional XHCI
+ on 7.2
+
+---
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c | 9 ++++++++-
+ senemos/configs/nabu-minimal.config           | 4 ++++
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+index 72d8389792fd..a5ecce82b834 100644
+--- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
++++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+@@ -1270,7 +1270,14 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo, bool panel_init)
+ 	if (panel_init)
+ 		mipi_dsi_dual_dcs_write_seq_multi(dsi_ctx, dsi0, dsi1,
+ 						  0xfb, 0x01);
+-	if (pinfo->refresh_rate == 60)
++	/*
++	 * Xiaomi only defines TDDI scan bands for the stock 60 and 120 Hz
++	 * modes.  Nabu's additional 90 Hz VFP mode must use the lower band:
++	 * issuing the 120 Hz value (0x0d) after the 90 Hz timing latch resets
++	 * the NVT touch firmware and leaves the compositor confirmation dialog
++	 * without touch input.
++	 */
++	if (pinfo->refresh_rate == 60 || pinfo->refresh_rate == 90)
+ 		mipi_dsi_dual_dcs_write_seq_multi(dsi_ctx, dsi0, dsi1,
+ 						  0x23, 0x0c);
+ 	else
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 194037af4e75..1491aaa8c4f9 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -34,6 +34,10 @@ CONFIG_BACKLIGHT_KTZ8866=m
+ # Nabu SPI touch, wake gestures and PM8150 fuel gauge.
+ CONFIG_TOUCHSCREEN_NT36523_SPI=m
+ CONFIG_BATTERY_QCOM_FG=y
++CONFIG_INPUT_XIAOMI_NABU_TABLET_MODE=y
++
++# The optional pogo-keyboard XHCI controller must not block built-in init.
++CONFIG_USB_XHCI_HCD=m
+ 
+ # Remote processors, FastRPC, connectivity and persistent diagnostics.
+ CONFIG_REMOTEPROC=y
