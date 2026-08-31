@@ -1,0 +1,36 @@
+name: Update Nabu LTS kernel
+
+on:
+  schedule:
+    - cron: "47 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nabu-lts-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Apply the Nabu series to the latest Linux 6.18.y LTS
+        run: packaging/copr/senemos-nabu-kernel-lts/update-upstream.sh
+      - name: Publish an accepted point update
+        run: |
+          if git diff --quiet; then
+            echo "No upstream point update."
+            exit 0
+          fi
+          git config user.name "SENEMOS kernel updater"
+          git config user.email "mcc45tr@gmail.com"
+          git add \
+            packaging/copr/senemos-nabu-kernel-lts/upstream.sha256 \
+            packaging/copr/senemos-nabu-kernel-lts/senemos-nabu-kernel-lts.spec
+          git commit -m "packaging: update Nabu LTS kernel"
+          git push origin HEAD:main

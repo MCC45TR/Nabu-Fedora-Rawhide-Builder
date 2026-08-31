@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Mon, 31 Aug 2026 13:13:47 +0300
+Subject: [PATCH 21/23] config: remove release kernel self-tests
+
+---
+ senemos/configs/nabu-minimal.config | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index c75eb90eb..b2c5ec968 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -90,3 +90,8 @@ CONFIG_RTC_DRV_PM8XXX=m
+ # Fedora-compatible module packaging.
+ CONFIG_MODULES=y
+ CONFIG_MODULE_COMPRESS_ZSTD=y
++
++# Release images do not ship kernel self-tests or KUnit test modules.
++# CONFIG_RUNTIME_TESTING_MENU is not set
++# CONFIG_KUNIT is not set
++# CONFIG_KUNIT_ALL_TESTS is not set

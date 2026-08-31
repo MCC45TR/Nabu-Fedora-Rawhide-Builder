@@ -1,0 +1,152 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Mon, 31 Aug 2026 13:13:47 +0300
+Subject: [PATCH 19/23] qcom: nabu: stabilize Linux 6.18 hardware bring-up
+
+---
+ .../bindings/misc/qcom,fastrpc.yaml           |  9 ++++++++
+ .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      | 11 +++++++++
+ drivers/input/touchscreen/nt36523/nt36xxx.c   |  1 +
+ drivers/misc/fastrpc.c                        |  8 ++++++-
+ senemos/build.sh                              |  2 +-
+ senemos/configs/nabu-minimal.config           | 23 ++++++++++++++++---
+ 6 files changed, 49 insertions(+), 5 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
+index cf3cc0e82..6feb1fc35 100644
+--- a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
++++ b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
+@@ -66,6 +66,15 @@ properties:
+       Virtual machine IDs for remote processor.
+     $ref: /schemas/types.yaml#/definitions/uint32-array
+ 
++  qcom,vmids-retained-on-restart:
++    description:
++      Indicates that secure firmware retains the reserved-memory assignment to
++      the virtual machines listed in qcom,vmids across a remote processor
++      restart. The driver still performs the initial SCM assignment, but may
++      treat EINVAL from a later identical assignment as an already-applied
++      operation while recovering the sensor DSP domain.
++    type: boolean
++
+   "#address-cells":
+     const: 1
+ 
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index a496d9f71..1327b2c54 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -805,6 +805,17 @@ &slpi_fastrpc {
+ 	mount-matrix = "-1", "0", "0",
+ 		       "0", "-1", "0",
+ 		       "0", "0", "1";
++	qcom,vmids-retained-on-restart;
++};
++
++&q6asmdai {
++	dai@0 {
++		reg = <MSM_FRONTEND_DAI_MULTIMEDIA1>;
++	};
++
++	dai@1 {
++		reg = <MSM_FRONTEND_DAI_MULTIMEDIA2>;
++	};
+ };
+ 
+ &sound {
+diff --git a/drivers/input/touchscreen/nt36523/nt36xxx.c b/drivers/input/touchscreen/nt36523/nt36xxx.c
+index f35acdae9..331c1def9 100644
+--- a/drivers/input/touchscreen/nt36523/nt36xxx.c
++++ b/drivers/input/touchscreen/nt36523/nt36xxx.c
+@@ -1947,6 +1947,7 @@ static const struct dev_pm_ops nvt_dev_pm_ops = {
+ 
+ static const struct spi_device_id nvt_ts_id[] = {
+ 	{ NVT_SPI_NAME, 0 },
++	{ "nt36523-spi", 0 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(spi, nvt_ts_id);
+diff --git a/drivers/misc/fastrpc.c b/drivers/misc/fastrpc.c
+index 78bcf515f..1d88099ce 100644
+--- a/drivers/misc/fastrpc.c
++++ b/drivers/misc/fastrpc.c
+@@ -2419,8 +2419,14 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+ 
+ 			err = qcom_scm_assign_mem(res.start, resource_size(&res), &src_perms,
+ 				    data->vmperms, data->vmcount);
+-			if (err)
++			if (err &&
++			    !(err == -EINVAL &&
++			      of_property_read_bool(rdev->of_node,
++						    "qcom,vmids-retained-on-restart")))
+ 				goto err_free_data;
++
++			if (err == -EINVAL)
++				dev_dbg(rdev, "reserved memory VMIDs retained across restart\n");
+ 		}
+ 
+ 	}
+diff --git a/senemos/build.sh b/senemos/build.sh
+index 6f6aeccd6..01fca7ef0 100755
+--- a/senemos/build.sh
++++ b/senemos/build.sh
+@@ -2,7 +2,7 @@
+ set -Eeuo pipefail
+ 
+ source_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+-output_dir=${SENEMOS_OUTPUT_DIR:-/workspace/kernel-builds/linux-nabu-senemos-v7.2.0-linux-7.2}
++output_dir=${SENEMOS_OUTPUT_DIR:-/workspace/kernel-builds/linux-nabu-senemos-mainline-alpha-v7.2.0}
+ jobs=${SENEMOS_JOBS:-16}
+ 
+ # Keep the release deterministic. An explicitly set empty LOCALVERSION stops
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 3f184d3de..fa6f7b217 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -1,5 +1,5 @@
+ # Senemos Xiaomi Pad 5 (nabu) boot-critical configuration layer.
+-CONFIG_LOCALVERSION="-nabu-senemos-v7.2.0"
++CONFIG_LOCALVERSION="-nabu-senemos-mainline-alpha"
+ # CONFIG_LOCALVERSION_AUTO is not set
+ 
+ CONFIG_ARCH_QCOM=y
+@@ -24,13 +24,21 @@ CONFIG_PHY_QCOM_QMP_UFS=y
+ CONFIG_SCSI_UFS_BSG=y
+ CONFIG_SCSI_UFS_CRYPTO=y
+ 
+-# Keep Fedora Rawhide's DRM core built in; MSM and the panel stay modular.
++# Match the validated 6.17 display ownership and scheduling policy. Keeping MSM
++# built in avoids the simpledrm-to-msm handoff seen before the A640 faults.
+ CONFIG_DRM=y
+-CONFIG_DRM_MSM=m
++CONFIG_DRM_MSM=y
++# CONFIG_DRM_SIMPLEDRM is not set
++# CONFIG_SYSFB_SIMPLEFB is not set
++CONFIG_QCOM_AOSS_QMP=y
++CONFIG_QCOM_OCMEM=y
+ CONFIG_DRM_PANEL_NOVATEK_NT36523=m
+ CONFIG_BACKLIGHT_CLASS_DEVICE=y
+ CONFIG_BACKLIGHT_KTZ8866=m
+ 
++CONFIG_PREEMPT=y
++# CONFIG_PREEMPT_DYNAMIC is not set
++
+ # Nabu SPI touch, wake gestures and PM8150 fuel gauge.
+ CONFIG_TOUCHSCREEN_NT36523_SPI=m
+ CONFIG_BATTERY_QCOM_FG=y
+@@ -43,6 +51,15 @@ CONFIG_HID_XIAOMI=y
+ # The optional pogo-keyboard XHCI controller must not block built-in init.
+ CONFIG_USB_XHCI_HCD=m
+ 
++# The primary USB-C path is boot-critical for recovery and wired input.
++CONFIG_USB_DWC3=y
++CONFIG_USB_DWC3_QCOM=y
++CONFIG_TYPEC=y
++CONFIG_TYPEC_TCPM=y
++CONFIG_TYPEC_QCOM_PMIC=y
++CONFIG_PHY_QCOM_QMP_USB=y
++CONFIG_PHY_QCOM_QMP_COMBO=y
++
+ # Nabu ADSP/APR audio machine and four CS35L41 amplifiers.
+ CONFIG_QCOM_APR=m
+ CONFIG_SLIMBUS=m

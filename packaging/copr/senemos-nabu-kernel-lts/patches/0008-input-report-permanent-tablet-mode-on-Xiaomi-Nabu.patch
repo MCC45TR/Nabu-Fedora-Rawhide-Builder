@@ -1,0 +1,101 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Mon, 31 Aug 2026 13:02:52 +0300
+Subject: [PATCH 08/23] input: report permanent tablet mode on Xiaomi Nabu
+
+---
+ drivers/input/misc/Kconfig                   | 10 ++++
+ drivers/input/misc/Makefile                  |  1 +
+ drivers/input/misc/xiaomi-nabu-tablet-mode.c | 55 ++++++++++++++++++++
+ 3 files changed, 66 insertions(+)
+ create mode 100644 drivers/input/misc/xiaomi-nabu-tablet-mode.c
+
+diff --git a/drivers/input/misc/Kconfig b/drivers/input/misc/Kconfig
+index cc2558630..40fddb64f 100644
+--- a/drivers/input/misc/Kconfig
++++ b/drivers/input/misc/Kconfig
+@@ -992,4 +992,14 @@ config INPUT_STPMIC1_ONKEY
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called stpmic1_onkey.
+ 
++config INPUT_XIAOMI_NABU_TABLET_MODE
++	bool "Xiaomi Pad 5 permanent tablet-mode switch"
++	depends on ARCH_QCOM
++	help
++	  Report the Xiaomi Pad 5 as permanently operating in tablet mode.
++	  Desktop environments otherwise disable automatic rotation whenever a
++	  USB pointer is present, including the SENEMOS recovery bridge mouse.
++
++	  Say Y when building a kernel for Xiaomi Pad 5 (nabu).
++
+ endif
+diff --git a/drivers/input/misc/Makefile b/drivers/input/misc/Makefile
+index f5ebfa9d9..97528a30b 100644
+--- a/drivers/input/misc/Makefile
++++ b/drivers/input/misc/Makefile
+@@ -95,3 +95,4 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
+ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
+ obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
+ obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
++obj-$(CONFIG_INPUT_XIAOMI_NABU_TABLET_MODE) += xiaomi-nabu-tablet-mode.o
+diff --git a/drivers/input/misc/xiaomi-nabu-tablet-mode.c b/drivers/input/misc/xiaomi-nabu-tablet-mode.c
+new file mode 100644
+index 000000000..9306f5723
+--- /dev/null
++++ b/drivers/input/misc/xiaomi-nabu-tablet-mode.c
+@@ -0,0 +1,55 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Xiaomi Pad 5 permanent tablet-mode input switch.
++ *
++ * Nabu has no convertible hinge: it is always a tablet. Exposing that fact
++ * through the standard SW_TABLET_MODE interface keeps desktop touch mode and
++ * automatic rotation active when a USB mouse or recovery bridge is attached.
++ */
++
++#include <linux/input.h>
++#include <linux/module.h>
++#include <linux/of.h>
++
++static struct input_dev *nabu_tablet_mode_input;
++
++static int __init nabu_tablet_mode_init(void)
++{
++	struct input_dev *input;
++	int ret;
++
++	if (!of_machine_is_compatible("xiaomi,nabu"))
++		return 0;
++
++	input = input_allocate_device();
++	if (!input)
++		return -ENOMEM;
++
++	input->name = "Xiaomi Pad 5 Tablet Mode Switch";
++	input->phys = "nabu/tablet-mode";
++	input->id.bustype = BUS_HOST;
++	input_set_capability(input, EV_SW, SW_TABLET_MODE);
++
++	ret = input_register_device(input);
++	if (ret) {
++		input_free_device(input);
++		return ret;
++	}
++
++	nabu_tablet_mode_input = input;
++	input_report_switch(input, SW_TABLET_MODE, 1);
++	input_sync(input);
++
++	return 0;
++}
++module_init(nabu_tablet_mode_init);
++
++static void __exit nabu_tablet_mode_exit(void)
++{
++	if (nabu_tablet_mode_input)
++		input_unregister_device(nabu_tablet_mode_input);
++}
++module_exit(nabu_tablet_mode_exit);
++
++MODULE_DESCRIPTION("Xiaomi Pad 5 permanent tablet-mode switch");
++MODULE_LICENSE("GPL");

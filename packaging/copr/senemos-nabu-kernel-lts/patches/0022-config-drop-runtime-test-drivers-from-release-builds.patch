@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Mon, 31 Aug 2026 13:13:48 +0300
+Subject: [PATCH 22/23] config: drop runtime test drivers from release builds
+
+---
+ senemos/configs/nabu-minimal.config | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index b2c5ec968..af6629297 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -95,3 +95,13 @@ CONFIG_MODULE_COMPRESS_ZSTD=y
+ # CONFIG_RUNTIME_TESTING_MENU is not set
+ # CONFIG_KUNIT is not set
+ # CONFIG_KUNIT_ALL_TESTS is not set
++# CONFIG_PM_TEST_SUSPEND is not set
++# CONFIG_NET_SELFTESTS is not set
++# CONFIG_EFI_TEST is not set
++# CONFIG_V4L_TEST_DRIVERS is not set
++# CONFIG_SND_PCMTEST is not set
++# CONFIG_KGDB_TESTS is not set
++# CONFIG_TEST_LOCKUP is not set
++# CONFIG_LOCK_TORTURE_TEST is not set
++# CONFIG_TORTURE_TEST is not set
++# CONFIG_RCU_TORTURE_TEST is not set

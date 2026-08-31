@@ -1,0 +1,176 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Mon, 31 Aug 2026 13:11:11 +0300
+Subject: [PATCH 15/23] arm64: dts: qcom: restore SM8150 legacy audio topology
+
+---
+ arch/arm64/boot/dts/qcom/sm8150-wcd9340.dtsi  | 86 +++++++++++++++++++
+ .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      |  2 +
+ arch/arm64/boot/dts/qcom/sm8150.dtsi          | 31 +++++++
+ 3 files changed, 119 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-wcd9340.dtsi
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-wcd9340.dtsi b/arch/arm64/boot/dts/qcom/sm8150-wcd9340.dtsi
+new file mode 100644
+index 000000000..2b7db96dd
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-wcd9340.dtsi
+@@ -0,0 +1,86 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * SM8150 SoC device tree source
++ *
++ * Copyright (c) 2023, The Linux Foundation. All rights reserved.
++ */
++
++&slim {
++	status = "okay";
++
++	slim@1 {
++		reg = <1>;
++		#address-cells = <2>;
++		#size-cells = <0>;
++
++		wcd9340_ifd: ifd@0,0 {
++			compatible = "slim217,250";
++			reg = <0 0>;
++		};
++
++		wcd9340: codec@1,0 {
++			compatible = "slim217,250";
++			reg = <1 0>;
++			slim-ifc-dev = <&wcd9340_ifd>;
++
++			#sound-dai-cells = <1>;
++
++			interrupts-extended = <&tlmm 123 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-controller;
++			#interrupt-cells = <1>;
++
++			clock-names = "extclk";
++			clocks = <&rpmhcc RPMH_LN_BB_CLK2>;
++
++			#clock-cells = <0>;
++			clock-frequency = <9600000>;
++			clock-output-names = "mclk";
++
++			pinctrl-0 = <&wcd_intr_default>;
++			pinctrl-names = "default";
++
++			qcom,micbias1-microvolt = <1800000>;
++			qcom,micbias2-microvolt = <1800000>;
++			qcom,micbias3-microvolt = <1800000>;
++			qcom,micbias4-microvolt = <1800000>;
++
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			wcdgpio: gpio-controller@42 {
++				compatible = "qcom,wcd9340-gpio";
++				gpio-controller;
++				#gpio-cells = <2>;
++				reg = <0x42 0x2>;
++			};
++
++			swm: swm@c85 {
++				compatible = "qcom,soundwire-v1.3.0";
++				reg = <0xc85 0x40>;
++				interrupts-extended = <&wcd9340 20>;
++
++				qcom,dout-ports = <6>;
++				qcom,din-ports = <2>;
++				qcom,ports-sinterval-low = /bits/ 8 <0x07 0x1f 0x3f 0x07 0x1f 0x3f 0x0f 0x0f>;
++				qcom,ports-offset1 = /bits/ 8 <0x01 0x02 0x0c 0x06 0x12 0x0d 0x07 0x0a>;
++				qcom,ports-offset2 = /bits/ 8 <0x00 0x00 0x1f 0x00 0x00 0x1f 0x00 0x00>;
++
++				#sound-dai-cells = <1>;
++				clocks = <&wcd9340>;
++				clock-names = "iface";
++				#address-cells = <2>;
++				#size-cells = <0>;
++			};
++		};
++	};
++};
++
++&tlmm {
++	wcd_intr_default: wcd-intr-default-state {
++		pins = "gpio123";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-pull-down;
++		input-enable;
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index cc9239e64..6bba0ff08 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -10,8 +10,10 @@
+ #include <dt-bindings/leds/common.h>
+ #include <dt-bindings/phy/phy.h>
+ #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
++#include <dt-bindings/sound/qcom,q6asm.h>
+ #include <dt-bindings/usb/pd.h>
+ #include "sm8150.dtsi"
++#include "sm8150-wcd9340.dtsi"
+ #include "pm8150.dtsi"
+ #include "pm8150b.dtsi"
+ #include "pm8150l.dtsi"
+diff --git a/arch/arm64/boot/dts/qcom/sm8150.dtsi b/arch/arm64/boot/dts/qcom/sm8150.dtsi
+index 2907aa4ac..9ab2660cd 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8150.dtsi
+@@ -9,7 +9,9 @@
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
+ #include <dt-bindings/phy/phy-qcom-qmp.h>
+ #include <dt-bindings/power/qcom-rpmpd.h>
++#include <dt-bindings/soc/qcom,apr.h>
+ #include <dt-bindings/soc/qcom,rpmh-rsc.h>
++#include <dt-bindings/sound/qcom,q6afe.h>
+ #include <dt-bindings/clock/qcom,rpmh.h>
+ #include <dt-bindings/clock/qcom,dispcc-sm8150.h>
+ #include <dt-bindings/clock/qcom,dsi-phy-28nm.h>
+@@ -4331,6 +4333,32 @@ apps_smmu: iommu@15000000 {
+ 			dma-coherent;
+ 		};
+ 
++		slimbam: dma-controller@17184000 {
++			compatible = "qcom,bam-v1.7.4", "qcom,bam-v1.7.0";
++			qcom,controlled-remotely;
++			reg = <0 0x17184000 0 0x2c000>;
++			num-channels = <31>;
++			interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
++			#dma-cells = <1>;
++			qcom,ee = <1>;
++			qcom,num-ees = <2>;
++			iommus = <&apps_smmu 0x1b46 0x0>;
++		};
++
++		slim: slim-ngd@171c0000 {
++			compatible = "qcom,slim-ngd-v2.1.0";
++			reg = <0 0x171c0000 0 0x2c000>;
++			interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>;
++
++			dmas = <&slimbam 3>, <&slimbam 4>;
++			dma-names = "rx", "tx";
++
++			iommus = <&apps_smmu 0x1b46 0x0>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++		};
++
+ 		remoteproc_adsp: remoteproc@17300000 {
+ 			compatible = "qcom,sm8150-adsp-pas";
+ 			reg = <0x0 0x17300000 0x0 0x4040>;
+@@ -4681,6 +4709,9 @@ wifi: wifi@18800000 {
+ 		};
+ 	};
+ 
++	sound: sound {
++	};
++
+ 	timer {
+ 		compatible = "arm,armv8-timer";
+ 		interrupts = <GIC_PPI 1 IRQ_TYPE_LEVEL_LOW>,
