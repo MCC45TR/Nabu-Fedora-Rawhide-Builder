@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Mon, 31 Aug 2026 19:10:00 +0300
+Subject: [PATCH 26/26] power: supply: idtp9418: use upstream relative alarm API
+
+The Nabu stylus reverse-charging driver carried a downstream
+alarm_start_timer(..., true) helper. Linux 6.18 exposes the equivalent
+relative operation as alarm_start_relative(). Use that API for both
+relative millisecond delays.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/power/supply/idtp9418.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/power/supply/idtp9418.c b/drivers/power/supply/idtp9418.c
+index a449554a2..60a6fb576 100644
+--- a/drivers/power/supply/idtp9418.c
++++ b/drivers/power/supply/idtp9418.c
+@@ -453,8 +453,8 @@ static void idtp9418_hall_irq_work(struct work_struct *work)
+ 	idtp9418_set_reverse_gpio(di, true);
+ 	idtp9418_reverse_charge_enable(di);
+ 	idtp9418_push_event(di, IDTP9418_STATE_ATTACHING);
+-	alarm_start_timer(&di->reverse_dping_alarm,
+-			  ms_to_ktime(REVERSE_DPING_CHECK_DELAY_MS), true);
++	alarm_start_relative(&di->reverse_dping_alarm,
++			     ms_to_ktime(REVERSE_DPING_CHECK_DELAY_MS));
+ out:
+ 	pm_relax(di->dev);
+ }
+@@ -533,8 +533,8 @@ static void idtp9418_irq_work(struct work_struct *work)
+ 	}
+ 
+ 	if (int_val & INT_START_DPING) {
+-		alarm_start_timer(&di->reverse_chg_alarm,
+-				  ms_to_ktime(REVERSE_CHG_CHECK_DELAY_MS), true);
++		alarm_start_relative(&di->reverse_chg_alarm,
++				     ms_to_ktime(REVERSE_CHG_CHECK_DELAY_MS));
+ 		alarm_cancel(&di->reverse_dping_alarm);
+ 	}
+ 
+-- 
+2.51.0

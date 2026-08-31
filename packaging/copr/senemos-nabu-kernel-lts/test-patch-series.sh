@@ -29,7 +29,7 @@ for path in "${patch_paths[@]}"; do
 done
 git -C "$work/linux-$version" commit -qm "Linux $version patch baseline"
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 26
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 27
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-lts"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
-printf 'PASS: 25 checksum-locked Nabu patches apply to Linux %s\n' "$version"
+printf 'PASS: 26 checksum-locked Nabu patches apply to Linux %s\n' "$version"
