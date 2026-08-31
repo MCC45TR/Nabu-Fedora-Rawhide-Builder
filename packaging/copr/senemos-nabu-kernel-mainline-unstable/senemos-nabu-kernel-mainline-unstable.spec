@@ -109,7 +109,7 @@ while IFS= read -r -d '' module; do
     zstd -q -T0 -19 --rm "$module"
 done < <(find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
     -type f -name '*.ko' -print0)
-/usr/sbin/depmod -b %{buildroot} %{uname_r}
+/usr/sbin/depmod -b %{buildroot} -m %{_prefix}/lib/modules %{uname_r}
 
 install -Dm0644 %{SOURCE3} \
     %{buildroot}%{_prefix}/lib/dracut/dracut.conf.d/91-nabu-mainline-unstable-omit-early-xhci.conf
