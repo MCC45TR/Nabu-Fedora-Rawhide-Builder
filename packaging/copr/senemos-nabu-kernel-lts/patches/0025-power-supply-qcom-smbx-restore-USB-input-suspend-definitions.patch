@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Mon, 31 Aug 2026 14:30:00 +0300
+Subject: [PATCH 25/25] power: supply: qcom_smbx: restore USB input suspend
+ definitions
+
+The SMB5 initialization sequence clears USB input suspend through
+USBIN_CMD_IL, but the 6.18 port omitted the register and bit definitions.
+Restore the definitions used by the validated 6.17 implementation.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/power/supply/qcom_smbx.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/power/supply/qcom_smbx.c b/drivers/power/supply/qcom_smbx.c
+index 7fbccbae2..0814edfd9 100644
+--- a/drivers/power/supply/qcom_smbx.c
++++ b/drivers/power/supply/qcom_smbx.c
+@@ -118,6 +118,9 @@ enum smb_generation {
+ #define CMD_APSD					0x341
+ #define APSD_RERUN_BIT					BIT(0)
+ 
++#define USBIN_CMD_IL					0x340
++#define USBIN_SUSPEND_BIT				BIT(0)
++
+ #define CMD_ICL_OVERRIDE				0x342
+ #define ICL_OVERRIDE_BIT				BIT(0)
+ 
+-- 
+2.51.0
+

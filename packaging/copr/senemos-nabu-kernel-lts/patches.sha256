@@ -22,3 +22,4 @@ fa960655a8d6359e50fa54f8e58df08b9b06ee52f445d3f9917133768e1911f1  0018-senemos-c
 9abab23bd1ea7f14861be4049948a84952f2419a11140127513280f67dba1c76  0022-config-drop-runtime-test-drivers-from-release-builds.patch
 c178a9f03aff2d02d4cc7d373149d26c384fa792fd5159b3f353056614e1a284  0023-senemos-isolate-LTS-kernel-identity.patch
 81ca2fa2aee21a8b187032d1c177194b43528679e0f13be919d8d5ff1ae1239e  0024-arm64-dts-qcom-restore-SM8150-UART13-for-Nabu-Bluetooth.patch
+6b7964cab15f773be8fbb7f19d43d53e160cd96259c6c2d0b38daf9ff28284f7  0025-power-supply-qcom-smbx-restore-USB-input-suspend-definitions.patch

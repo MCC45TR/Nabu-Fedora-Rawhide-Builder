@@ -40,6 +40,7 @@ Patch0021:      0021-config-remove-release-kernel-self-tests.patch
 Patch0022:      0022-config-drop-runtime-test-drivers-from-release-builds.patch
 Patch0023:      0023-senemos-isolate-LTS-kernel-identity.patch
 Patch0024:      0024-arm64-dts-qcom-restore-SM8150-UART13-for-Nabu-Bluetooth.patch
+Patch0025:      0025-power-supply-qcom-smbx-restore-USB-input-suspend-definitions.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
