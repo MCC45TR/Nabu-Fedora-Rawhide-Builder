@@ -98,7 +98,7 @@ install -Dm0644 arch/arm64/boot/Image \
 install -Dm0644 System.map %{buildroot}/boot/System.map-%{uname_r}
 install -Dm0644 .config %{buildroot}/boot/config-%{uname_r}
 make ARCH=arm64 LLVM=1 modules_install \
-    INSTALL_MOD_PATH=%{buildroot} DEPMOD=/bin/true
+    MODLIB=%{buildroot}%{_prefix}/lib/modules/%{uname_r} DEPMOD=/bin/true
 rm -f %{buildroot}%{_prefix}/lib/modules/%{uname_r}/{build,source}
 install -Dm0644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dtb \
     %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
@@ -163,5 +163,6 @@ fi
 
 %changelog
 * Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Pin kernel module installation to Fedora's /usr/lib/modules hierarchy.
 - Build official Linux 7.2.y in COPR and apply the checksum-locked Nabu series.
 - Isolate RPM, ABI, maintenance queue and SENEMOS7U boot-family ownership.
