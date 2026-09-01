@@ -18,7 +18,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 65
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 66
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -37,11 +37,8 @@ KCONFIG_CONFIG="$config_dir/.config" \
     "$work/linux-$version/scripts/kconfig/merge_config.sh" -m -r \
     "$config_dir/.config" \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
-"$work/linux-$version/scripts/config" --file "$config_dir/.config" \
-    --disable VIDEO_QCOM_VENUS \
-    --disable DEBUG_INFO --enable DEBUG_INFO_NONE \
-    --disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES \
-    --disable GDB_SCRIPTS
+"$work/linux-$version/senemos/configs/prune-nabu-config.sh" \
+    "$config_dir/.config"
 make -C "$work/linux-$version" O="$config_dir" ARCH=arm64 HOSTCC=gcc olddefconfig
 make -s -C "$work/linux-$version" O="$config_dir" \
     ARCH=arm64 HOSTCC=gcc syncconfig
@@ -65,13 +62,15 @@ for setting in \
     'CONFIG_SCSI_UFS_QCOM=y' \
     'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \
     'CONFIG_ATH10K_SNOC=m' \
-    'CONFIG_USB_DWC3_DUAL_ROLE=y'; do
+    'CONFIG_USB_DWC3_DUAL_ROLE=y' \
+    'CONFIG_USB_ACM=y' \
+    'CONFIG_SECURITY_SELINUX=y'; do
     grep -Fxq "$setting" "$config_dir/.config"
 done
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
-test "$module_count" -lt 2000
+test "$module_count" -lt 450
 
-printf 'PASS: 64 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 65 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"

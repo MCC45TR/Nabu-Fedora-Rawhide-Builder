@@ -1,0 +1,188 @@
+From 8e939292521ece13a2cfee7534d66bffa0b677ac Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 01:47:01 +0300
+Subject: [PATCH] senemos: prune 7.2.2 to Nabu hardware
+
+---
+ senemos/6.17-to-7.2.2-port-status.md | 13 ++--
+ senemos/7.2.2-hil-plan.md            | 13 ++--
+ senemos/build.sh                     |  5 +-
+ senemos/configs/prune-nabu-config.sh | 89 ++++++++++++++++++++++++++++
+ 4 files changed, 106 insertions(+), 14 deletions(-)
+ create mode 100755 senemos/configs/prune-nabu-config.sh
+
+diff --git a/senemos/6.17-to-7.2.2-port-status.md b/senemos/6.17-to-7.2.2-port-status.md
+index 34dc89ad4243..084a2506efa1 100644
+--- a/senemos/6.17-to-7.2.2-port-status.md
++++ b/senemos/6.17-to-7.2.2-port-status.md
+@@ -22,12 +22,13 @@ passed.  HIL results must be recorded against the gates in
+ | Iris/Venus | SM8150 Iris firmware boot, Venus coordination, cached capture and 10-bit decode | Current 7.2.2 Iris architecture retained; only legacy Venus coexistence/API fields and suspend guard restored where the full build proved they were required | Both Iris and Venus directories plus full kernel built | G7 and G9 |
+ | Camera | Camera/CCI integration changed independently after 6.17 | Current camera overlay retained; no old camera patch was copied over the newer implementation | Built only; no camera pass claimed | G9 requires probe, graph, pattern and captured frame |
+ | USB-C OTG/VBUS | 6.17 used dual-role DWC3 with built-in PMIC Type-C/VBUS path | Fixed 7.2 host-only config; DWC3 DRD/gadget/role switch, PMIC Type-C, VBUS regulator, FSA4480 and SM8150 SNPS FEMTO PHY are built in; connector owns `vbus-supply` | Built and DTB-inspected; reported 7.2/7.2.2 physical failure remains unverified on this fix | G2 blocks all later HIL until ESP32S3 powers and enumerates |
++| Kernel footprint | The earlier general-purpose ARM64/Fedora configuration made every iteration slow and oversized | Deterministic Nabu pruning keeps generic Linux ABI/filesystem/security/network/container support but removes unrelated ARM64 SoCs and board drivers; effective modules drop from 1483 to 377 and enabled built-ins from 3311 to 1803 | Reproducible config generated; full pruned build pending | G1 requires fewer than 450 modules and all hardware gates; G2 verifies pruning did not remove USB recovery |
+ 
+ ## Current release boundary
+ 
+-The branch has passed source hygiene, changed-object compilation, full
+-`Image`/DTB/modules compilation and the changed binding/DTB schema checks.
+-It has not passed Nabu cold boot, GNOME sensor UX, USB-C electrical behaviour,
+-camera capture, suspend endurance or charging qualification.  Keep Android and
+-the known-good 6.17 boot entry available and install this line only as a
+-separate alpha/test boot choice.
++The pre-pruning source passed source hygiene, changed-object compilation, full
++`Image`/DTB/modules compilation and changed binding/DTB schema checks.  The
++pruned configuration must repeat G1 before publication is accepted.  GitHub
++uses `7.2.2` as the default source branch, while installation remains a
++separate test boot choice until USB-first G2 and the later HIL gates pass.
++Keep Android and the known-good 6.17 boot entry available.
+diff --git a/senemos/7.2.2-hil-plan.md b/senemos/7.2.2-hil-plan.md
+index 7ab119019d94..cdece444d5ae 100644
+--- a/senemos/7.2.2-hil-plan.md
++++ b/senemos/7.2.2-hil-plan.md
+@@ -2,10 +2,11 @@
+ 
+ ## Release rule
+ 
+-This branch is an alpha test line.  Source review, a successful build, RPM/COPR
+-publication and a boot are separate gates.  None of them promotes the kernel to
+-stable.  Keep Android and the known-good Linux 6.17 entry bootable throughout
+-the campaign.  A failed gate stops the next destructive or high-power step.
++`7.2.2` is the default source branch and `7.2.2-test` is its acceptance line.
++Source review, a successful build, RPM/COPR publication and a boot remain
++separate gates.  Keep Android and the known-good Linux 6.17 entry bootable
++until this plan is complete.  A failed gate stops the next destructive or
++high-power step; in particular, no later physical gate can bypass USB G2.
+ 
+ GNOME on Fedora Rawhide is the first reference environment.  The hardware
+ contract is nevertheless desktop- and distribution-neutral: kernel IIO/input,
+@@ -18,8 +19,8 @@ kernel dependencies.
+ | Gate | Work and automated checks | Physical HIL acceptance | Stop/rollback condition |
+ |---|---|---|---|
+ | G0: bench safety | Record current kernel, EFI entries, DTB and RPM hashes; verify 6.17 and Android fallbacks; capture battery temperature/voltage; run `nabu-hil-collect.sh preflight` | Tablet boots the unchanged fallback and charger can be disconnected | Missing fallback, battery outside 15-40 C, swollen/hot pack, or incomplete backup |
+-| G1: source/config | `git diff --check`; merged config; DTB build; schema checks; changed-object and full Image/modules build; confirm RTC/ramoops/charge invariants | None; no target installation | Compiler, modpost, DT, schema, config or invariant failure |
+-| G2: cold boot | Install as a new same-name test EVR/UKI without deleting 6.17; collect boot/pstore/remoteproc/IOMMU logs | Three cold boots; display, touch, UFS and battery telemetry work; USB-C enters host and device roles, sources VBUS to an ESP32S3 and enumerates it; no reboot loop | Panic, storage error, missing input/display, failed OTG/VBUS, uncontrolled charging, repeated probe storm |
++| G1: source/config | `git diff --check`; merged config; DTB build; schema checks; changed-object and full Image/modules build; confirm RTC/ramoops/charge invariants; require only `ARCH_QCOM`, no ACPI/PCI/Venus legacy and fewer than 450 modules | None; no target installation | Compiler, modpost, DT, schema, config, footprint or invariant failure |
++| G2: USB-first cold boot | Install as a new test EVR/UKI without deleting 6.17; collect boot/pstore/remoteproc/IOMMU and Type-C role logs | Before other peripherals: source VBUS to an ESP32S3, enumerate its CDC interface, switch host/device roles twice; then complete three cold boots with display, touch, UFS and battery telemetry | Missing VBUS, failed ESP32S3 enumeration/CDC, role-switch failure, panic, storage error, uncontrolled charging or repeated probe storm |
+ | G3: sensor foundation | Verify SLPI remoteproc, SDSP FastRPC, firmware registry, `iio:device*`, SensorProxy D-Bus and changing raw samples | Accelerometer and gyro react on all axes; magnetometer heading changes; front/rear ALS change under cover/light; proximity changes | SLPI crash, all-zero/stuck data, invalid mount matrix, repeated reconnect loop |
+ | G4: GNOME sensor UX | Run `monitor-sensor`; enable GNOME automatic orientation and automatic brightness; log D-Bus properties | Rotate through normal/left/right/bottom-up twice; screen follows without oscillation; brightness rises/falls smoothly; compass completes a 360-degree turn | Wrong axis, rapid orientation flapping, brightness jump/flicker, sensor loss after lock/unlock |
+ | G5: portable userspace | Repeat raw IIO and SensorProxy checks without GNOME; test one non-GNOME session and one non-Fedora rootfs/container package set | KDE/Plasma or wlroots consumer receives orientation; Debian/Arch-family userspace sees the same D-Bus/IIO contract | Any requirement on GNOME settings, Fedora paths, or private KDE code |
+diff --git a/senemos/build.sh b/senemos/build.sh
+index 897ccbfb0f26..78954ed1da6f 100755
+--- a/senemos/build.sh
++++ b/senemos/build.sh
+@@ -11,14 +11,15 @@ export LOCALVERSION=${SENEMOS_EXTRA_LOCALVERSION:-}
+ 
+ mkdir -p "$output_dir"
+ 
+-cp "$source_dir/senemos/configs/fedora-rawhide-aarch64.config" \
+-  "$output_dir/.config"
++make -C "$source_dir" O="$output_dir" ARCH=arm64 defconfig
+ 
+ KCONFIG_CONFIG="$output_dir/.config" \
+   "$source_dir/scripts/kconfig/merge_config.sh" -m -r -O "$output_dir" \
+   "$output_dir/.config" \
+   "$source_dir/senemos/configs/nabu-minimal.config"
+ 
++"$source_dir/senemos/configs/prune-nabu-config.sh" "$output_dir/.config"
++
+ make -C "$source_dir" O="$output_dir" ARCH=arm64 LLVM=1 olddefconfig
+ make -C "$source_dir" O="$output_dir" ARCH=arm64 LLVM=1 -j"$jobs" \
+   Image qcom/sm8150-xiaomi-nabu.dtb modules
+diff --git a/senemos/configs/prune-nabu-config.sh b/senemos/configs/prune-nabu-config.sh
+new file mode 100755
+index 000000000000..7f9e1af1aae8
+--- /dev/null
++++ b/senemos/configs/prune-nabu-config.sh
+@@ -0,0 +1,89 @@
++#!/usr/bin/env bash
++set -Eeuo pipefail
++
++config_file=${1:-.config}
++source_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
++config_tool="$source_dir/scripts/config"
++
++if [[ ! -s "$config_file" ]]; then
++	printf 'missing kernel config: %s\n' "$config_file" >&2
++	exit 1
++fi
++
++# This kernel boots one DT-described SM8150 tablet.  Keep generic Linux ABI,
++# filesystem, security, networking and container features, but do not build
++# hardware drivers for unrelated ARM64 boards.
++platforms=(
++	ARCH_ACTIONS ARCH_AIROHA ARCH_ALPINE ARCH_APPLE ARCH_ARTPEC
++	ARCH_ASPEED ARCH_AXIADO ARCH_BCM ARCH_BCMBCA ARCH_BCM2835
++	ARCH_BCM_IPROC ARCH_BERLIN ARCH_BLAIZE ARCH_BRCMSTB ARCH_BST
++	ARCH_CIX ARCH_EXYNOS ARCH_HISI ARCH_INTEL_SOCFPGA ARCH_K3
++	ARCH_KEEMBAY ARCH_LAYERSCAPE ARCH_LG1K ARCH_MA35 ARCH_MEDIATEK
++	ARCH_MESON ARCH_MICROCHIP ARCH_MVEBU ARCH_MXC ARCH_NPCM ARCH_NXP
++	ARCH_REALTEK ARCH_RENESAS ARCH_ROCKCHIP ARCH_S32 ARCH_SEATTLE
++	ARCH_SOPHGO ARCH_SPARX5 ARCH_SPRD ARCH_STM32 ARCH_SUNXI
++	ARCH_SYNQUACER ARCH_TEGRA ARCH_TESLA_FSD ARCH_THUNDER ARCH_THUNDER2
++	ARCH_UNIPHIER ARCH_VEXPRESS ARCH_VISCONTI ARCH_XGENE ARCH_ZYNQMP
++)
++
++# Nabu is DT-only, boots from UFS, has no PCIe endpoint, SATA, NVMe, MMC,
++# Ethernet, CAN, NFC or WWAN hardware, and uses only camera/media capture.
++unused_buses=(
++	ACPI PCI VIRTUALIZATION KVM XEN HYPERV ATA BLK_DEV_NVME MMC MTD
++	ETHERNET CAN NFC WWAN MEDIA_ANALOG_TV_SUPPORT
++	MEDIA_DIGITAL_TV_SUPPORT MEDIA_RADIO_SUPPORT MEDIA_SDR_SUPPORT
++	MEDIA_CEC_SUPPORT MEDIA_PCI_SUPPORT MEDIA_USB_SUPPORT
++	V4L_TEST_DRIVERS
++)
++
++args=()
++for symbol in "${platforms[@]}" "${unused_buses[@]}"; do
++	args+=(--disable "$symbol")
++done
++
++# Prune board-specific modules selected by the generic arm64 defconfig.  The
++# allowlist contains Nabu silicon plus infrastructure required by those
++# drivers.  Generic USB serial/network gadget classes remain available for
++# OTG recovery and log collection.
++module_deny='^(ARM_CCI|ARM_CCN|ARM_CMN|ARM_CORESIGHT|ARM_DSU|ARM_SMMU_V3_PMU|ARM_SPE|NVIDIA_CORESIGHT|CORESIGHT|ALTERA_|FPGA_|OF_FPGA|XILINX_|UACCE|CROS_|EC_|GREYBUS|GNSS|GOOGLE_|IPMI_|TCG_|MHI_|ATH11K|BRCMF|BRCMUTIL|MWIFIEX|RSI_|WCN36XX|WL18XX|WLCORE|RTC_DRV_|SENSORS_|IIO_CROS|IIO_ST_|TOUCHSCREEN_|BACKLIGHT_|BATTERY_|CHARGER_|DRM_|CLK_|SM_|SC_|SA_|SDM_|QCS_|QCM_|IPQ_|MSM_MMCC_|PHY_|TYPEC_|UCSI_|REGULATOR_|MFD_|GPIO_|PWM_|VIDEO_|SND_SOC_|BT_)'
++module_allow='^(BACKLIGHT_KTZ8866|ATH10K|ATH10K_SNOC|ATH_COMMON|BT_HCIUART|BT_HIDP|BT_QCA|CHARGER_IDTP9418|CHARGER_LN8000|CHARGER_QCOM_SMB2|SM_CAMCC_8150|DRM_PANEL_NOVATEK_NT36523|GPIO_WCD934X|MFD_WCD934X|TOUCHSCREEN_NT36523_SPI|VIDEO_DEV|VIDEO_CN3927|VIDEO_OV13B10|VIDEO_OV8856|VIDEO_QCOM_CAMSS|VIDEO_QCOM_IRIS|SND_SOC_I2C_AND_SPI|SND_SOC_QCOM.*|SND_SOC_QDSP6.*|SND_SOC_SM8150|SND_SOC_CS35L41.*|SND_SOC_WCD934X|SND_SOC_WCD_COMMON|SND_SOC_WCD_CLASSH|SND_SOC_WCD_MBHC|SND_SOC_WSA881X)$'
++
++while IFS= read -r symbol; do
++	if [[ $symbol =~ $module_deny && ! $symbol =~ $module_allow ]]; then
++		args+=(--disable "$symbol")
++	fi
++done < <(sed -n 's/^CONFIG_\([A-Z0-9_]*\)=m$/\1/p' "$config_file")
++
++# ARCH_QCOM also selects support for many unrelated Qualcomm SoCs as built-in.
++# Retain only the common frameworks and blocks referenced by the Nabu DT.
++while IFS= read -r symbol; do
++	case "$symbol" in
++	PINCTRL_MSM|PINCTRL_QCOM_SPMI_PMIC|PINCTRL_SM8150) ;;
++	*) args+=(--disable "$symbol") ;;
++	esac
++done < <(sed -n 's/^CONFIG_\(PINCTRL_[A-Z0-9_]*\)=[ym]$/\1/p' "$config_file")
++
++while IFS= read -r symbol; do
++	case "$symbol" in
++	INTERCONNECT_QCOM_BCM_VOTER|INTERCONNECT_QCOM_RPMH|\
++	INTERCONNECT_QCOM_RPMH_POSSIBLE|INTERCONNECT_QCOM_SM8150) ;;
++	*) args+=(--disable "$symbol") ;;
++	esac
++done < <(sed -n 's/^CONFIG_\(INTERCONNECT_QCOM_[A-Z0-9_]*\)=[ym]$/\1/p' "$config_file")
++
++while IFS= read -r symbol; do
++	case "$symbol" in
++	CC_IS_GCC|GCC10_NO_ARRAY_BOUNDS|GCC_NO_STRINGOP_OVERFLOW|\
++	GCC_SUPPORTS_DYNAMIC_FTRACE_WITH_ARGS|HAVE_GCC_PLUGINS|\
++	SM_GCC_8150|SM_GPUCC_8150|SM_DISPCC_8250|SM_CAMCC_8150) ;;
++	*) args+=(--disable "$symbol") ;;
++	esac
++done < <(sed -n 's/^CONFIG_\([A-Z0-9_]*\(GCC\|GPUCC\|DISPCC\|VIDEOCC\|CAMCC\|TCSRCC\)[A-Z0-9_]*\)=[ym]$/\1/p' "$config_file")
++
++"$config_tool" --file "$config_file" "${args[@]}" \
++	--module SM_CAMCC_8150 \
++	--enable SECURITY --enable SECURITY_NETWORK --enable SECURITY_SELINUX \
++	--disable VIDEO_QCOM_VENUS \
++	--disable DEBUG_INFO --enable DEBUG_INFO_NONE \
++	--disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES \
++	--disable GDB_SCRIPTS
+-- 
+2.55.0
+

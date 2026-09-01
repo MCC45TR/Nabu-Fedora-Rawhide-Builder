@@ -80,6 +80,7 @@ Patch0061:      0061-ASoC-cs35l41-include-property-API-for-PDN-policy.patch
 Patch0062:      0062-dt-bindings-power-validate-SMB5-Nabu-policy-arrays.patch
 Patch0063:      0063-usb-nabu-restore-dual-role-VBUS-operation-on-7.2.patch
 Patch0064:      0064-senemos-add-staged-7.2.2-HIL-validation-plan.patch
+Patch0065:      0065-senemos-prune-7.2.2-to-Nabu-hardware.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -132,10 +133,7 @@ KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
 # This package targets one SM8150 device. Avoid the Fedora general-purpose
 # module set and the legacy Venus driver; Nabu uses Iris for video acceleration.
 # Debug information and BTF are not part of the runtime-only unstable payload.
-scripts/config --disable VIDEO_QCOM_VENUS \
-    --disable DEBUG_INFO --enable DEBUG_INFO_NONE \
-    --disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES \
-    --disable GDB_SCRIPTS
+senemos/configs/prune-nabu-config.sh .config
 make ARCH=arm64 LLVM=1 olddefconfig
 # Refresh auto.conf after merging the Nabu identity fragment. Otherwise the
 # immediately following release gate can retain defconfig's SCM suffix.
@@ -204,12 +202,18 @@ grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_GADGET=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_PHY_QCOM_USB_SNPS_FEMTO_V2=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_USB_ACM=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_SECURITY_SELINUX=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq '# CONFIG_ACPI is not set' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq '# CONFIG_PCI is not set' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq '# CONFIG_ARCH_MEDIATEK is not set' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq '# CONFIG_ARCH_ROCKCHIP is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fq 'vbus-supply = <&pm8150b_vbus>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 ! grep -Fq 'lionsemi,allow-direct-charging' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 grep -Fxq '# CONFIG_DEBUG_INFO_BTF is not set' %{buildroot}/boot/config-%{uname_r}
-test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 2000
+test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
 for module in qcom-iris qcom-camss i2c-qcom-cci cn3927 ov13b10 ov8856; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
