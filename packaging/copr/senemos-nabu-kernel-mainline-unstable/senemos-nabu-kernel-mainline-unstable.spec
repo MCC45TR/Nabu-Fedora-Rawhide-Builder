@@ -38,6 +38,14 @@ Patch0019:      0019-usb-qcom-stabilize-Nabu-host-CDC-reconnects.patch
 Patch0020:      0020-config-remove-release-kernel-self-tests.patch
 Patch0021:      0021-config-drop-runtime-test-drivers-from-release-builds.patch
 Patch0022:      0022-senemos-isolate-mainline-unstable-kernel-identity.patch
+Patch0023:      0023-media-qcom-add-Xiaomi-Nabu-camera-support.patch
+Patch0024:      0024-media-qcom-port-Nabu-Iris-VA-API-support-to-6.17.patch
+Patch0025:      0025-kernel-overlay-speed-up-VP9-capture-for-FFmpeg.patch
+Patch0026:      0026-kernel-overlay-harden-P010-and-external-module-build.patch
+Patch0027:      0027-kernel-overlay-preserve-usable-legacy-VP9-output.patch
+Patch0028:      0028-kernel-overlay-filter-hidden-VP9-superframes.patch
+Patch0029:      0029-kernel-overlay-make-Nabu-Iris-device-tree-append-onl.patch
+Patch0030:      0030-media-qcom-adapt-current-Nabu-Iris-overlay-to-Linux-.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -90,7 +98,8 @@ KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-minimal.config
 make ARCH=arm64 LLVM=1 olddefconfig
 test "$(make -s ARCH=arm64 LLVM=1 kernelrelease)" = '%{uname_r}'
-make ARCH=arm64 LLVM=1 %{?_smp_mflags} Image qcom/sm8150-xiaomi-nabu.dtb modules
+make ARCH=arm64 LLVM=1 %{?_smp_mflags} Image \
+    qcom/sm8150-xiaomi-nabu-iris-camera.dtb modules
 
 %install
 install -Dm0644 arch/arm64/boot/Image \
@@ -100,8 +109,10 @@ install -Dm0644 .config %{buildroot}/boot/config-%{uname_r}
 make ARCH=arm64 LLVM=1 modules_install \
     MODLIB=%{buildroot}%{_prefix}/lib/modules/%{uname_r} DEPMOD=/bin/true
 rm -f %{buildroot}%{_prefix}/lib/modules/%{uname_r}/{build,source}
-install -Dm0644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dtb \
+install -Dm0644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb \
     %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
+install -Dm0644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb \
+    %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu-iris-camera.dtb
 
 while IFS= read -r -d '' module; do
     llvm-strip --strip-debug "$module"
@@ -124,6 +135,10 @@ test -s %{buildroot}/boot/vmlinuz-%{uname_r}
 test -s %{buildroot}/boot/System.map-%{uname_r}
 test -s %{buildroot}/boot/config-%{uname_r}
 test -s %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
+test -s %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu-iris-camera.dtb
+cmp -s \
+    %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb \
+    %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu-iris-camera.dtb
 test -d %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel
 test ! -e %{buildroot}%{_prefix}/lib/modules/%{uname_r}/build
 test ! -e %{buildroot}%{_prefix}/lib/modules/%{uname_r}/source
@@ -137,6 +152,13 @@ grep -Fxq 'xhci_plat_hcd' \
     %{buildroot}%{_prefix}/lib/modules-load.d/91-nabu-mainline-unstable-late-xhci.conf
 grep -Fxq 'cdc_acm' \
     %{buildroot}%{_prefix}/lib/modules-load.d/91-nabu-mainline-unstable-late-xhci.conf
+grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_VIDEO_CN3927=m' %{buildroot}/boot/config-%{uname_r}
+for module in qcom-iris qcom-camss i2c-qcom-cci cn3927 ov13b10 ov8856; do
+    find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
+        -type f -name "$module.ko.zst" -print -quit | grep -q .
+done
 
 %posttrans
 install -d -m0755 /var/lib/nabu-kernel-maintenance/pending.d
@@ -157,12 +179,15 @@ fi
 /boot/System.map-%{uname_r}
 /boot/config-%{uname_r}
 %{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
+%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu-iris-camera.dtb
 %{_prefix}/lib/modules/%{uname_r}/modules.*
 %{_prefix}/lib/modules/%{uname_r}/kernel/
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
 * Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Port the ChengFangming/CFM880 Nabu camera and Iris/Venus work to Linux 7.2.2.
+- Ship the combined Iris-camera DTB as this unstable kernel family's canonical Nabu DTB.
 - Pin kernel module installation to Fedora's /usr/lib/modules hierarchy.
 - Build official Linux 7.2.y in COPR and apply the checksum-locked Nabu series.
 - Isolate RPM, ABI, maintenance queue and SENEMOS7U boot-family ownership.

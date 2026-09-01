@@ -20,3 +20,11 @@ db2240aef6d9f6b5ffe2fc0c62a5a1df5d7c7a7eb49f779593e719af97f57036  0017-senemos-c
 05bab192af0219a72a11e47ccd1015bca4d3705c1f8e22946ad7b679d3304009  0020-config-remove-release-kernel-self-tests.patch
 dd16bcbf7b84d637ee71a447aa19b352611315146872d86497c7ad80a5c0f7d5  0021-config-drop-runtime-test-drivers-from-release-builds.patch
 adb3718798367e8ac878a17295fa88d63cd400468bf5b454736337f974377471  0022-senemos-isolate-mainline-unstable-kernel-identity.patch
+572507b3de2333201460e6307b42b8e798f5d95063957278c64ac959f4eb4218  0023-media-qcom-add-Xiaomi-Nabu-camera-support.patch
+92a982e6a312154a25546929d9bd60a4a7ba6104127507cf4837ad21796bfccb  0024-media-qcom-port-Nabu-Iris-VA-API-support-to-6.17.patch
+5120b2fda68096f7dfae7fbeffd36bf794b2b0b627100326e9c7de8b74a008c1  0025-kernel-overlay-speed-up-VP9-capture-for-FFmpeg.patch
+e6d811fe4e7df36e73564caf232d1d0ae397ca1d59cd31e005fcdde47ffb4790  0026-kernel-overlay-harden-P010-and-external-module-build.patch
+a2c44954c93e19005cb64c331b317d3b94533e5005cde74a4cb8afef5fddec67  0027-kernel-overlay-preserve-usable-legacy-VP9-output.patch
+6935271bd58f6fd62238b21d57cac9d2a5520a9c2a59615e1b79ce2c32077dbd  0028-kernel-overlay-filter-hidden-VP9-superframes.patch
+a6684ed23a00fc0f9008c357395d34538abec87bd6e689ef445cf3dce0b01166  0029-kernel-overlay-make-Nabu-Iris-device-tree-append-onl.patch
+700d3e1c7d78711f01ea23e6ecfc14f836e6458395aeee18ca62489a6e265484  0030-media-qcom-adapt-current-Nabu-Iris-overlay-to-Linux-.patch

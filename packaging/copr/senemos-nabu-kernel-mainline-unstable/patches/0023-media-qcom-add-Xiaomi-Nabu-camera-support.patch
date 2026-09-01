@@ -1,0 +1,2529 @@
+From 921990e7f692af31b9595506b50e85cd57dcfb1d Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Tue, 1 Sep 2026 18:02:03 +0300
+Subject: [PATCH 23/30] media: qcom: add Xiaomi Nabu camera support
+
+Port ChengFangming/CFM880 nabu-camera SM8150 CAMSS, CCI, OV13B10, OV8856 and CN3927 work onto the Linux 7.2.2 Nabu tree. Preserve the current 7.2 media APIs while retaining the camera reopen/runtime-PM fix and the composable camera-only derived DTB.
+
+Original work: ChengFangming <chengfangming1993@gmail.com>
+
+Source: https://github.com/CFM880/nabu-camera
+
+Source revision: 580c6cb91798d53bc35d1c0ee856a3ffb0ae579a
+---
+ .../bindings/media/i2c/chipnext,cn3927.yaml   |  50 ++
+ .../bindings/media/i2c/ovti,ov13b10.yaml      | 128 +++++
+ .../bindings/media/qcom,sm8150-camss.yaml     | 477 ++++++++++++++++
+ arch/arm64/boot/dts/qcom/Makefile             |   1 +
+ .../dts/qcom/sm8150-xiaomi-nabu-camera.dts    |   9 +
+ .../dts/qcom/sm8150-xiaomi-nabu-camera.dtsi   | 507 ++++++++++++++++++
+ drivers/media/i2c/Kconfig                     |  10 +
+ drivers/media/i2c/Makefile                    |   1 +
+ drivers/media/i2c/cn3927.c                    | 342 ++++++++++++
+ drivers/media/i2c/ov8856.c                    |  50 +-
+ .../media/platform/qcom/camss/camss-csid.c    |  11 +-
+ .../qcom/camss/camss-csiphy-3ph-1-0.c         |   1 +
+ .../media/platform/qcom/camss/camss-vfe-17x.c | 108 +++-
+ drivers/media/platform/qcom/camss/camss-vfe.c |   2 +
+ .../media/platform/qcom/camss/camss-video.c   | 135 +++--
+ drivers/media/platform/qcom/camss/camss.c     | 261 +++++++++
+ drivers/media/platform/qcom/camss/camss.h     |   1 +
+ senemos/configs/nabu-minimal.config           |  12 +
+ 18 files changed, 2040 insertions(+), 66 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/media/i2c/chipnext,cn3927.yaml
+ create mode 100644 Documentation/devicetree/bindings/media/i2c/ovti,ov13b10.yaml
+ create mode 100644 Documentation/devicetree/bindings/media/qcom,sm8150-camss.yaml
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dts
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
+ create mode 100644 drivers/media/i2c/cn3927.c
+
+diff --git a/Documentation/devicetree/bindings/media/i2c/chipnext,cn3927.yaml b/Documentation/devicetree/bindings/media/i2c/chipnext,cn3927.yaml
+new file mode 100644
+index 000000000000..4ef2db1cc176
+--- /dev/null
++++ b/Documentation/devicetree/bindings/media/i2c/chipnext,cn3927.yaml
+@@ -0,0 +1,50 @@
++# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/media/i2c/chipnext,cn3927.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Chipnext CN3927 camera voice coil lens driver
++
++maintainers:
++  - Cheng Fangming <chengfangming1993@gmail.com>
++
++description:
++  The CN3927 is a 10-bit DAC with current sink capability intended for
++  driving voice coil lenses in camera modules.
++
++properties:
++  compatible:
++    const: chipnext,cn3927
++
++  reg:
++    maxItems: 1
++
++  vcc-supply:
++    description: VDD power supply
++
++  vio-supply:
++    description: I/O and I2C pull-up power supply
++
++required:
++  - compatible
++  - reg
++  - vcc-supply
++  - vio-supply
++
++additionalProperties: false
++
++examples:
++  - |
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        lens@c {
++            compatible = "chipnext,cn3927";
++            reg = <0x0c>;
++            vio-supply = <&camera_vio_1v8>;
++            vcc-supply = <&camera_vcm_2v8>;
++        };
++    };
++...
+diff --git a/Documentation/devicetree/bindings/media/i2c/ovti,ov13b10.yaml b/Documentation/devicetree/bindings/media/i2c/ovti,ov13b10.yaml
+new file mode 100644
+index 000000000000..9b869b7d4619
+--- /dev/null
++++ b/Documentation/devicetree/bindings/media/i2c/ovti,ov13b10.yaml
+@@ -0,0 +1,128 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/media/i2c/ovti,ov13b10.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: OmniVision OV13B10 CMOS Sensor
++
++maintainers:
++  - Hao Yao <hao.yao@intel.com>
++
++description: |
++  The OmniVision OV13B10 is a 13-megapixel CMOS image sensor. It is
++  controlled through I2C and transmits 10-bit Bayer images over a two- or
++  four-lane MIPI CSI-2 interface.
++
++allOf:
++  - $ref: /schemas/media/video-interface-devices.yaml#
++
++properties:
++  compatible:
++    const: ovti,ov13b10
++
++  reg:
++    maxItems: 1
++
++  clocks:
++    maxItems: 1
++
++  clock-names:
++    items:
++      - const: xvclk
++
++  clock-frequency:
++    const: 19200000
++
++  avdd-supply:
++    description: Analog power supply.
++
++  dovdd-supply:
++    description: Digital I/O power supply.
++
++  dvdd-supply:
++    description: Digital core power supply.
++
++  reset-gpios:
++    description: Active-low XSHUTDOWN signal.
++    maxItems: 1
++
++  orientation: true
++
++  rotation: true
++
++  port:
++    $ref: /schemas/graph.yaml#/$defs/port-base
++    additionalProperties: false
++
++    properties:
++      endpoint:
++        $ref: /schemas/media/video-interfaces.yaml#
++        unevaluatedProperties: false
++
++        properties:
++          data-lanes:
++            oneOf:
++              - items:
++                  - const: 1
++                  - const: 2
++              - items:
++                  - const: 1
++                  - const: 2
++                  - const: 3
++                  - const: 4
++
++          link-frequencies:
++            items:
++              - const: 560000000
++
++        required:
++          - data-lanes
++          - link-frequencies
++
++    required:
++      - endpoint
++
++required:
++  - compatible
++  - reg
++  - clocks
++  - clock-frequency
++  - avdd-supply
++  - dovdd-supply
++  - dvdd-supply
++  - reset-gpios
++  - port
++
++unevaluatedProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/gpio/gpio.h>
++
++    i2c {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        camera@36 {
++            compatible = "ovti,ov13b10";
++            reg = <0x36>;
++
++            clocks = <&camcc 0>;
++            clock-names = "xvclk";
++            clock-frequency = <19200000>;
++
++            avdd-supply = <&camera_avdd>;
++            dovdd-supply = <&camera_dovdd>;
++            dvdd-supply = <&camera_dvdd>;
++            reset-gpios = <&gpio 28 GPIO_ACTIVE_LOW>;
++
++            port {
++                endpoint {
++                    data-lanes = <1 2 3 4>;
++                    link-frequencies = /bits/ 64 <560000000>;
++                };
++            };
++        };
++    };
++...
+diff --git a/Documentation/devicetree/bindings/media/qcom,sm8150-camss.yaml b/Documentation/devicetree/bindings/media/qcom,sm8150-camss.yaml
+new file mode 100644
+index 000000000000..a65067352b58
+--- /dev/null
++++ b/Documentation/devicetree/bindings/media/qcom,sm8150-camss.yaml
+@@ -0,0 +1,477 @@
++# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/media/qcom,sm8150-camss.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Qualcomm SM8150 Camera Subsystem (CAMSS)
++
++maintainers:
++  - Andrew Gigena <mail@andrewgigena.dev>
++
++description: |
++  The CAMSS IP is a CSI decoder and ISP present on Qualcomm platforms.
++
++properties:
++  compatible:
++    const: qcom,sm8150-camss
++
++  clocks:
++    minItems: 42
++    maxItems: 42
++
++  clock-names:
++    items:
++      - const: camnoc_axi
++      - const: camnoc_axi_src
++      - const: cpas_ahb
++      - const: cphy_rx_src
++      - const: csiphy0
++      - const: csiphy0_timer
++      - const: csiphy0_timer_src
++      - const: csiphy1
++      - const: csiphy1_timer
++      - const: csiphy1_timer_src
++      - const: csiphy2
++      - const: csiphy2_timer
++      - const: csiphy2_timer_src
++      - const: csiphy3
++      - const: csiphy3_timer
++      - const: csiphy3_timer_src
++      - const: vfe0_axi
++      - const: vfe0
++      - const: vfe0_src
++      - const: vfe0_cphy_rx
++      - const: vfe0_csid
++      - const: vfe0_csid_src
++      - const: vfe1_axi
++      - const: vfe1
++      - const: vfe1_src
++      - const: vfe1_cphy_rx
++      - const: vfe1_csid
++      - const: vfe1_csid_src
++      - const: vfe_lite0
++      - const: vfe_lite0_src
++      - const: vfe_lite0_cphy_rx
++      - const: vfe_lite0_csid
++      - const: vfe_lite0_csid_src
++      - const: vfe_lite1
++      - const: vfe_lite1_src
++      - const: vfe_lite1_cphy_rx
++      - const: vfe_lite1_csid
++      - const: vfe_lite1_csid_src
++      - const: slow_ahb_src
++      - const: gcc_ahb
++      - const: gcc_axi_hf
++      - const: gcc_axi_sf
++
++  interrupts:
++    minItems: 12
++    maxItems: 12
++
++  interrupt-names:
++    items:
++      - const: csiphy0
++      - const: csiphy1
++      - const: csiphy2
++      - const: csiphy3
++      - const: vfe0
++      - const: csid0
++      - const: vfe1
++      - const: csid1
++      - const: vfe_lite0
++      - const: csid_lite0
++      - const: vfe_lite1
++      - const: csid_lite1
++
++  iommus:
++    maxItems: 8
++
++  interconnects:
++    maxItems: 4
++
++  interconnect-names:
++    items:
++      - const: cam_ahb
++      - const: cam_hf_0_mnoc
++      - const: cam_hf_1_mnoc
++      - const: cam_sf_0_mnoc
++
++  power-domains:
++    items:
++      - description: IFE0 GDSC - Image Front End, Global Distributed Switch Controller.
++      - description: IFE1 GDSC - Image Front End, Global Distributed Switch Controller.
++      - description: Titan Top GDSC - Titan ISP Block, Global Distributed Switch Controller.
++
++  power-domain-names:
++    items:
++      - const: ife0
++      - const: ife1
++      - const: top
++
++  ports:
++    $ref: /schemas/graph.yaml#/properties/ports
++
++    description:
++      CSI input ports.
++
++    properties:
++      port@0:
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description:
++          Input port for receiving CSI data from CSIPHY0.
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              clock-lanes:
++                maxItems: 1
++
++              data-lanes:
++                minItems: 1
++                maxItems: 4
++
++              bus-type:
++                enum:
++                  - 1 # MEDIA_BUS_TYPE_CSI2_CPHY
++                  - 4 # MEDIA_BUS_TYPE_CSI2_DPHY
++
++            required:
++              - clock-lanes
++              - data-lanes
++
++      port@1:
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description:
++          Input port for receiving CSI data from CSIPHY1.
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              clock-lanes:
++                maxItems: 1
++
++              data-lanes:
++                minItems: 1
++                maxItems: 4
++
++              bus-type:
++                enum:
++                  - 1 # MEDIA_BUS_TYPE_CSI2_CPHY
++                  - 4 # MEDIA_BUS_TYPE_CSI2_DPHY
++
++            required:
++              - clock-lanes
++              - data-lanes
++
++      port@2:
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description:
++          Input port for receiving CSI data from CSIPHY2.
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              clock-lanes:
++                maxItems: 1
++
++              data-lanes:
++                minItems: 1
++                maxItems: 4
++
++              bus-type:
++                enum:
++                  - 1 # MEDIA_BUS_TYPE_CSI2_CPHY
++                  - 4 # MEDIA_BUS_TYPE_CSI2_DPHY
++
++            required:
++              - clock-lanes
++              - data-lanes
++
++      port@3:
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description:
++          Input port for receiving CSI data from CSIPHY3.
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              clock-lanes:
++                maxItems: 1
++
++              data-lanes:
++                minItems: 1
++                maxItems: 4
++
++              bus-type:
++                enum:
++                  - 1 # MEDIA_BUS_TYPE_CSI2_CPHY
++                  - 4 # MEDIA_BUS_TYPE_CSI2_DPHY
++
++            required:
++              - clock-lanes
++              - data-lanes
++
++  reg:
++    minItems: 12
++    maxItems: 12
++
++  reg-names:
++    items:
++      - const: csiphy0
++      - const: csiphy1
++      - const: csiphy2
++      - const: csiphy3
++      - const: vfe0
++      - const: csid0
++      - const: vfe1
++      - const: csid1
++      - const: vfe_lite0
++      - const: csid_lite0
++      - const: vfe_lite1
++      - const: csid_lite1
++
++  vdda-phy-supply:
++    description:
++      Phandle to a regulator supply to PHY core block.
++
++  vdda-pll-supply:
++    description:
++      Phandle to 1.8V regulator supply to PHY refclk pll block.
++
++required:
++  - clock-names
++  - clocks
++  - compatible
++  - interconnects
++  - interconnect-names
++  - interrupts
++  - interrupt-names
++  - iommus
++  - power-domains
++  - power-domain-names
++  - reg
++  - reg-names
++  - vdda-phy-supply
++  - vdda-pll-supply
++
++additionalProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/interrupt-controller/arm-gic.h>
++    #include <dt-bindings/clock/qcom,gcc-sm8150.h>
++    #include <dt-bindings/clock/qcom,sm8150-camcc.h>
++    #include <dt-bindings/interconnect/qcom,sm8150.h>
++    #include <dt-bindings/power/qcom-rpmpd.h>
++
++    soc {
++        #address-cells = <2>;
++        #size-cells = <2>;
++
++        camss: camss@ac65000 {
++            compatible = "qcom,sm8150-camss";
++
++            reg = <0 0xac65000 0 0x1000>,
++              <0 0xac66000 0 0x1000>,
++              <0 0xac67000 0 0x1000>,
++              <0 0xac68000 0 0x1000>,
++              <0 0xacaf000 0 0x4000>,
++              <0 0xacb3000 0 0x1000>,
++              <0 0xacb6000 0 0x4000>,
++              <0 0xacba000 0 0x1000>,
++              <0 0xacc4000 0 0x4000>,
++              <0 0xacc8000 0 0x1000>,
++              <0 0xaccb000 0 0x4000>,
++              <0 0xaccf000 0 0x1000>;
++
++            reg-names = "csiphy0",
++              "csiphy1",
++              "csiphy2",
++              "csiphy3",
++              "vfe0",
++              "csid0",
++              "vfe1",
++              "csid1",
++              "vfe_lite0",
++              "csid_lite0",
++              "vfe_lite1",
++              "csid_lite1";
++
++            interrupts = <GIC_SPI 477 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 478 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 479 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 448 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 465 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 464 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 467 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 466 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 469 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 468 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 360 IRQ_TYPE_EDGE_RISING>,
++              <GIC_SPI 359 IRQ_TYPE_EDGE_RISING>;
++
++            interrupt-names = "csiphy0",
++              "csiphy1",
++              "csiphy2",
++              "csiphy3",
++              "vfe0",
++              "csid0",
++              "vfe1",
++              "csid1",
++              "vfe_lite0",
++              "csid_lite0",
++              "vfe_lite1",
++              "csid_lite1";
++
++            power-domains = <&camcc IFE_0_GDSC>,
++              <&camcc IFE_1_GDSC>,
++              <&camcc TITAN_TOP_GDSC>;
++
++            power-domain-names = "ife0",
++              "ife1",
++              "top";
++
++            clocks = <&camcc CAM_CC_CAMNOC_AXI_CLK>,
++              <&camcc CAM_CC_CAMNOC_AXI_CLK_SRC>,
++              <&camcc CAM_CC_CPAS_AHB_CLK>,
++              <&camcc CAM_CC_CPHY_RX_CLK_SRC>,
++              <&camcc CAM_CC_CSIPHY0_CLK>,
++              <&camcc CAM_CC_CSI0PHYTIMER_CLK>,
++              <&camcc CAM_CC_CSI0PHYTIMER_CLK_SRC>,
++              <&camcc CAM_CC_CSIPHY1_CLK>,
++              <&camcc CAM_CC_CSI1PHYTIMER_CLK>,
++              <&camcc CAM_CC_CSI1PHYTIMER_CLK_SRC>,
++              <&camcc CAM_CC_CSIPHY2_CLK>,
++              <&camcc CAM_CC_CSI2PHYTIMER_CLK>,
++              <&camcc CAM_CC_CSI2PHYTIMER_CLK_SRC>,
++              <&camcc CAM_CC_CSIPHY3_CLK>,
++              <&camcc CAM_CC_CSI3PHYTIMER_CLK>,
++              <&camcc CAM_CC_CSI3PHYTIMER_CLK_SRC>,
++              <&camcc CAM_CC_IFE_0_AXI_CLK>,
++              <&camcc CAM_CC_IFE_0_CLK>,
++              <&camcc CAM_CC_IFE_0_CLK_SRC>,
++              <&camcc CAM_CC_IFE_0_CPHY_RX_CLK>,
++              <&camcc CAM_CC_IFE_0_CSID_CLK>,
++              <&camcc CAM_CC_IFE_0_CSID_CLK_SRC>,
++              <&camcc CAM_CC_IFE_1_AXI_CLK>,
++              <&camcc CAM_CC_IFE_1_CLK>,
++              <&camcc CAM_CC_IFE_1_CLK_SRC>,
++              <&camcc CAM_CC_IFE_1_CPHY_RX_CLK>,
++              <&camcc CAM_CC_IFE_1_CSID_CLK>,
++              <&camcc CAM_CC_IFE_1_CSID_CLK_SRC>,
++              <&camcc CAM_CC_IFE_LITE_0_CLK>,
++              <&camcc CAM_CC_IFE_LITE_0_CLK_SRC>,
++              <&camcc CAM_CC_IFE_LITE_0_CPHY_RX_CLK>,
++              <&camcc CAM_CC_IFE_LITE_0_CSID_CLK>,
++              <&camcc CAM_CC_IFE_LITE_0_CSID_CLK_SRC>,
++              <&camcc CAM_CC_IFE_LITE_1_CLK>,
++              <&camcc CAM_CC_IFE_LITE_1_CLK_SRC>,
++              <&camcc CAM_CC_IFE_LITE_1_CPHY_RX_CLK>,
++              <&camcc CAM_CC_IFE_LITE_1_CSID_CLK>,
++              <&camcc CAM_CC_IFE_LITE_1_CSID_CLK_SRC>,
++              <&camcc CAM_CC_SLOW_AHB_CLK_SRC>,
++              <&gcc GCC_CAMERA_AHB_CLK>,
++              <&gcc GCC_CAMERA_HF_AXI_CLK>,
++              <&gcc GCC_CAMERA_SF_AXI_CLK>;
++
++            clock-names = "camnoc_axi",
++              "camnoc_axi_src",
++              "cpas_ahb",
++              "cphy_rx_src",
++              "csiphy0",
++              "csiphy0_timer",
++              "csiphy0_timer_src",
++              "csiphy1",
++              "csiphy1_timer",
++              "csiphy1_timer_src",
++              "csiphy2",
++              "csiphy2_timer",
++              "csiphy2_timer_src",
++              "csiphy3",
++              "csiphy3_timer",
++              "csiphy3_timer_src",
++              "vfe0_axi",
++              "vfe0",
++              "vfe0_src",
++              "vfe0_cphy_rx",
++              "vfe0_csid",
++              "vfe0_csid_src",
++              "vfe1_axi",
++              "vfe1",
++              "vfe1_src",
++              "vfe1_cphy_rx",
++              "vfe1_csid",
++              "vfe1_csid_src",
++              "vfe_lite0",
++              "vfe_lite0_src",
++              "vfe_lite0_cphy_rx",
++              "vfe_lite0_csid",
++              "vfe_lite0_csid_src",
++              "vfe_lite1",
++              "vfe_lite1_src",
++              "vfe_lite1_cphy_rx",
++              "vfe_lite1_csid",
++              "vfe_lite1_csid_src",
++              "slow_ahb_src",
++              "gcc_ahb",
++              "gcc_axi_hf",
++              "gcc_axi_sf";
++
++            iommus = <&apps_smmu 0x840 0x620>,
++              <&apps_smmu 0x860 0x620>,
++              <&apps_smmu 0xA40 0x620>,
++              <&apps_smmu 0xA60 0x620>,
++              <&apps_smmu 0xC40 0x620>,
++              <&apps_smmu 0xC60 0x620>,
++              <&apps_smmu 0xE40 0x620>,
++              <&apps_smmu 0xE60 0x620>;
++
++            interconnects = <&gem_noc MASTER_AMPSS_M0 0 &config_noc SLAVE_CAMERA_CFG 0>,
++                <&mmss_noc MASTER_CAMNOC_HF0 0 &mc_virt SLAVE_EBI_CH0 0>,
++                <&mmss_noc MASTER_CAMNOC_HF1 0 &mc_virt SLAVE_EBI_CH0 0>,
++                <&mmss_noc MASTER_CAMNOC_SF 0 &mc_virt SLAVE_EBI_CH0 0>;
++
++            interconnect-names = "cam_ahb",
++              "cam_hf_0_mnoc",
++              "cam_hf_1_mnoc",
++              "cam_sf_0_mnoc";
++
++            vdda-phy-supply = <&vreg_l5a_0p88>;
++            vdda-pll-supply = <&vreg_l3c_1p2>;
++
++            ports {
++                #address-cells = <1>;
++                #size-cells = <0>;
++
++                port@0 {
++                    reg = <0>;
++                    #address-cells = <1>;
++                    #size-cells = <0>;
++
++                    csiphy_ep0: endpoint@0 {
++                        reg = <0>;
++                        clock-lanes = <7>;
++                        data-lanes = <0 1 2 3>;
++                        remote-endpoint = <&sensor_ep>;
++                    };
++                };
++            };
++        };
++    };
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 2e48167cb408..b21bd83a0b6f 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -355,6 +355,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-mtp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-sony-xperia-kumano-bahamut.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-sony-xperia-kumano-griffin.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-xiaomi-nabu.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-xiaomi-nabu-camera.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-hdk.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-mtp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-samsung-r8q.dtb
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dts
+new file mode 100644
+index 000000000000..5afcd0cf1e1f
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dts
+@@ -0,0 +1,9 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Xiaomi Pad 5 (nabu) camera-enabled derivative.
++ *
++ * Keep the upstream board DTS unchanged and append the camera description.
++ */
++
++#include "sm8150-xiaomi-nabu.dts"
++#include "sm8150-xiaomi-nabu-camera.dtsi"
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
+new file mode 100644
+index 000000000000..970e14094c80
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
+@@ -0,0 +1,507 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Camera additions for Xiaomi Pad 5 (nabu).
++ *
++ * This file deliberately appends to the base SM8150 and nabu device trees so
++ * that sm8150.dtsi and sm8150-xiaomi-nabu.dts remain untouched.
++ */
++
++/ {
++	model = "Xiaomi Pad 5 (nabu) with cameras";
++
++	camera_vdig_1p2: camera-vdig-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "camera_vdig_1p2";
++		regulator-min-microvolt = <1200000>;
++		regulator-max-microvolt = <1200000>;
++		regulator-enable-ramp-delay = <135>;
++		gpio = <&pm8150l_gpios 3 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		vin-supply = <&vreg_s4a_1p8>;
++	};
++
++	camera_front_vana_3p0: camera-front-vana-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "camera_front_vana_3p0";
++		regulator-min-microvolt = <3008000>;
++		regulator-max-microvolt = <3008000>;
++		regulator-enable-ramp-delay = <135>;
++		gpio = <&tlmm 31 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		vin-supply = <&vreg_bob>;
++	};
++
++	camera_rear_vana_3p0: camera-rear-vana-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "camera_rear_vana_3p0";
++		regulator-min-microvolt = <3008000>;
++		regulator-max-microvolt = <3008000>;
++		regulator-enable-ramp-delay = <135>;
++		gpio = <&tlmm 11 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		vin-supply = <&vreg_bob>;
++	};
++
++	camera_rear_vaf_2p8: camera-rear-vaf-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "camera_rear_vaf_2p8";
++		regulator-min-microvolt = <2800000>;
++		regulator-max-microvolt = <2800000>;
++		regulator-enable-ramp-delay = <135>;
++		gpio = <&tlmm 29 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		vin-supply = <&vreg_bob>;
++	};
++};
++
++&tlmm {
++	cci0_default: cci0-default-state {
++		cci0_i2c0_default: cci0-i2c0-default-pins {
++			pins = "gpio17", "gpio18";
++			function = "cci_i2c";
++			bias-pull-up;
++			drive-strength = <2>;
++		};
++
++		cci0_i2c1_default: cci0-i2c1-default-pins {
++			pins = "gpio19", "gpio20";
++			function = "cci_i2c";
++			bias-pull-up;
++			drive-strength = <2>;
++		};
++	};
++
++	cci0_sleep: cci0-sleep-state {
++		cci0_i2c0_sleep: cci0-i2c0-sleep-pins {
++			pins = "gpio17", "gpio18";
++			function = "cci_i2c";
++			drive-strength = <2>;
++			bias-pull-down;
++		};
++
++		cci0_i2c1_sleep: cci0-i2c1-sleep-pins {
++			pins = "gpio19", "gpio20";
++			function = "cci_i2c";
++			drive-strength = <2>;
++			bias-pull-down;
++		};
++	};
++
++	cci1_default: cci1-default-state {
++		cci1_i2c0_default: cci1-i2c0-default-pins {
++			pins = "gpio31", "gpio32";
++			function = "cci_i2c";
++			bias-pull-up;
++			drive-strength = <2>;
++		};
++
++		cci1_i2c1_default: cci1-i2c1-default-pins {
++			pins = "gpio33", "gpio34";
++			function = "cci_i2c";
++			bias-pull-up;
++			drive-strength = <2>;
++		};
++	};
++
++	cci1_sleep: cci1-sleep-state {
++		cci1_i2c0_sleep: cci1-i2c0-sleep-pins {
++			pins = "gpio31", "gpio32";
++			function = "cci_i2c";
++			bias-pull-down;
++			drive-strength = <2>;
++		};
++
++		cci1_i2c1_sleep: cci1-i2c1-sleep-pins {
++			pins = "gpio33", "gpio34";
++			function = "cci_i2c";
++			bias-pull-down;
++			drive-strength = <2>;
++		};
++	};
++
++	camera_rear_mclk_default: camera-rear-mclk-default-state {
++		pins = "gpio13";
++		function = "cam_mclk";
++		drive-strength = <6>;
++		bias-disable;
++	};
++
++	camera_front_mclk_default: camera-front-mclk-default-state {
++		pins = "gpio14";
++		function = "cam_mclk";
++		drive-strength = <4>;
++		bias-disable;
++	};
++};
++
++&soc {
++	cci0: cci@ac4a000 {
++		compatible = "qcom,sm8150-cci", "qcom,msm8996-cci";
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		reg = <0 0xac4a000 0 0x1000>;
++		interrupts = <GIC_SPI 460 IRQ_TYPE_EDGE_RISING>;
++		power-domains = <&camcc TITAN_TOP_GDSC>;
++
++		clocks = <&camcc CAM_CC_CAMNOC_AXI_CLK>,
++			 <&camcc CAM_CC_SLOW_AHB_CLK_SRC>,
++			 <&camcc CAM_CC_CPAS_AHB_CLK>,
++			 <&camcc CAM_CC_CCI_0_CLK>,
++			 <&camcc CAM_CC_CCI_0_CLK_SRC>;
++		clock-names = "camnoc_axi",
++			      "slow_ahb_src",
++			      "cpas_ahb",
++			      "cci",
++			      "cci_src";
++
++		pinctrl-0 = <&cci0_default>;
++		pinctrl-1 = <&cci0_sleep>;
++		pinctrl-names = "default", "sleep";
++
++		status = "disabled";
++
++		cci0_i2c0: i2c-bus@0 {
++			reg = <0>;
++			clock-frequency = <1000000>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		cci0_i2c1: i2c-bus@1 {
++			reg = <1>;
++			clock-frequency = <1000000>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++	};
++
++	cci1: cci@ac4b000 {
++		compatible = "qcom,sm8150-cci", "qcom,msm8996-cci";
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		reg = <0 0xac4b000 0 0x1000>;
++		interrupts = <GIC_SPI 271 IRQ_TYPE_EDGE_RISING>;
++		power-domains = <&camcc TITAN_TOP_GDSC>;
++
++		clocks = <&camcc CAM_CC_CAMNOC_AXI_CLK>,
++			 <&camcc CAM_CC_SLOW_AHB_CLK_SRC>,
++			 <&camcc CAM_CC_CPAS_AHB_CLK>,
++			 <&camcc CAM_CC_CCI_1_CLK>,
++			 <&camcc CAM_CC_CCI_1_CLK_SRC>;
++		clock-names = "camnoc_axi",
++			      "slow_ahb_src",
++			      "cpas_ahb",
++			      "cci",
++			      "cci_src";
++
++		pinctrl-0 = <&cci1_default>;
++		pinctrl-1 = <&cci1_sleep>;
++		pinctrl-names = "default", "sleep";
++
++		status = "disabled";
++
++		cci1_i2c0: i2c-bus@0 {
++			reg = <0>;
++			clock-frequency = <1000000>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		cci1_i2c1: i2c-bus@1 {
++			reg = <1>;
++			clock-frequency = <1000000>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++	};
++
++	camss: camss@ac65000 {
++		compatible = "qcom,sm8150-camss";
++		status = "disabled";
++
++		reg = <0 0xac65000 0 0x1000>,
++		      <0 0xac66000 0 0x1000>,
++		      <0 0xac67000 0 0x1000>,
++		      <0 0xac68000 0 0x1000>,
++		      <0 0xacaf000 0 0x4000>,
++		      <0 0xacb3000 0 0x1000>,
++		      <0 0xacb6000 0 0x4000>,
++		      <0 0xacba000 0 0x1000>,
++		      <0 0xacc4000 0 0x4000>,
++		      <0 0xacc8000 0 0x1000>,
++		      <0 0xaccb000 0 0x4000>,
++		      <0 0xaccf000 0 0x1000>;
++
++		reg-names = "csiphy0",
++			    "csiphy1",
++			    "csiphy2",
++			    "csiphy3",
++			    "vfe0",
++			    "csid0",
++			    "vfe1",
++			    "csid1",
++			    "vfe_lite0",
++			    "csid_lite0",
++			    "vfe_lite1",
++			    "csid_lite1";
++
++		interrupts = <GIC_SPI 477 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 478 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 479 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 448 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 465 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 464 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 467 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 466 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 469 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 468 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 360 IRQ_TYPE_EDGE_RISING>,
++			     <GIC_SPI 359 IRQ_TYPE_EDGE_RISING>;
++
++		interrupt-names = "csiphy0",
++				  "csiphy1",
++				  "csiphy2",
++				  "csiphy3",
++				  "vfe0",
++				  "csid0",
++				  "vfe1",
++				  "csid1",
++				  "vfe_lite0",
++				  "csid_lite0",
++				  "vfe_lite1",
++				  "csid_lite1";
++
++		power-domains = <&camcc IFE_0_GDSC>,
++				<&camcc IFE_1_GDSC>,
++				<&camcc TITAN_TOP_GDSC>;
++		power-domain-names = "ife0", "ife1", "top";
++
++		clocks = <&camcc CAM_CC_CAMNOC_AXI_CLK>,
++			 <&camcc CAM_CC_CAMNOC_AXI_CLK_SRC>,
++			 <&camcc CAM_CC_CPAS_AHB_CLK>,
++			 <&camcc CAM_CC_CPHY_RX_CLK_SRC>,
++			 <&camcc CAM_CC_CSIPHY0_CLK>,
++			 <&camcc CAM_CC_CSI0PHYTIMER_CLK>,
++			 <&camcc CAM_CC_CSI0PHYTIMER_CLK_SRC>,
++			 <&camcc CAM_CC_CSIPHY1_CLK>,
++			 <&camcc CAM_CC_CSI1PHYTIMER_CLK>,
++			 <&camcc CAM_CC_CSI1PHYTIMER_CLK_SRC>,
++			 <&camcc CAM_CC_CSIPHY2_CLK>,
++			 <&camcc CAM_CC_CSI2PHYTIMER_CLK>,
++			 <&camcc CAM_CC_CSI2PHYTIMER_CLK_SRC>,
++			 <&camcc CAM_CC_CSIPHY3_CLK>,
++			 <&camcc CAM_CC_CSI3PHYTIMER_CLK>,
++			 <&camcc CAM_CC_CSI3PHYTIMER_CLK_SRC>,
++			 <&camcc CAM_CC_IFE_0_AXI_CLK>,
++			 <&camcc CAM_CC_IFE_0_CLK>,
++			 <&camcc CAM_CC_IFE_0_CLK_SRC>,
++			 <&camcc CAM_CC_IFE_0_CPHY_RX_CLK>,
++			 <&camcc CAM_CC_IFE_0_CSID_CLK>,
++			 <&camcc CAM_CC_IFE_0_CSID_CLK_SRC>,
++			 <&camcc CAM_CC_IFE_1_AXI_CLK>,
++			 <&camcc CAM_CC_IFE_1_CLK>,
++			 <&camcc CAM_CC_IFE_1_CLK_SRC>,
++			 <&camcc CAM_CC_IFE_1_CPHY_RX_CLK>,
++			 <&camcc CAM_CC_IFE_1_CSID_CLK>,
++			 <&camcc CAM_CC_IFE_1_CSID_CLK_SRC>,
++			 <&camcc CAM_CC_IFE_LITE_0_CLK>,
++			 <&camcc CAM_CC_IFE_LITE_0_CLK_SRC>,
++			 <&camcc CAM_CC_IFE_LITE_0_CPHY_RX_CLK>,
++			 <&camcc CAM_CC_IFE_LITE_0_CSID_CLK>,
++			 <&camcc CAM_CC_IFE_LITE_0_CSID_CLK_SRC>,
++			 <&camcc CAM_CC_IFE_LITE_1_CLK>,
++			 <&camcc CAM_CC_IFE_LITE_1_CLK_SRC>,
++			 <&camcc CAM_CC_IFE_LITE_1_CPHY_RX_CLK>,
++			 <&camcc CAM_CC_IFE_LITE_1_CSID_CLK>,
++			 <&camcc CAM_CC_IFE_LITE_1_CSID_CLK_SRC>,
++			 <&camcc CAM_CC_SLOW_AHB_CLK_SRC>,
++			 <&gcc GCC_CAMERA_AHB_CLK>,
++			 <&gcc GCC_CAMERA_HF_AXI_CLK>,
++			 <&gcc GCC_CAMERA_SF_AXI_CLK>;
++		clock-names = "camnoc_axi",
++			      "camnoc_axi_src",
++			      "cpas_ahb",
++			      "cphy_rx_src",
++			      "csiphy0",
++			      "csiphy0_timer",
++			      "csiphy0_timer_src",
++			      "csiphy1",
++			      "csiphy1_timer",
++			      "csiphy1_timer_src",
++			      "csiphy2",
++			      "csiphy2_timer",
++			      "csiphy2_timer_src",
++			      "csiphy3",
++			      "csiphy3_timer",
++			      "csiphy3_timer_src",
++			      "vfe0_axi",
++			      "vfe0",
++			      "vfe0_src",
++			      "vfe0_cphy_rx",
++			      "vfe0_csid",
++			      "vfe0_csid_src",
++			      "vfe1_axi",
++			      "vfe1",
++			      "vfe1_src",
++			      "vfe1_cphy_rx",
++			      "vfe1_csid",
++			      "vfe1_csid_src",
++			      "vfe_lite0",
++			      "vfe_lite0_src",
++			      "vfe_lite0_cphy_rx",
++			      "vfe_lite0_csid",
++			      "vfe_lite0_csid_src",
++			      "vfe_lite1",
++			      "vfe_lite1_src",
++			      "vfe_lite1_cphy_rx",
++			      "vfe_lite1_csid",
++			      "vfe_lite1_csid_src",
++			      "slow_ahb_src",
++			      "gcc_ahb",
++			      "gcc_axi_hf",
++			      "gcc_axi_sf";
++
++		iommus = <&apps_smmu 0x840 0x620>,
++			 <&apps_smmu 0x860 0x620>,
++			 <&apps_smmu 0xA40 0x620>,
++			 <&apps_smmu 0xA60 0x620>,
++			 <&apps_smmu 0xC40 0x620>,
++			 <&apps_smmu 0xC60 0x620>,
++			 <&apps_smmu 0xE40 0x620>,
++			 <&apps_smmu 0xE60 0x620>;
++
++		interconnects = <&gem_noc MASTER_AMPSS_M0 0 &config_noc SLAVE_CAMERA_CFG 0>,
++				<&mmss_noc MASTER_CAMNOC_HF0 0 &mc_virt SLAVE_EBI_CH0 0>,
++				<&mmss_noc MASTER_CAMNOC_HF1 0 &mc_virt SLAVE_EBI_CH0 0>,
++				<&mmss_noc MASTER_CAMNOC_SF 0 &mc_virt SLAVE_EBI_CH0 0>;
++		interconnect-names = "cam_ahb",
++				     "cam_hf_0_mnoc",
++				     "cam_hf_1_mnoc",
++				     "cam_sf_0_mnoc";
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++			};
++
++			port@1 {
++				reg = <1>;
++			};
++
++			port@2 {
++				reg = <2>;
++			};
++
++			port@3 {
++				reg = <3>;
++			};
++		};
++	};
++};
++
++&camcc {
++	power-domains = <&rpmhpd SM8150_MMCX>, <&rpmhpd SM8150_MX>;
++};
++
++&camss {
++	vdda-phy-supply = <&vreg_l5a_0p8>;
++	vdda-pll-supply = <&vreg_l3c_1p2>;
++	status = "okay";
++
++	ports {
++		port@0 {
++			camss_rear_ep: endpoint {
++				status = "okay";
++				clock-lanes = <7>;
++				data-lanes = <0 1 2 3>;
++				remote-endpoint = <&ov13b10_ep>;
++			};
++		};
++
++		port@1 {
++			camss_front_ep: endpoint {
++				clock-lanes = <7>;
++				data-lanes = <0 1>;
++				remote-endpoint = <&ov8856_ep>;
++			};
++		};
++	};
++};
++
++&cci0 {
++	status = "okay";
++};
++
++&cci0_i2c0 {
++	ov13b10: camera@10 {
++		compatible = "ovti,ov13b10";
++		reg = <0x10>;
++		status = "okay";
++
++		clocks = <&camcc CAM_CC_MCLK0_CLK>;
++		clock-names = "xvclk";
++		clock-frequency = <19200000>;
++
++		pinctrl-0 = <&camera_rear_mclk_default>;
++		pinctrl-names = "default";
++		reset-gpios = <&tlmm 28 GPIO_ACTIVE_LOW>;
++
++		dovdd-supply = <&vreg_l1c_1p8>;
++		avdd-supply = <&camera_rear_vana_3p0>;
++		dvdd-supply = <&camera_vdig_1p2>;
++		lens-focus = <&cn3927>;
++
++		orientation = <1>;
++		rotation = <270>;
++
++		port {
++			ov13b10_ep: endpoint {
++				data-lanes = <1 2 3 4>;
++				link-frequencies = /bits/ 64 <560000000>;
++				remote-endpoint = <&camss_rear_ep>;
++			};
++		};
++	};
++
++	cn3927: lens@c {
++		compatible = "chipnext,cn3927";
++		reg = <0x0c>;
++		vio-supply = <&vreg_l1c_1p8>;
++		vcc-supply = <&camera_rear_vaf_2p8>;
++	};
++};
++
++&cci0_i2c1 {
++	ov8856: camera@10 {
++		compatible = "ovti,ov8856";
++		reg = <0x10>;
++
++		clocks = <&camcc CAM_CC_MCLK1_CLK>;
++		clock-names = "xvclk";
++		clock-frequency = <19200000>;
++
++		pinctrl-0 = <&camera_front_mclk_default>;
++		pinctrl-names = "default";
++		reset-gpios = <&tlmm 30 GPIO_ACTIVE_LOW>;
++
++		dovdd-supply = <&vreg_l1c_1p8>;
++		avdd-supply = <&camera_front_vana_3p0>;
++		dvdd-supply = <&camera_vdig_1p2>;
++
++		orientation = <0>;
++		rotation = <270>;
++
++		port {
++			ov8856_ep: endpoint {
++				data-lanes = <1 2>;
++				link-frequencies = /bits/ 64 <720000000 360000000>;
++				remote-endpoint = <&camss_front_ep>;
++			};
++		};
++	};
++};
+diff --git a/drivers/media/i2c/Kconfig b/drivers/media/i2c/Kconfig
+index 5d173e0ecf42..7fa1df291d62 100644
+--- a/drivers/media/i2c/Kconfig
++++ b/drivers/media/i2c/Kconfig
+@@ -878,6 +878,16 @@ menuconfig VIDEO_CAMERA_LENS
+ 
+ if VIDEO_CAMERA_LENS
+ 
++config VIDEO_CN3927
++	tristate "Chipnext CN3927 lens voice coil support"
++	depends on I2C && VIDEO_DEV
++	select MEDIA_CONTROLLER
++	select VIDEO_V4L2_SUBDEV_API
++	select V4L2_ASYNC
++	help
++	  This is a driver for the Chipnext CN3927 camera lens voice coil.
++	  The device contains a 10-bit DAC and is controlled through I2C.
++
+ config VIDEO_AD5820
+ 	tristate "AD5820 lens voice coil support"
+ 	depends on GPIOLIB
+diff --git a/drivers/media/i2c/Makefile b/drivers/media/i2c/Makefile
+index e45359efe0e4..6dfea83ff231 100644
+--- a/drivers/media/i2c/Makefile
++++ b/drivers/media/i2c/Makefile
+@@ -25,6 +25,7 @@ obj-$(CONFIG_VIDEO_BT856) += bt856.o
+ obj-$(CONFIG_VIDEO_BT866) += bt866.o
+ obj-$(CONFIG_VIDEO_CCS) += ccs/
+ obj-$(CONFIG_VIDEO_CCS_PLL) += ccs-pll.o
++obj-$(CONFIG_VIDEO_CN3927) += cn3927.o
+ obj-$(CONFIG_VIDEO_CS3308) += cs3308.o
+ obj-$(CONFIG_VIDEO_CS5345) += cs5345.o
+ obj-$(CONFIG_VIDEO_CS53L32A) += cs53l32a.o
+diff --git a/drivers/media/i2c/cn3927.c b/drivers/media/i2c/cn3927.c
+new file mode 100644
+index 000000000000..760915f6ed4e
+--- /dev/null
++++ b/drivers/media/i2c/cn3927.c
+@@ -0,0 +1,342 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Chipnext CN3927 camera voice-coil motor driver
++ * Copyright (C) 2022 Rockchip Electronics Co., Ltd.
++ *
++ * The actuator uses an 8-bit register address.  The focus DAC is a 10-bit
++ * value written as a big-endian 16-bit value starting at register 0x03.
++ */
++
++#include <linux/delay.h>
++#include <linux/i2c.h>
++#include <linux/module.h>
++#include <linux/pm_runtime.h>
++#include <linux/regulator/consumer.h>
++
++#include <media/v4l2-ctrls.h>
++#include <media/v4l2-device.h>
++#include <media/v4l2-event.h>
++
++#define CN3927_NAME			"cn3927"
++#define CN3927_MAX_FOCUS_POS		1023
++#define CN3927_PARK_STEP		32
++#define CN3927_PARK_POSITION		32
++#define CN3927_MOVE_DELAY_US		1000
++#define CN3927_POWER_DELAY_US		10000
++#define CN3927_INIT_RETRIES		3
++#define CN3927_RETRY_DELAY_US		5000
++
++struct cn3927_device {
++	struct v4l2_ctrl_handler controls;
++	struct v4l2_subdev subdev;
++	struct regulator_bulk_data supplies[2];
++	u16 focus;
++};
++
++static inline struct cn3927_device *to_cn3927(struct v4l2_subdev *subdev)
++{
++	return container_of(subdev, struct cn3927_device, subdev);
++}
++
++static int cn3927_write(struct cn3927_device *cn3927, u8 reg, u16 value,
++			unsigned int value_size)
++{
++	struct i2c_client *client = v4l2_get_subdevdata(&cn3927->subdev);
++	u8 buf[3] = { reg, value >> 8, value };
++	unsigned int offset = sizeof(buf) - value_size - 1;
++	int ret;
++
++	buf[offset] = reg;
++	ret = i2c_master_send(client, &buf[offset], value_size + 1);
++	if (ret == value_size + 1)
++		return 0;
++
++	if (ret >= 0)
++		ret = -EIO;
++
++	return dev_err_probe(&client->dev, ret,
++			     "failed to write register 0x%02x value 0x%04x\n",
++			     reg, value);
++}
++
++static int cn3927_set_focus(struct cn3927_device *cn3927, u16 focus)
++{
++	return cn3927_write(cn3927, 0x03, focus, 2);
++}
++
++static int cn3927_init(struct cn3927_device *cn3927)
++{
++	static const struct {
++		u8 reg;
++		u8 value;
++		u16 delay_us;
++	} init_sequence[] = {
++		{ 0xed, 0xab, 0 },
++		{ 0x02, 0x01, 0 },
++		{ 0x02, 0x00, 100 },
++		{ 0x06, 0x84, 0 },
++		{ 0x07, 0x01, 0 },
++		{ 0x08, 0x59, 0 },
++	};
++	unsigned int attempt;
++	unsigned int i;
++	int ret;
++
++	for (attempt = 0; attempt < CN3927_INIT_RETRIES; attempt++) {
++		for (i = 0; i < ARRAY_SIZE(init_sequence); i++) {
++			ret = cn3927_write(cn3927, init_sequence[i].reg,
++					    init_sequence[i].value, 1);
++			if (ret)
++				break;
++
++			if (init_sequence[i].delay_us)
++				usleep_range(init_sequence[i].delay_us,
++					     init_sequence[i].delay_us + 100);
++		}
++
++		if (!ret)
++			return 0;
++
++		if (attempt + 1 < CN3927_INIT_RETRIES)
++			usleep_range(CN3927_RETRY_DELAY_US,
++				     CN3927_RETRY_DELAY_US + 1000);
++	}
++
++	return ret;
++}
++
++static int cn3927_set_ctrl(struct v4l2_ctrl *ctrl)
++{
++	struct cn3927_device *cn3927 =
++		container_of(ctrl->handler, struct cn3927_device, controls);
++	int ret;
++
++	if (ctrl->id != V4L2_CID_FOCUS_ABSOLUTE)
++		return -EINVAL;
++
++	ret = pm_runtime_get_if_in_use(cn3927->subdev.dev);
++	if (ret < 0)
++		return ret;
++	if (!ret) {
++		cn3927->focus = ctrl->val;
++		return 0;
++	}
++
++	ret = cn3927_set_focus(cn3927, ctrl->val);
++	pm_runtime_put(cn3927->subdev.dev);
++	if (!ret)
++		cn3927->focus = ctrl->val;
++
++	return ret;
++}
++
++static const struct v4l2_ctrl_ops cn3927_ctrl_ops = {
++	.s_ctrl = cn3927_set_ctrl,
++};
++
++static int cn3927_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
++{
++	return pm_runtime_resume_and_get(subdev->dev);
++}
++
++static int cn3927_close(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
++{
++	pm_runtime_put(subdev->dev);
++
++	return 0;
++}
++
++static const struct v4l2_subdev_internal_ops cn3927_internal_ops = {
++	.open = cn3927_open,
++	.close = cn3927_close,
++};
++
++static const struct v4l2_subdev_core_ops cn3927_core_ops = {
++	.log_status = v4l2_ctrl_subdev_log_status,
++	.subscribe_event = v4l2_ctrl_subdev_subscribe_event,
++	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
++};
++
++static const struct v4l2_subdev_ops cn3927_subdev_ops = {
++	.core = &cn3927_core_ops,
++};
++
++static int cn3927_runtime_suspend(struct device *dev)
++{
++	struct v4l2_subdev *subdev = dev_get_drvdata(dev);
++	struct cn3927_device *cn3927 = to_cn3927(subdev);
++	int focus;
++	int err;
++	int ret = 0;
++
++	focus = cn3927->focus & ~(CN3927_PARK_STEP - 1);
++	if (focus < CN3927_PARK_POSITION)
++		focus = CN3927_PARK_POSITION;
++
++	for (; focus >= CN3927_PARK_POSITION; focus -= CN3927_PARK_STEP) {
++		err = cn3927_set_focus(cn3927, focus);
++
++		if (err && !ret)
++			ret = err;
++		usleep_range(CN3927_MOVE_DELAY_US,
++			     CN3927_MOVE_DELAY_US + 100);
++	}
++
++	regulator_bulk_disable(ARRAY_SIZE(cn3927->supplies),
++			       cn3927->supplies);
++
++	return ret;
++}
++
++static int cn3927_runtime_resume(struct device *dev)
++{
++	struct v4l2_subdev *subdev = dev_get_drvdata(dev);
++	struct cn3927_device *cn3927 = to_cn3927(subdev);
++	int focus;
++	int ret;
++
++	ret = regulator_bulk_enable(ARRAY_SIZE(cn3927->supplies),
++				    cn3927->supplies);
++	if (ret)
++		return ret;
++
++	/* Allow the VCM supply and its UVLO reset circuit to settle. */
++	usleep_range(CN3927_POWER_DELAY_US,
++		     CN3927_POWER_DELAY_US + 1000);
++
++	ret = cn3927_init(cn3927);
++	if (ret)
++		goto disable_supplies;
++
++	for (focus = 0; focus < cn3927->focus; focus += CN3927_PARK_STEP) {
++		ret = cn3927_set_focus(cn3927, focus);
++		if (ret)
++			goto disable_supplies;
++		usleep_range(CN3927_MOVE_DELAY_US,
++			     CN3927_MOVE_DELAY_US + 100);
++	}
++
++	ret = cn3927_set_focus(cn3927, cn3927->focus);
++	if (!ret)
++		return 0;
++
++disable_supplies:
++	regulator_bulk_disable(ARRAY_SIZE(cn3927->supplies),
++			       cn3927->supplies);
++
++	return ret;
++}
++
++static void cn3927_cleanup(struct cn3927_device *cn3927)
++{
++	v4l2_async_unregister_subdev(&cn3927->subdev);
++	v4l2_ctrl_handler_free(&cn3927->controls);
++	media_entity_cleanup(&cn3927->subdev.entity);
++}
++
++static int cn3927_probe(struct i2c_client *client)
++{
++	struct cn3927_device *cn3927;
++	int ret;
++
++	cn3927 = devm_kzalloc(&client->dev, sizeof(*cn3927), GFP_KERNEL);
++	if (!cn3927)
++		return -ENOMEM;
++
++	cn3927->supplies[0].supply = "vio";
++	cn3927->supplies[1].supply = "vcc";
++	ret = devm_regulator_bulk_get(&client->dev,
++				      ARRAY_SIZE(cn3927->supplies),
++				      cn3927->supplies);
++	if (ret)
++		return dev_err_probe(&client->dev, ret,
++				     "failed to get VCM supplies\n");
++
++	v4l2_i2c_subdev_init(&cn3927->subdev, client, &cn3927_subdev_ops);
++	cn3927->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
++				  V4L2_SUBDEV_FL_HAS_EVENTS;
++	cn3927->subdev.internal_ops = &cn3927_internal_ops;
++	cn3927->subdev.entity.function = MEDIA_ENT_F_LENS;
++	strscpy(cn3927->subdev.name, "cn3927 focus",
++		sizeof(cn3927->subdev.name));
++
++	v4l2_ctrl_handler_init(&cn3927->controls, 1);
++	v4l2_ctrl_new_std(&cn3927->controls, &cn3927_ctrl_ops,
++			  V4L2_CID_FOCUS_ABSOLUTE, 0,
++			  CN3927_MAX_FOCUS_POS, 1, 0);
++	if (cn3927->controls.error) {
++		ret = cn3927->controls.error;
++		goto err_free_controls;
++	}
++	cn3927->subdev.ctrl_handler = &cn3927->controls;
++
++	ret = media_entity_pads_init(&cn3927->subdev.entity, 0, NULL);
++	if (ret)
++		goto err_free_controls;
++
++	/*
++	 * The VCM is physically powered off at this point.  Initialise runtime
++	 * PM before publishing the subdevice: publishing it first allows udev or
++	 * libcamera to open the node while runtime PM still considers the device
++	 * active and skips the resume callback entirely.
++	 */
++	pm_runtime_set_suspended(&client->dev);
++	pm_runtime_enable(&client->dev);
++
++	ret = v4l2_async_register_subdev(&cn3927->subdev);
++	if (ret)
++		goto err_disable_pm;
++
++	return 0;
++
++err_disable_pm:
++	pm_runtime_disable(&client->dev);
++	media_entity_cleanup(&cn3927->subdev.entity);
++err_free_controls:
++	v4l2_ctrl_handler_free(&cn3927->controls);
++	return ret;
++}
++
++static void cn3927_remove(struct i2c_client *client)
++{
++	struct v4l2_subdev *subdev = i2c_get_clientdata(client);
++	struct cn3927_device *cn3927 = to_cn3927(subdev);
++
++	pm_runtime_disable(&client->dev);
++	if (!pm_runtime_status_suspended(&client->dev))
++		cn3927_runtime_suspend(&client->dev);
++	pm_runtime_set_suspended(&client->dev);
++	cn3927_cleanup(cn3927);
++}
++
++static const struct of_device_id cn3927_of_match[] = {
++	{ .compatible = "chipnext,cn3927" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, cn3927_of_match);
++
++static const struct i2c_device_id cn3927_id_table[] = {
++	{ CN3927_NAME },
++	{ }
++};
++MODULE_DEVICE_TABLE(i2c, cn3927_id_table);
++
++static const struct dev_pm_ops cn3927_pm_ops = {
++	SET_RUNTIME_PM_OPS(cn3927_runtime_suspend, cn3927_runtime_resume, NULL)
++};
++
++static struct i2c_driver cn3927_i2c_driver = {
++	.driver = {
++		.name = CN3927_NAME,
++		.of_match_table = cn3927_of_match,
++		.pm = &cn3927_pm_ops,
++	},
++	.probe = cn3927_probe,
++	.remove = cn3927_remove,
++	.id_table = cn3927_id_table,
++};
++module_i2c_driver(cn3927_i2c_driver);
++
++MODULE_AUTHOR("Nabu Linux contributors");
++MODULE_DESCRIPTION("Chipnext CN3927 camera lens driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/media/i2c/ov8856.c b/drivers/media/i2c/ov8856.c
+index 8bedb47cd7cf..fa05436cfbb5 100644
+--- a/drivers/media/i2c/ov8856.c
++++ b/drivers/media/i2c/ov8856.c
+@@ -1967,6 +1967,15 @@ static int ov8856_init_controls(struct ov8856 *ov8856)
+ 	if (ret)
+ 		goto err_ctrl_handler_free;
+ 
++	ret = v4l2_fwnode_device_parse(&client->dev, &props);
++	if (ret)
++		return ret;
++
++	ret = v4l2_ctrl_new_fwnode_properties(ctrl_hdlr, &ov8856_ctrl_ops,
++					      &props);
++	if (ret)
++		return ret;
++
+ 	ov8856->sd.ctrl_handler = ctrl_hdlr;
+ 
+ 	return 0;
+@@ -1976,11 +1985,10 @@ static int ov8856_init_controls(struct ov8856 *ov8856)
+ 	return ret;
+ }
+ 
+-static void ov8856_update_pad_format(struct ov8856 *ov8856,
+-				     const struct ov8856_mode *mode,
+-				     struct v4l2_mbus_framefmt *fmt)
++static unsigned int ov8856_update_pad_format(const struct ov8856_mode *mode,
++					      struct v4l2_mbus_framefmt *fmt)
+ {
+-	int index;
++	unsigned int index;
+ 
+ 	fmt->width = mode->width;
+ 	fmt->height = mode->height;
+@@ -1990,13 +1998,20 @@ static void ov8856_update_pad_format(struct ov8856 *ov8856,
+ 	if (index == ARRAY_SIZE(ov8856_mbus_codes))
+ 		index = mode->default_mbus_index;
+ 	fmt->code = ov8856_mbus_codes[index];
+-	ov8856->cur_mbus_index = index;
+ 	fmt->field = V4L2_FIELD_NONE;
++
++	return index;
+ }
+ 
+ static int ov8856_start_streaming(struct ov8856 *ov8856)
+ {
+ 	const struct ov8856_reg_list *reg_list;
++	static const u16 debug_regs[] = {
++		OV8856_REG_MODE_SELECT, 0x0302, 0x0303, 0x3018,
++		0x4800, 0x4837, OV8856_REG_TEST_PATTERN,
++	};
++	u32 val;
++	unsigned int i;
+ 	int link_freq_index, ret;
+ 
+ 	ret = ov8856_identify_module(ov8856);
+@@ -2037,6 +2052,19 @@ static int ov8856_start_streaming(struct ov8856 *ov8856)
+ 		return ret;
+ 	}
+ 
++	usleep_range(1000, 2000);
++	for (i = 0; i < ARRAY_SIZE(debug_regs); i++) {
++		ret = ov8856_read_reg(ov8856, debug_regs[i],
++				      OV8856_REG_VALUE_08BIT, &val);
++		if (ret)
++			dev_err(ov8856->dev,
++				"failed to read back register 0x%04x: %d\n",
++				debug_regs[i], ret);
++		else
++			dev_info(ov8856->dev, "stream readback 0x%04x=0x%02x\n",
++				 debug_regs[i], val);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -2137,6 +2165,7 @@ static int ov8856_set_format(struct v4l2_subdev *sd,
+ {
+ 	struct ov8856 *ov8856 = to_ov8856(sd);
+ 	const struct ov8856_mode *mode;
++	unsigned int mbus_index;
+ 	s32 vblank_def, h_blank;
+ 
+ 	mode = v4l2_find_nearest_size(ov8856->priv_lane->supported_modes,
+@@ -2145,11 +2174,12 @@ static int ov8856_set_format(struct v4l2_subdev *sd,
+ 				      fmt->format.height);
+ 
+ 	mutex_lock(&ov8856->mutex);
+-	ov8856_update_pad_format(ov8856, mode, &fmt->format);
++	mbus_index = ov8856_update_pad_format(mode, &fmt->format);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ 		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
+ 	} else {
+ 		ov8856->cur_mode = mode;
++		ov8856->cur_mbus_index = mbus_index;
+ 		__v4l2_ctrl_s_ctrl(ov8856->link_freq, mode->link_freq_index);
+ 		__v4l2_ctrl_s_ctrl_int64(ov8856->pixel_rate,
+ 					 to_rate(ov8856->priv_lane->link_freq_menu_items,
+@@ -2187,8 +2217,10 @@ static int ov8856_get_format(struct v4l2_subdev *sd,
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
+ 		fmt->format = *v4l2_subdev_state_get_format(sd_state,
+ 							    fmt->pad);
+-	else
+-		ov8856_update_pad_format(ov8856, ov8856->cur_mode, &fmt->format);
++	else {
++		fmt->format.code = ov8856_mbus_codes[ov8856->cur_mbus_index];
++		ov8856_update_pad_format(ov8856->cur_mode, &fmt->format);
++	}
+ 
+ 	mutex_unlock(&ov8856->mutex);
+ 
+@@ -2236,7 +2268,7 @@ static int ov8856_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ 	struct ov8856 *ov8856 = to_ov8856(sd);
+ 
+ 	mutex_lock(&ov8856->mutex);
+-	ov8856_update_pad_format(ov8856, &ov8856->priv_lane->supported_modes[0],
++	ov8856_update_pad_format(&ov8856->priv_lane->supported_modes[0],
+ 				 v4l2_subdev_state_get_format(fh->state, 0));
+ 	mutex_unlock(&ov8856->mutex);
+ 
+diff --git a/drivers/media/platform/qcom/camss/camss-csid.c b/drivers/media/platform/qcom/camss/camss-csid.c
+index 48459b46a981..175417836ee5 100644
+--- a/drivers/media/platform/qcom/camss/camss-csid.c
++++ b/drivers/media/platform/qcom/camss/camss-csid.c
+@@ -777,10 +777,13 @@ static int csid_set_stream(struct v4l2_subdev *sd, int enable)
+ 			return -ENOLINK;
+ 	}
+ 
+-	if (csid->phy.need_vc_update) {
+-		csid->res->hw_ops->configure_stream(csid, enable);
+-		csid->phy.need_vc_update = false;
+-	}
++	/*
++	 * configure_stream() also starts and stops the hardware.  Restricting it
++	 * to link changes leaves the CSID running state stale after the first
++	 * stream cycle because need_vc_update is cleared on stream-on.
++	 */
++	csid->res->hw_ops->configure_stream(csid, enable);
++	csid->phy.need_vc_update = false;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
+index dac8d2ecf799..1336fce4f007 100644
+--- a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
++++ b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
+@@ -1137,6 +1137,7 @@ static bool csiphy_is_gen2(u32 version)
+ 	case CAMSS_8280XP:
+ 	case CAMSS_8300:
+ 	case CAMSS_845:
++	case CAMSS_8150:
+ 	case CAMSS_8550:
+ 	case CAMSS_8650:
+ 	case CAMSS_8775P:
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe-17x.c b/drivers/media/platform/qcom/camss/camss-vfe-17x.c
+index e5ee7e717b3b..0aad36d05770 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe-17x.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe-17x.c
+@@ -10,6 +10,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/io.h>
+ #include <linux/iopoll.h>
++#include <linux/clk.h>
+ 
+ #include "camss.h"
+ #include "camss-vfe.h"
+@@ -98,6 +99,7 @@
+ #define VFE_BUS_IRQ_MASK(n)		(0x2044 + (n) * 4)
+ #define VFE_BUS_IRQ_CLEAR(n)		(0x2050 + (n) * 4)
+ #define VFE_BUS_IRQ_STATUS(n)		(0x205c + (n) * 4)
++#define VFE_BUS_IRQ_NUM			3
+ #define		STATUS0_COMP_RESET_DONE		BIT(0)
+ #define		STATUS0_COMP_REG_UPDATE0_DONE	BIT(1)
+ #define		STATUS0_COMP_REG_UPDATE1_DONE	BIT(2)
+@@ -130,9 +132,18 @@
+ 
+ #define VFE_BUS_IRQ_CLEAR_GLOBAL		(0x2068)
+ 
++#define VFE_BUS_COMP_ERROR_STATUS		(0x206c)
++#define VFE_BUS_COMP_OVERWRITE_STATUS		(0x2070)
++#define VFE_BUS_DUAL_COMP_ERROR_STATUS		(0x2074)
++#define VFE_BUS_DUAL_COMP_OVERWRITE_STATUS	(0x2078)
++#define VFE_BUS_ADDR_SYNC_CFG			(0x207c)
++#define VFE_BUS_ADDR_FIFO_STATUS			(0x20a8)
++#define VFE_BUS_SW_RESET			(0x2008)
++
+ #define VFE_BUS_WM_DEBUG_STATUS_CFG		(0x226c)
+ #define		DEBUG_STATUS_CFG_STATUS0(n)	BIT(n)
+ #define		DEBUG_STATUS_CFG_STATUS1(n)	BIT(8 + (n))
++#define VFE_BUS_WM_DEBUG_STATUS0			(0x2270)
+ 
+ #define VFE_BUS_WM_ADDR_SYNC_FRAME_HEADER	(0x2080)
+ 
+@@ -207,6 +218,12 @@ static void vfe_global_reset(struct vfe_device *vfe)
+ static void vfe_wm_start(struct vfe_device *vfe, u8 wm, struct vfe_line *line)
+ {
+ 	u32 val;
++	int i;
++
++	for (i = 0; i < vfe->nclocks; i++)
++		dev_info(vfe->camss->dev, "VFE%d clock %s: %lu Hz\n",
++			 vfe->id, vfe->clock[i].name,
++			 clk_get_rate(vfe->clock[i].clk));
+ 
+ 	/*Set Debug Registers*/
+ 	val = DEBUG_STATUS_CFG_STATUS0(1) |
+@@ -241,6 +258,12 @@ static void vfe_wm_start(struct vfe_device *vfe, u8 wm, struct vfe_line *line)
+ 	val = WM_STRIDE_DEFAULT_STRIDE;
+ 	writel_relaxed(val, vfe->base + VFE_BUS_WM_STRIDE(wm));
+ 
++	/* No dropped frames and one buffer-done interrupt per frame. */
++	writel_relaxed(0, vfe->base + VFE_BUS_WM_FRAMEDROP_PERIOD(wm));
++	writel_relaxed(1, vfe->base + VFE_BUS_WM_FRAMEDROP_PATTERN(wm));
++	writel_relaxed(0, vfe->base + VFE_BUS_WM_IRQ_SUBSAMPLE_PERIOD(wm));
++	writel_relaxed(1, vfe->base + VFE_BUS_WM_IRQ_SUBSAMPLE_PATTERN(wm));
++
+ 	/* Enable WM */
+ 	val = 1 << WM_CFG_EN |
+ 	      MODE_MIPI_RAW << WM_CFG_MODE;
+@@ -259,9 +282,35 @@ static void vfe_wm_update(struct vfe_device *vfe, u8 wm, u32 addr,
+ 	struct v4l2_pix_format_mplane *pix =
+ 		&line->video_out.active_fmt.fmt.pix_mp;
+ 	u32 stride = pix->plane_fmt[0].bytesperline;
++	u32 val;
+ 
+-	writel_relaxed(addr, vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
++	if (upper_32_bits(addr))
++		dev_err_ratelimited(vfe->camss->dev,
++				    "WM%u DMA address exceeds 32 bits: %pad\n",
++				    wm, &addr);
++	else
++		dev_info_ratelimited(vfe->camss->dev,
++				     "WM%u DMA address: %pad\n", wm, &addr);
++
++	/*
++	 * VFE170 latches an RDI buffer update as a group.  Match the
++	 * downstream update sequence: refresh the frame-based width, queue
++	 * the image address and frame increment, then re-assert the WM mode.
++	 */
++	writel_relaxed(WM_BUFFER_DEFAULT_WIDTH,
++		       vfe->base + VFE_BUS_WM_BUFFER_WIDTH_CFG(wm));
++	wmb();
++	writel_relaxed(lower_32_bits(addr),
++		       vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
++	wmb();
++	dev_info_ratelimited(vfe->camss->dev,
++			     "WM%u address FIFO after queue: %08x\n", wm,
++			     readl_relaxed(vfe->base + VFE_BUS_ADDR_FIFO_STATUS));
+ 	writel_relaxed(stride * pix->height, vfe->base + VFE_BUS_WM_FRAME_INC(wm));
++
++	val = 1 << WM_CFG_EN |
++	      MODE_MIPI_RAW << WM_CFG_MODE;
++	writel_relaxed(val, vfe->base + VFE_BUS_WM_CFG(wm));
+ }
+ 
+ static void vfe_reg_update(struct vfe_device *vfe, enum vfe_line_id line_id)
+@@ -328,7 +377,7 @@ static void vfe_violation_read(struct vfe_device *vfe)
+ static irqreturn_t vfe_isr(int irq, void *dev)
+ {
+ 	struct vfe_device *vfe = dev;
+-	u32 status0, status1, vfe_bus_status[VFE_LINE_NUM_MAX];
++	u32 status0, status1, vfe_bus_status[VFE_BUS_IRQ_NUM];
+ 	int i, wm;
+ 
+ 	status0 = readl_relaxed(vfe->base + VFE_IRQ_STATUS_0);
+@@ -337,11 +386,45 @@ static irqreturn_t vfe_isr(int irq, void *dev)
+ 	writel_relaxed(status0, vfe->base + VFE_IRQ_CLEAR_0);
+ 	writel_relaxed(status1, vfe->base + VFE_IRQ_CLEAR_1);
+ 
+-	for (i = VFE_LINE_RDI0; i < vfe->res->line_num; i++) {
++	for (i = 0; i < VFE_BUS_IRQ_NUM; i++) {
+ 		vfe_bus_status[i] = readl_relaxed(vfe->base + VFE_BUS_IRQ_STATUS(i));
+ 		writel_relaxed(vfe_bus_status[i], vfe->base + VFE_BUS_IRQ_CLEAR(i));
+ 	}
+ 
++	if (vfe->stream_count)
++		dev_info_ratelimited(vfe->camss->dev,
++				     "VFE%d IRQ: top=%08x/%08x bus=%08x/%08x/%08x WM0=%08x/%08x cfg=%08x addr=%08x width=%08x height=%08x stride=%08x inc=%08x\n",
++				     vfe->id, status0, status1,
++				     vfe_bus_status[0], vfe_bus_status[1],
++				     vfe_bus_status[2],
++				     readl_relaxed(vfe->base + VFE_BUS_WM_STATUS0(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_STATUS1(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_CFG(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_IMAGE_ADDR(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_BUFFER_WIDTH_CFG(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_BUFFER_HEIGHT_CFG(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_STRIDE(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_FRAME_INC(0)));
++
++	if (vfe->stream_count)
++		dev_info_ratelimited(vfe->camss->dev,
++				     "VFE%d BUS state: err=%08x overwrite=%08x dual=%08x/%08x sync=%08x no-sync=%08x fifo=%08x reset=%08x debug=%08x cgc=%08x drop=%08x/%08x irq-sub=%08x/%08x\n",
++				     vfe->id,
++				     readl_relaxed(vfe->base + VFE_BUS_COMP_ERROR_STATUS),
++				     readl_relaxed(vfe->base + VFE_BUS_COMP_OVERWRITE_STATUS),
++				     readl_relaxed(vfe->base + VFE_BUS_DUAL_COMP_ERROR_STATUS),
++				     readl_relaxed(vfe->base + VFE_BUS_DUAL_COMP_OVERWRITE_STATUS),
++				     readl_relaxed(vfe->base + VFE_BUS_ADDR_SYNC_CFG),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_ADDR_SYNC_NO_SYNC),
++				     readl_relaxed(vfe->base + VFE_BUS_ADDR_FIFO_STATUS),
++				     readl_relaxed(vfe->base + VFE_BUS_SW_RESET),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_DEBUG_STATUS0),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_CGC_OVERRIDE),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_FRAMEDROP_PERIOD(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_FRAMEDROP_PATTERN(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_IRQ_SUBSAMPLE_PERIOD(0)),
++				     readl_relaxed(vfe->base + VFE_BUS_WM_IRQ_SUBSAMPLE_PATTERN(0)));
++
+ 	/* Enforce ordering between IRQ reading and interpretation */
+ 	wmb();
+ 
+@@ -359,14 +442,19 @@ static irqreturn_t vfe_isr(int irq, void *dev)
+ 		if (status0 & STATUS_1_RDI_SOF(i))
+ 			vfe->isr_ops.sof(vfe, i);
+ 
++	if (status1 & GENMASK(5, 2))
++		dev_err_ratelimited(vfe->camss->dev,
++				    "VFE%d RDI overflow: status1=%08x violation=%08x\n",
++				    vfe->id, status1,
++				    readl_relaxed(vfe->base + VFE_VIOLATION_STATUS));
++
+ 	for (i = 0; i < MSM_VFE_COMPOSITE_IRQ_NUM; i++)
+ 		if (vfe_bus_status[0] & STATUS0_COMP_BUF_DONE(i))
+ 			vfe->isr_ops.comp_done(vfe, i);
+ 
+ 	for (wm = 0; wm < MSM_VFE_IMAGE_MASTERS_NUM; wm++)
+-		if (status0 & BIT(9))
+-			if (vfe_bus_status[1] & STATUS1_WM_CLIENT_BUF_DONE(wm))
+-				vfe->isr_ops.wm_done(vfe, wm);
++		if (vfe_bus_status[1] & STATUS1_WM_CLIENT_BUF_DONE(wm))
++			vfe->isr_ops.wm_done(vfe, wm);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -400,11 +488,14 @@ static int vfe_get_output(struct vfe_line *line)
+ 
+ 	output->wm_num = 1;
+ 
+-	wm_idx = vfe_reserve_wm(vfe, line->id);
+-	if (wm_idx < 0) {
++	/* VFE170 paths are wired one-to-one to bus clients 0..3. */
++	wm_idx = line->id;
++	if (wm_idx >= MSM_VFE_IMAGE_MASTERS_NUM ||
++	    vfe->wm_output_map[wm_idx] != VFE_LINE_NONE) {
+ 		dev_err(vfe->camss->dev, "Can not reserve wm\n");
+ 		goto error_get_wm;
+ 	}
++	vfe->wm_output_map[wm_idx] = line->id;
+ 	output->wm_idx[0] = wm_idx;
+ 
+ 	output->drop_update_idx = 0;
+@@ -414,7 +505,6 @@ static int vfe_get_output(struct vfe_line *line)
+ 	return 0;
+ 
+ error_get_wm:
+-	vfe_release_wm(vfe, output->wm_idx[0]);
+ 	output->state = VFE_OUTPUT_OFF;
+ error:
+ 	spin_unlock_irqrestore(&vfe->output_lock, flags);
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe.c b/drivers/media/platform/qcom/camss/camss-vfe.c
+index 319d19158988..53f67bbfab7d 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe.c
+@@ -350,6 +350,7 @@ static u32 vfe_src_pad_code(struct vfe_line *line, u32 sink_code,
+ 	case CAMSS_8280XP:
+ 	case CAMSS_8300:
+ 	case CAMSS_845:
++	case CAMSS_8150:
+ 	case CAMSS_8550:
+ 	case CAMSS_8650:
+ 	case CAMSS_8775P:
+@@ -2010,6 +2011,7 @@ static int vfe_bpl_align_rdi(struct vfe_device *vfe)
+ 	case CAMSS_8280XP:
+ 	case CAMSS_8300:
+ 	case CAMSS_845:
++	case CAMSS_8150:
+ 	case CAMSS_8550:
+ 	case CAMSS_8650:
+ 	case CAMSS_8775P:
+diff --git a/drivers/media/platform/qcom/camss/camss-video.c b/drivers/media/platform/qcom/camss/camss-video.c
+index 0852eb6f1315..6c53734cbebd 100644
+--- a/drivers/media/platform/qcom/camss/camss-video.c
++++ b/drivers/media/platform/qcom/camss/camss-video.c
+@@ -234,19 +234,46 @@ static int video_check_format(struct camss_video *video)
+ 	return 0;
+ }
+ 
+-static int video_prepare_streaming(struct vb2_queue *q)
++/*
++ * Stop every subdevice that precedes @stop in the video pipeline. This is
++ * also used to unwind a partially started pipeline, in which case @stop is
++ * the subdevice whose stream-on callback failed.
++ */
++static int video_stop_subdevices(struct camss_video *video,
++				 const struct media_entity *stop)
+ {
+-	struct camss_video *video = vb2_get_drv_priv(q);
+ 	struct video_device *vdev = &video->vdev;
++	struct media_entity *entity = &vdev->entity;
++	struct media_pad *pad;
++	struct v4l2_subdev *subdev;
++	int first_error = 0;
+ 	int ret;
+ 
+-	ret = v4l2_pipeline_pm_get(&vdev->entity);
+-	if (ret < 0) {
+-		dev_err(video->camss->dev, "Failed to power up pipeline: %d\n",
+-			ret);
++	while (1) {
++		pad = &entity->pads[0];
++		if (!(pad->flags & MEDIA_PAD_FL_SINK))
++			break;
++
++		pad = media_pad_remote_pad_first(pad);
++		if (!pad || !is_media_entity_v4l2_subdev(pad->entity))
++			break;
++
++		entity = pad->entity;
++		if (entity == stop)
++			break;
++
++		subdev = media_entity_to_v4l2_subdev(entity);
++		ret = v4l2_subdev_call(subdev, video, s_stream, 0);
++		if (ret && ret != -ENOIOCTLCMD) {
++			dev_err(video->camss->dev,
++				"Failed to stop %s stream: %d\n",
++				subdev->name, ret);
++			if (!first_error)
++				first_error = ret;
++		}
+ 	}
+ 
+-	return ret;
++	return first_error;
+ }
+ 
+ static int video_start_streaming(struct vb2_queue *q, unsigned int count)
+@@ -282,8 +309,13 @@ static int video_start_streaming(struct vb2_queue *q, unsigned int count)
+ 		subdev = media_entity_to_v4l2_subdev(entity);
+ 
+ 		ret = v4l2_subdev_call(subdev, video, s_stream, 1);
+-		if (ret < 0 && ret != -ENOIOCTLCMD)
++		if (ret < 0 && ret != -ENOIOCTLCMD) {
++			dev_err(video->camss->dev,
++				"Failed to start %s stream: %d\n",
++				subdev->name, ret);
++			video_stop_subdevices(video, entity);
+ 			goto error;
++		}
+ 	}
+ 
+ 	return 0;
+@@ -301,54 +333,22 @@ static void video_stop_streaming(struct vb2_queue *q)
+ {
+ 	struct camss_video *video = vb2_get_drv_priv(q);
+ 	struct video_device *vdev = &video->vdev;
+-	struct media_entity *entity;
+-	struct media_pad *pad;
+-	struct v4l2_subdev *subdev;
+-	int ret;
+-
+-	entity = &vdev->entity;
+-	while (1) {
+-		pad = &entity->pads[0];
+-		if (!(pad->flags & MEDIA_PAD_FL_SINK))
+-			break;
+-
+-		pad = media_pad_remote_pad_first(pad);
+-		if (!pad || !is_media_entity_v4l2_subdev(pad->entity))
+-			break;
+ 
+-		entity = pad->entity;
+-		subdev = media_entity_to_v4l2_subdev(entity);
+-
+-		ret = v4l2_subdev_call(subdev, video, s_stream, 0);
+-
+-		if (ret) {
+-			dev_err(video->camss->dev, "Video pipeline stop failed: %d\n", ret);
+-			return;
+-		}
+-	}
++	/* Keep unwinding even if one subdevice reports a stop error. */
++	video_stop_subdevices(video, NULL);
+ 
+ 	video_device_pipeline_stop(vdev);
+ 
+ 	video->ops->flush_buffers(video, VB2_BUF_STATE_ERROR);
+ }
+ 
+-static void video_unprepare_streaming(struct vb2_queue *q)
+-{
+-	struct camss_video *video = vb2_get_drv_priv(q);
+-	struct video_device *vdev = &video->vdev;
+-
+-	v4l2_pipeline_pm_put(&vdev->entity);
+-}
+-
+ static const struct vb2_ops msm_video_vb2_q_ops = {
+ 	.queue_setup     = video_queue_setup,
+ 	.buf_init        = video_buf_init,
+ 	.buf_prepare     = video_buf_prepare,
+ 	.buf_queue       = video_buf_queue,
+-	.prepare_streaming = video_prepare_streaming,
+ 	.start_streaming = video_start_streaming,
+ 	.stop_streaming  = video_stop_streaming,
+-	.unprepare_streaming = video_unprepare_streaming,
+ };
+ 
+ /* -----------------------------------------------------------------------------
+@@ -617,11 +617,58 @@ static const struct v4l2_ioctl_ops msm_vid_ioctl_ops = {
+  * V4L2 file operations
+  */
+ 
++static int video_open(struct file *file)
++{
++	struct video_device *vdev = video_devdata(file);
++	struct camss_video *video = video_drvdata(file);
++	struct v4l2_fh *vfh;
++	int ret;
++
++	mutex_lock(&video->lock);
++
++	vfh = kzalloc(sizeof(*vfh), GFP_KERNEL);
++	if (!vfh) {
++		ret = -ENOMEM;
++		goto error_alloc;
++	}
++
++	v4l2_fh_init(vfh, vdev);
++	v4l2_fh_add(vfh, file);
++	file->private_data = vfh;
++
++	ret = v4l2_pipeline_pm_get(&vdev->entity);
++	if (ret < 0) {
++		dev_err(video->camss->dev, "Failed to power up pipeline: %d\n",
++			ret);
++		goto error_pm_use;
++	}
++
++	mutex_unlock(&video->lock);
++	return 0;
++
++error_pm_use:
++	v4l2_fh_release(file);
++error_alloc:
++	mutex_unlock(&video->lock);
++	return ret;
++}
++
++static int video_release(struct file *file)
++{
++	struct video_device *vdev = video_devdata(file);
++
++	vb2_fop_release(file);
++	v4l2_pipeline_pm_put(&vdev->entity);
++	file->private_data = NULL;
++
++	return 0;
++}
++
+ static const struct v4l2_file_operations msm_vid_fops = {
+ 	.owner          = THIS_MODULE,
+ 	.unlocked_ioctl = video_ioctl2,
+-	.open           = v4l2_fh_open,
+-	.release        = vb2_fop_release,
++	.open           = video_open,
++	.release        = video_release,
+ 	.poll           = vb2_fop_poll,
+ 	.mmap		= vb2_fop_mmap,
+ 	.read		= vb2_fop_read,
+diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
+index 2123f6388e3d..a83aa915daf7 100644
+--- a/drivers/media/platform/qcom/camss/camss.c
++++ b/drivers/media/platform/qcom/camss/camss.c
+@@ -1519,6 +1519,252 @@ static const struct camss_subdev_resources vfe_res_845[] = {
+ 	}
+ };
+ 
++static const struct camss_subdev_resources csiphy_res_sm8150[] = {
++	/* CSIPHY0 */
++	{
++		.regulators = {},
++		.clock = { "csiphy0", "csiphy0_timer" },
++		.clock_rate = { { 400000000 },
++				{ 300000000 } },
++		.reg = { "csiphy0" },
++		.interrupt = { "csiphy0" },
++		.csiphy = {
++			.id = 0,
++			.hw_ops = &csiphy_ops_3ph_1_0,
++			.formats = &csiphy_formats_sdm845
++		}
++	},
++	/* CSIPHY1 */
++	{
++		.regulators = {},
++		.clock = { "csiphy1", "csiphy1_timer" },
++		.clock_rate = { { 400000000 },
++				{ 300000000 } },
++		.reg = { "csiphy1" },
++		.interrupt = { "csiphy1" },
++		.csiphy = {
++			.id = 1,
++			.hw_ops = &csiphy_ops_3ph_1_0,
++			.formats = &csiphy_formats_sdm845
++		}
++	},
++	/* CSIPHY2 */
++	{
++		.regulators = {},
++		.clock = { "csiphy2", "csiphy2_timer" },
++		.clock_rate = { { 400000000 },
++				{ 300000000 } },
++		.reg = { "csiphy2" },
++		.interrupt = { "csiphy2" },
++		.csiphy = {
++			.id = 2,
++			.hw_ops = &csiphy_ops_3ph_1_0,
++			.formats = &csiphy_formats_sdm845
++		}
++	},
++	/* CSIPHY3 */
++	{
++		.regulators = {},
++		.clock = { "csiphy3", "csiphy3_timer" },
++		.clock_rate = { { 400000000 },
++				{ 300000000 } },
++		.reg = { "csiphy3" },
++		.interrupt = { "csiphy3" },
++		.csiphy = {
++			.id = 3,
++			.hw_ops = &csiphy_ops_3ph_1_0,
++			.formats = &csiphy_formats_sdm845
++		}
++	},
++};
++
++static const struct camss_subdev_resources csid_res_sm8150[] = {
++	/* CSID0 */
++	{
++		.regulators = {
++			{ .supply = "vdda-phy", .init_load_uA = 0 },
++			{ .supply = "vdda-pll", .init_load_uA = 0 }
++		},
++		.clock = { "vfe0_csid", "vfe0_cphy_rx", "vfe0", "vfe0_axi" },
++		.clock_rate = { { 400000000, 480000000, 600000000 },
++				{ 0 },
++				{ 0 },
++				{ 0 } },
++		.reg = { "csid0" },
++		.interrupt = { "csid0" },
++		.csid = {
++			.hw_ops = &csid_ops_gen2,
++			.parent_dev_ops = &vfe_parent_dev_ops,
++			.formats = &csid_formats_gen2
++		}
++	},
++	/* CSID1 */
++	{
++		.regulators = {
++			{ .supply = "vdda-phy", .init_load_uA = 0 },
++			{ .supply = "vdda-pll", .init_load_uA = 0 }
++		},
++		.clock = { "vfe1_csid", "vfe1_cphy_rx", "vfe1", "vfe1_axi" },
++		.clock_rate = { { 400000000, 480000000, 600000000 },
++				{ 0 },
++				{ 0 },
++				{ 0 } },
++		.reg = { "csid1" },
++		.interrupt = { "csid1" },
++		.csid = {
++			.hw_ops = &csid_ops_gen2,
++			.parent_dev_ops = &vfe_parent_dev_ops,
++			.formats = &csid_formats_gen2
++		}
++	},
++	/* CSID_LITE0 */
++	{
++		.regulators = {
++			{ .supply = "vdda-phy", .init_load_uA = 0 },
++			{ .supply = "vdda-pll", .init_load_uA = 0 }
++		},
++		.clock = { "vfe_lite0_csid", "vfe_lite0_cphy_rx", "vfe_lite0" },
++		.clock_rate = { { 400000000, 480000000, 600000000 },
++				{ 0 },
++				{ 0 }, },
++		.reg = { "csid_lite0" },
++		.interrupt = { "csid_lite0" },
++		.csid = {
++			.is_lite = true,
++			.hw_ops = &csid_ops_gen2,
++			.parent_dev_ops = &vfe_parent_dev_ops,
++			.formats = &csid_formats_gen2
++		}
++	},
++	/* CSID_LITE1 */
++	{
++		.regulators = {
++			{ .supply = "vdda-phy", .init_load_uA = 0 },
++			{ .supply = "vdda-pll", .init_load_uA = 0 }
++		},
++		.clock = { "vfe_lite1_csid", "vfe_lite1_cphy_rx", "vfe_lite1" },
++		.clock_rate = { { 400000000, 480000000, 600000000 },
++				{ 0 },
++				{ 0 }, },
++		.reg = { "csid_lite1" },
++		.interrupt = { "csid_lite1" },
++		.csid = {
++			.is_lite = true,
++			.hw_ops = &csid_ops_gen2,
++			.parent_dev_ops = &vfe_parent_dev_ops,
++			.formats = &csid_formats_gen2
++		}
++	}
++};
++
++static const struct camss_subdev_resources vfe_res_sm8150[] = {
++	/* VFE0 */
++	{
++		.regulators = {},
++		.clock = { "gcc_axi_hf", "gcc_axi_sf", "cpas_ahb", "camnoc_axi", "vfe0", "vfe0_axi" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 19200000, 80000000},
++				{ 19200000, 150000000, 266666667, 320000000, 400000000, 480000000 },
++				{ 400000000, 558000000, 637000000, 847000000, 950000000 },
++				{ 0 }, },
++		.reg = { "vfe0" },
++		.interrupt = { "vfe0" },
++		.vfe = {
++			.line_num = 4,
++			.is_lite = false,
++			.has_pd = true,
++			.pd_name = "ife0",
++			.hw_ops = &vfe_ops_170,
++			.formats_rdi = &vfe_formats_rdi_845,
++			.formats_pix = &vfe_formats_pix_845
++		}
++	},
++	/* VFE1 */
++	{
++		.regulators = {},
++		.clock = { "gcc_axi_hf", "gcc_axi_sf", "cpas_ahb", "camnoc_axi", "vfe1", "vfe1_axi" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 19200000, 80000000},
++				{ 19200000, 150000000, 266666667, 320000000, 400000000, 480000000 },
++				{ 400000000, 558000000, 637000000, 847000000, 950000000 },
++				{ 0 }, },
++		.reg = { "vfe1" },
++		.interrupt = { "vfe1" },
++		.vfe = {
++			.line_num = 4,
++			.is_lite = false,
++			.has_pd = true,
++			.pd_name = "ife1",
++			.hw_ops = &vfe_ops_170,
++			.formats_rdi = &vfe_formats_rdi_845,
++			.formats_pix = &vfe_formats_pix_845
++		}
++	},
++	/* VFE_LITE_0 */
++	{
++		.regulators = {},
++		.clock = { "gcc_axi_hf", "gcc_axi_sf", "cpas_ahb", "camnoc_axi", "vfe_lite0" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 19200000, 80000000},
++				{ 19200000, 150000000, 266666667, 320000000, 400000000, 480000000 },
++				{ 320000000, 400000000, 480000000, 600000000 }, },
++		.reg = { "vfe_lite0" },
++		.interrupt = { "vfe_lite0" },
++		.vfe = {
++			.is_lite = true,
++			.line_num = 4,
++			.hw_ops = &vfe_ops_170,
++			.formats_rdi = &vfe_formats_rdi_845,
++			.formats_pix = &vfe_formats_pix_845
++		}
++	},
++	/* VFE_LITE_1 */
++	{
++		.regulators = {},
++		.clock = { "gcc_axi_hf", "gcc_axi_sf", "cpas_ahb", "camnoc_axi", "vfe_lite1" },
++		.clock_rate = { { 0 },
++				{ 0 },
++				{ 19200000, 80000000},
++				{ 19200000, 150000000, 266666667, 320000000, 400000000, 480000000 },
++				{ 320000000, 400000000, 480000000, 600000000 }, },
++		.reg = { "vfe_lite1" },
++		.interrupt = { "vfe_lite1" },
++		.vfe = {
++			.is_lite = true,
++			.line_num = 4,
++			.hw_ops = &vfe_ops_170,
++			.formats_rdi = &vfe_formats_rdi_845,
++			.formats_pix = &vfe_formats_pix_845
++		}
++	}
++};
++
++static const struct resources_icc icc_res_sm8150[] = {
++	{
++		.name = "cam_ahb",
++		.icc_bw_tbl.avg = 38400,
++		.icc_bw_tbl.peak = 76800,
++	},
++	{
++		.name = "cam_hf_0_mnoc",
++		.icc_bw_tbl.avg = 2097152,
++		.icc_bw_tbl.peak = 2097152,
++	},
++	{
++		.name = "cam_hf_1_mnoc",
++		.icc_bw_tbl.avg = 2097152,
++		.icc_bw_tbl.peak = 2097152,
++	},
++	{
++		.name = "cam_sf_0_mnoc",
++		.icc_bw_tbl.avg = 2097152,
++		.icc_bw_tbl.peak = 2097152,
++	},
++};
++
+ static const struct camss_subdev_resources csiphy_res_sm6150[] = {
+ 	/* CSIPHY0 */
+ 	{
+@@ -5655,6 +5901,20 @@ static const struct camss_resources sm6350_resources = {
+ 	.vfe_num = ARRAY_SIZE(vfe_res_sm6350),
+ };
+ 
++static const struct camss_resources sm8150_resources = {
++	.version = CAMSS_8150,
++	.pd_name = "top",
++	.csiphy_res = csiphy_res_sm8150,
++	.csid_res = csid_res_sm8150,
++	.ispif_res = NULL,
++	.vfe_res = vfe_res_sm8150,
++	.icc_res = icc_res_sm8150,
++	.csiphy_num = ARRAY_SIZE(csiphy_res_sm8150),
++	.csid_num = ARRAY_SIZE(csid_res_sm8150),
++	.vfe_num = ARRAY_SIZE(vfe_res_sm8150),
++	.icc_path_num = ARRAY_SIZE(icc_res_sm8150),
++};
++
+ static const struct camss_resources sm8250_resources = {
+ 	.version = CAMSS_8250,
+ 	.pd_name = "top",
+@@ -5754,6 +6014,7 @@ static const struct of_device_id camss_dt_match[] = {
+ 	{ .compatible = "qcom,sdm845-camss", .data = &sdm845_resources },
+ 	{ .compatible = "qcom,sm6150-camss", .data = &sm6150_resources },
+ 	{ .compatible = "qcom,sm6350-camss", .data = &sm6350_resources },
++	{ .compatible = "qcom,sm8150-camss", .data = &sm8150_resources },
+ 	{ .compatible = "qcom,sm8250-camss", .data = &sm8250_resources },
+ 	{ .compatible = "qcom,sm8550-camss", .data = &sm8550_resources },
+ 	{ .compatible = "qcom,sm8650-camss", .data = &sm8650_resources },
+diff --git a/drivers/media/platform/qcom/camss/camss.h b/drivers/media/platform/qcom/camss/camss.h
+index 93d691c8ac63..a1993d5c2dda 100644
+--- a/drivers/media/platform/qcom/camss/camss.h
++++ b/drivers/media/platform/qcom/camss/camss.h
+@@ -89,6 +89,7 @@ enum camss_version {
+ 	CAMSS_8x39,
+ 	CAMSS_8x53,
+ 	CAMSS_8x96,
++	CAMSS_8150,
+ 	CAMSS_8250,
+ 	CAMSS_8280XP,
+ 	CAMSS_8300,
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index af66292977c6..4dc8f3187cd3 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -87,6 +87,18 @@ CONFIG_PSTORE_RAM=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_RTC_DRV_PM8XXX=m
+ 
++# Nabu front/rear cameras, CAMSS/CCI and CN3927 autofocus.
++CONFIG_MEDIA_CAMERA_SUPPORT=y
++CONFIG_I2C_QCOM_CCI=m
++CONFIG_SM_CAMCC_8150=m
++CONFIG_VIDEO_QCOM_CAMSS=m
++CONFIG_VIDEO_OV13B10=m
++CONFIG_VIDEO_OV8856=m
++CONFIG_VIDEO_CN3927=m
++CONFIG_CMA_SIZE_MBYTES=256
++
++# SM8150 Iris1/Venus hardware video decoder.
++
+ # Fedora-compatible module packaging.
+ CONFIG_MODULES=y
+ CONFIG_MODULE_COMPRESS_ZSTD=y
+-- 
+2.55.0
+

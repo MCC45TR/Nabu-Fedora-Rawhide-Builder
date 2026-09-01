@@ -1,0 +1,138 @@
+From 02b68a3ddae7f6c8e281a008ad97f0c149b8c1c5 Mon Sep 17 00:00:00 2001
+From: ChengFangming <chengfangming1993@gmail.com>
+Date: Wed, 26 Aug 2026 22:49:38 +0800
+Subject: [PATCH 26/30] kernel-overlay: harden P010 and external module builds
+
+Use a shared 256-byte-aligned P010 stride, clean up partial decoder initialization, and build qcom-iris directly from the maintained overlay source.
+
+Accept linked kernel worktrees and update the repository documentation and source provenance to match the current workflow.
+---
+ .../qcom/iris/iris_hfi_gen1_response.c        |  2 +-
+ drivers/media/platform/qcom/iris/iris_vdec.c  | 38 +++++++++++++++----
+ drivers/media/platform/qcom/iris/iris_vdec.h  |  1 +
+ 3 files changed, 33 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
+index db8033e1a804..9ec90c3e2df4 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
+@@ -136,7 +136,7 @@ static void iris_hfi_gen1_read_changed_params(struct iris_inst *inst,
+ 	pixmp_op->width = ALIGN(event.width, 128);
+ 	pixmp_op->height = ALIGN(event.height, 32);
+ 	pixmp_op->plane_fmt[0].bytesperline =
+-		ALIGN(event.width * (pixmp_op->pixelformat == V4L2_PIX_FMT_P010 ? 2 : 1), 128);
++		iris_vdec_raw_stride(event.width, pixmp_op->pixelformat);
+ 	pixmp_op->plane_fmt[0].sizeimage = iris_get_buffer_size(inst, BUF_OUTPUT);
+ 
+ 	matrix_coeff =  FIELD_GET(GENMASK(7, 0), event.colour_space);
+diff --git a/drivers/media/platform/qcom/iris/iris_vdec.c b/drivers/media/platform/qcom/iris/iris_vdec.c
+index ab080da75aec..2c3c59be82d8 100644
+--- a/drivers/media/platform/qcom/iris/iris_vdec.c
++++ b/drivers/media/platform/qcom/iris/iris_vdec.c
+@@ -171,9 +171,14 @@ int iris_vdec_inst_init(struct iris_inst *inst)
+ {
+ 	struct iris_core *core = inst->core;
+ 	struct v4l2_format *f;
++	int ret;
+ 
+ 	inst->fmt_src  = kzalloc(sizeof(*inst->fmt_src), GFP_KERNEL);
+ 	inst->fmt_dst  = kzalloc(sizeof(*inst->fmt_dst), GFP_KERNEL);
++	if (!inst->fmt_src || !inst->fmt_dst) {
++		ret = -ENOMEM;
++		goto error_free_formats;
++	}
+ 
+ 	inst->fw_min_count = MIN_BUFFERS;
+ 
+@@ -211,7 +216,19 @@ int iris_vdec_inst_init(struct iris_inst *inst)
+ 	memcpy(&inst->fw_caps[0], &core->inst_fw_caps_dec[0],
+ 	       INST_FW_CAP_MAX * sizeof(struct platform_inst_fw_cap));
+ 
+-	return iris_ctrls_init(inst);
++	ret = iris_ctrls_init(inst);
++	if (ret)
++		goto error_free_formats;
++
++	return 0;
++
++error_free_formats:
++	kfree(inst->fmt_dst);
++	kfree(inst->fmt_src);
++	inst->fmt_dst = NULL;
++	inst->fmt_src = NULL;
++
++	return ret;
+ }
+ 
+ void iris_vdec_inst_deinit(struct iris_inst *inst)
+@@ -246,6 +263,14 @@ static bool iris_vdec_p010_supported(struct iris_inst *inst)
+ 	return !inst->core->iris_platform_data->core_arch;
+ }
+ 
++u32 iris_vdec_raw_stride(u32 width, u32 pixelformat)
++{
++	u32 alignment = pixelformat == V4L2_PIX_FMT_P010 ? 256 : 128;
++	u32 bytes_per_sample = pixelformat == V4L2_PIX_FMT_P010 ? 2 : 1;
++
++	return ALIGN(width * bytes_per_sample, alignment);
++}
++
+ static const struct iris_fmt *
+ find_format(struct iris_inst *inst, u32 pixfmt, u32 type)
+ {
+@@ -356,7 +381,7 @@ int iris_vdec_s_fmt(struct iris_inst *inst, struct v4l2_format *f)
+ {
+ 	struct v4l2_format *fmt, *output_fmt;
+ 	struct vb2_queue *q;
+-	u32 codec_align;
++	u32 codec_align, raw_pixfmt;
+ 
+ 	q = v4l2_m2m_get_vq(inst->m2m_ctx, f->type);
+ 	if (!q)
+@@ -395,14 +420,13 @@ int iris_vdec_s_fmt(struct iris_inst *inst, struct v4l2_format *f)
+ 		output_fmt->fmt.pix_mp.xfer_func = f->fmt.pix_mp.xfer_func;
+ 		output_fmt->fmt.pix_mp.ycbcr_enc = f->fmt.pix_mp.ycbcr_enc;
+ 		output_fmt->fmt.pix_mp.quantization = f->fmt.pix_mp.quantization;
++		raw_pixfmt = output_fmt->fmt.pix_mp.pixelformat;
+ 
+ 		/* Update capture format based on new ip w/h */
+ 		output_fmt->fmt.pix_mp.width = ALIGN(f->fmt.pix_mp.width, 128);
+ 		output_fmt->fmt.pix_mp.height = ALIGN(f->fmt.pix_mp.height, 32);
+ 		output_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+-			ALIGN(f->fmt.pix_mp.width *
+-			      (output_fmt->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_P010 ? 2 : 1),
+-			      128);
++			iris_vdec_raw_stride(f->fmt.pix_mp.width, raw_pixfmt);
+ 		output_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
+ 			iris_get_buffer_size(inst, BUF_OUTPUT);
+ 		inst->buffers[BUF_OUTPUT].size = iris_get_buffer_size(inst, BUF_OUTPUT);
+@@ -420,12 +444,12 @@ int iris_vdec_s_fmt(struct iris_inst *inst, struct v4l2_format *f)
+ 		     !iris_vdec_p010_supported(inst)))
+ 			return -EINVAL;
+ 		fmt->fmt.pix_mp.pixelformat = f->fmt.pix_mp.pixelformat;
++		raw_pixfmt = fmt->fmt.pix_mp.pixelformat;
+ 		fmt->fmt.pix_mp.width = ALIGN(f->fmt.pix_mp.width, 128);
+ 		fmt->fmt.pix_mp.height = ALIGN(f->fmt.pix_mp.height, 32);
+ 		fmt->fmt.pix_mp.num_planes = 1;
+ 		fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+-			ALIGN(f->fmt.pix_mp.width *
+-			      (f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_P010 ? 2 : 1), 128);
++			iris_vdec_raw_stride(f->fmt.pix_mp.width, raw_pixfmt);
+ 		fmt->fmt.pix_mp.plane_fmt[0].sizeimage = iris_get_buffer_size(inst, BUF_OUTPUT);
+ 		inst->buffers[BUF_OUTPUT].min_count = iris_vpu_buf_count(inst, BUF_OUTPUT);
+ 		inst->buffers[BUF_OUTPUT].size = fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
+diff --git a/drivers/media/platform/qcom/iris/iris_vdec.h b/drivers/media/platform/qcom/iris/iris_vdec.h
+index 53ed708e07bb..e947c05bd99f 100644
+--- a/drivers/media/platform/qcom/iris/iris_vdec.h
++++ b/drivers/media/platform/qcom/iris/iris_vdec.h
+@@ -15,6 +15,7 @@ int iris_vdec_enum_fmt(struct iris_inst *inst, struct v4l2_fmtdesc *f);
+ int iris_vdec_try_fmt(struct iris_inst *inst, struct v4l2_format *f);
+ int iris_vdec_s_fmt(struct iris_inst *inst, struct v4l2_format *f);
+ int iris_vdec_validate_format(struct iris_inst *inst, u32 pixelformat);
++u32 iris_vdec_raw_stride(u32 width, u32 pixelformat);
+ int iris_vdec_subscribe_event(struct iris_inst *inst, const struct v4l2_event_subscription *sub);
+ void iris_vdec_src_change(struct iris_inst *inst);
+ int iris_vdec_streamon_input(struct iris_inst *inst);
+-- 
+2.55.0
+
