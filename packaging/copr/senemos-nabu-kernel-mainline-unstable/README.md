@@ -30,3 +30,15 @@ The 7.2.2-test extension carries the reviewed RTC/diagnostic, bounded SPI and
 NT36523 recovery, FastRPC ownership, wireless, keyboard, CS35L41 and charging
 work. USB-C is forced back to a built-in dual-role stack with explicit PM8150B
 VBUS ownership. Direct LN8000 2:1 charging remains disabled in the normal DTB.
+
+## COPR build profile
+
+COPR starts from the upstream ARM64 `defconfig` and merges the reviewed Nabu
+fragment. It does not compile Fedora's general-purpose ARM64 module inventory.
+The profile keeps the Nabu boot, UFS, display, touch, wireless, audio, camera and
+Iris paths, while disabling legacy Venus because this device uses Iris. Runtime
+debug information and BTF are omitted from this unstable test package, and the
+resolved configuration is rejected if it enables 2,000 or more modules.
+
+This profile is a build-time and package-size optimization. It does not replace
+camera, media-graph, captured-frame or VA-API validation on physical hardware.

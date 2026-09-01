@@ -30,4 +30,38 @@ grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
-printf 'PASS: 64 checksum-locked Nabu patches apply to Linux %s\n' "$version"
+
+config_dir="$work/config"
+make -C "$work/linux-$version" O="$config_dir" ARCH=arm64 HOSTCC=gcc defconfig
+KCONFIG_CONFIG="$config_dir/.config" \
+    "$work/linux-$version/scripts/kconfig/merge_config.sh" -m -r \
+    "$config_dir/.config" \
+    "$work/linux-$version/senemos/configs/nabu-minimal.config"
+"$work/linux-$version/scripts/config" --file "$config_dir/.config" \
+    --disable VIDEO_QCOM_VENUS \
+    --disable DEBUG_INFO --enable DEBUG_INFO_NONE \
+    --disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES \
+    --disable GDB_SCRIPTS
+make -C "$work/linux-$version" O="$config_dir" ARCH=arm64 HOSTCC=gcc olddefconfig
+
+for setting in \
+    'CONFIG_VIDEO_QCOM_IRIS=m' \
+    'CONFIG_VIDEO_QCOM_CAMSS=m' \
+    'CONFIG_I2C_QCOM_CCI=m' \
+    'CONFIG_VIDEO_CN3927=m' \
+    'CONFIG_VIDEO_OV13B10=m' \
+    'CONFIG_VIDEO_OV8856=m' \
+    'CONFIG_DRM_MSM=y' \
+    'CONFIG_SCSI_UFS_QCOM=y' \
+    'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \
+    'CONFIG_ATH10K_SNOC=m' \
+    'CONFIG_USB_DWC3_DUAL_ROLE=y'; do
+    grep -Fxq "$setting" "$config_dir/.config"
+done
+grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
+! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
+module_count=$(grep -c '=m$' "$config_dir/.config")
+test "$module_count" -lt 2000
+
+printf 'PASS: 64 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+    "$version" "$module_count"

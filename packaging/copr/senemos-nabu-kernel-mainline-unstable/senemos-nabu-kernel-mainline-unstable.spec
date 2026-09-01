@@ -84,7 +84,6 @@ Patch0064:      0064-senemos-add-staged-7.2.2-HIL-validation-plan.patch
 BuildRequires:  bc
 BuildRequires:  bison
 BuildRequires:  clang
-BuildRequires:  dwarves
 BuildRequires:  elfutils-libelf-devel
 BuildRequires:  findutils
 BuildRequires:  flex
@@ -127,12 +126,16 @@ export KBUILD_BUILD_HOST=copr
 export KBUILD_BUILD_TIMESTAMP='@0'
 export KBUILD_BUILD_VERSION=1
 export LOCALVERSION=
-cp senemos/configs/fedora-rawhide-aarch64.config .config
+make ARCH=arm64 LLVM=1 defconfig
 KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-minimal.config
-# Linux 7.2's host resolve_btfids sources do not build against Rawhide's newer
-# AArch64 UAPI headers. BTF is not required by the Nabu runtime payload.
-scripts/config --disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES
+# This package targets one SM8150 device. Avoid the Fedora general-purpose
+# module set and the legacy Venus driver; Nabu uses Iris for video acceleration.
+# Debug information and BTF are not part of the runtime-only unstable payload.
+scripts/config --disable VIDEO_QCOM_VENUS \
+    --disable DEBUG_INFO --enable DEBUG_INFO_NONE \
+    --disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES \
+    --disable GDB_SCRIPTS
 make ARCH=arm64 LLVM=1 olddefconfig
 test "$(make -s ARCH=arm64 LLVM=1 kernelrelease)" = '%{uname_r}'
 make ARCH=arm64 LLVM=1 %{?_smp_mflags} Image \
@@ -154,7 +157,7 @@ install -Dm0644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb \
 while IFS= read -r -d '' module; do
     llvm-strip --strip-debug "$module"
     scripts/sign-file sha512 certs/signing_key.pem certs/signing_key.x509 "$module"
-    zstd -q -T0 -19 --rm "$module"
+    zstd -q -T1 -10 --rm "$module"
 done < <(find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
     -type f -name '*.ko' -print0)
 /usr/sbin/depmod -b %{buildroot} -m %{_prefix}/lib/modules %{uname_r}
@@ -190,6 +193,7 @@ grep -Fxq 'xhci_plat_hcd' \
 grep -Fxq 'cdc_acm' \
     %{buildroot}%{_prefix}/lib/modules-load.d/91-nabu-mainline-unstable-late-xhci.conf
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_CN3927=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' %{buildroot}/boot/config-%{uname_r}
@@ -201,6 +205,7 @@ grep -Fq 'vbus-supply = <&pm8150b_vbus>;' \
 ! grep -Fq 'lionsemi,allow-direct-charging' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 grep -Fxq '# CONFIG_DEBUG_INFO_BTF is not set' %{buildroot}/boot/config-%{uname_r}
+test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 2000
 for module in qcom-iris qcom-camss i2c-qcom-cci cn3927 ov13b10 ov8856; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
@@ -232,6 +237,9 @@ fi
 
 %changelog
 * Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Replace Fedora's general-purpose ARM64 module set with an Nabu-focused profile.
+- Disable legacy Venus in favor of Iris and omit runtime-unneeded debug information.
+- Use a faster module compression level for COPR test publications.
 - Carry the reviewed 6.17 RTC, SPI, input, FastRPC, wireless, audio and charging fixes.
 - Restore dual-role USB-C and PM8150B VBUS ownership for OTG HIL.
 - Keep direct LN8000 2:1 charging disabled until instrumented qualification.
