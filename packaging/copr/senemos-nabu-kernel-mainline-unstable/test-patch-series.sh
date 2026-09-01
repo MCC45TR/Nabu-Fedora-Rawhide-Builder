@@ -43,6 +43,16 @@ KCONFIG_CONFIG="$config_dir/.config" \
     --disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES \
     --disable GDB_SCRIPTS
 make -C "$work/linux-$version" O="$config_dir" ARCH=arm64 HOSTCC=gcc olddefconfig
+make -s -C "$work/linux-$version" O="$config_dir" \
+    ARCH=arm64 HOSTCC=gcc syncconfig
+rm -f "$config_dir/include/config/kernel.release"
+kernel_release=$(LOCALVERSION= make -s -C "$work/linux-$version" O="$config_dir" \
+    ARCH=arm64 HOSTCC=gcc kernelrelease)
+if [[ $kernel_release != "$version-nabu-senemos-mainline-unstable" ]]; then
+    grep '^CONFIG_LOCALVERSION' "$config_dir/.config" >&2 || true
+    printf 'ERROR: unexpected kernel release: %s\n' "$kernel_release" >&2
+    exit 1
+fi
 
 for setting in \
     'CONFIG_VIDEO_QCOM_IRIS=m' \

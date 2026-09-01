@@ -137,6 +137,10 @@ scripts/config --disable VIDEO_QCOM_VENUS \
     --disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES \
     --disable GDB_SCRIPTS
 make ARCH=arm64 LLVM=1 olddefconfig
+# Refresh auto.conf after merging the Nabu identity fragment. Otherwise the
+# immediately following release gate can retain defconfig's SCM suffix.
+make -s ARCH=arm64 LLVM=1 syncconfig
+rm -f include/config/kernel.release
 test "$(make -s ARCH=arm64 LLVM=1 kernelrelease)" = '%{uname_r}'
 make ARCH=arm64 LLVM=1 %{?_smp_mflags} Image \
     qcom/sm8150-xiaomi-nabu-iris-camera.dtb modules
