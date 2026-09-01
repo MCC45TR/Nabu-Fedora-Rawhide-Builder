@@ -96,6 +96,9 @@ export LOCALVERSION=
 cp senemos/configs/fedora-rawhide-aarch64.config .config
 KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-minimal.config
+# Linux 7.2's host resolve_btfids sources do not build against Rawhide's newer
+# AArch64 UAPI headers. BTF is not required by the Nabu runtime payload.
+scripts/config --disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES
 make ARCH=arm64 LLVM=1 olddefconfig
 test "$(make -s ARCH=arm64 LLVM=1 kernelrelease)" = '%{uname_r}'
 make ARCH=arm64 LLVM=1 %{?_smp_mflags} Image \
@@ -155,6 +158,7 @@ grep -Fxq 'cdc_acm' \
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_CN3927=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq '# CONFIG_DEBUG_INFO_BTF is not set' %{buildroot}/boot/config-%{uname_r}
 for module in qcom-iris qcom-camss i2c-qcom-cci cn3927 ov13b10 ov8856; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
@@ -188,6 +192,7 @@ fi
 * Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Port the ChengFangming/CFM880 Nabu camera and Iris/Venus work to Linux 7.2.2.
 - Ship the combined Iris-camera DTB as this unstable kernel family's canonical Nabu DTB.
+- Disable optional BTF generation to keep Linux 7.2 build tools compatible with Rawhide headers.
 - Pin kernel module installation to Fedora's /usr/lib/modules hierarchy.
 - Build official Linux 7.2.y in COPR and apply the checksum-locked Nabu series.
 - Isolate RPM, ABI, maintenance queue and SENEMOS7U boot-family ownership.
