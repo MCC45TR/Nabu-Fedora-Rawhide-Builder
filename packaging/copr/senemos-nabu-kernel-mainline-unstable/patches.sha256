@@ -29,3 +29,4 @@ a2c44954c93e19005cb64c331b317d3b94533e5005cde74a4cb8afef5fddec67  0027-kernel-ov
 a6684ed23a00fc0f9008c357395d34538abec87bd6e689ef445cf3dce0b01166  0029-kernel-overlay-make-Nabu-Iris-device-tree-append-onl.patch
 700d3e1c7d78711f01ea23e6ecfc14f836e6458395aeee18ca62489a6e265484  0030-media-qcom-adapt-current-Nabu-Iris-overlay-to-Linux-.patch
 4999f0e2608f013e03223baeaefa418c0af3dcace217d690e98cb343a178a823  0031-media-qcom-update-Venus-close-helper-for-Linux-7.2.patch
+497f61f7948923e9a82ca70b2672132fc01d0c7800424d51920bba90f26da4b3  0032-media-qcom-update-Venus-MDT-loading-for-Linux-7.2.patch
