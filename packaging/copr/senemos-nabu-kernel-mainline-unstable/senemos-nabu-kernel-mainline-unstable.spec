@@ -46,6 +46,7 @@ Patch0027:      0027-kernel-overlay-preserve-usable-legacy-VP9-output.patch
 Patch0028:      0028-kernel-overlay-filter-hidden-VP9-superframes.patch
 Patch0029:      0029-kernel-overlay-make-Nabu-Iris-device-tree-append-onl.patch
 Patch0030:      0030-media-qcom-adapt-current-Nabu-Iris-overlay-to-Linux-.patch
+Patch0031:      0031-media-qcom-update-Venus-close-helper-for-Linux-7.2.patch
 
 BuildRequires:  bc
 BuildRequires:  bison

@@ -18,7 +18,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 31
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 32
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -26,4 +26,4 @@ grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 test -s "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts"
-printf 'PASS: 30 checksum-locked Nabu patches apply to Linux %s\n' "$version"
+printf 'PASS: 31 checksum-locked Nabu patches apply to Linux %s\n' "$version"
