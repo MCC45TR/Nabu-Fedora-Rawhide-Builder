@@ -1,0 +1,334 @@
+From de2e1cf2e938837aacc130fe6a9ee3b281f0995f Mon Sep 17 00:00:00 2001
+From: MCC45TR <mursitcancihan@gmail.com>
+Date: Wed, 26 Aug 2026 13:39:10 +0300
+Subject: [PATCH 47/64] input: add explicit-mode Nabu keyboard cover support
+
+---
+ .../testing/sysfs-driver-xiaomi-nabu-keyboard |  16 +++
+ drivers/input/misc/Kconfig                    |   8 +-
+ drivers/input/misc/xiaomi-nabu-keyboard.c     | 115 ++++++++++++++----
+ drivers/input/misc/xiaomi-nabu-tablet-mode.c  |  23 ++--
+ include/linux/input/xiaomi-nabu-keyboard.h    |   5 +-
+ 5 files changed, 132 insertions(+), 35 deletions(-)
+ create mode 100644 Documentation/ABI/testing/sysfs-driver-xiaomi-nabu-keyboard
+
+diff --git a/Documentation/ABI/testing/sysfs-driver-xiaomi-nabu-keyboard b/Documentation/ABI/testing/sysfs-driver-xiaomi-nabu-keyboard
+new file mode 100644
+index 000000000000..29b1e8c43814
+--- /dev/null
++++ b/Documentation/ABI/testing/sysfs-driver-xiaomi-nabu-keyboard
+@@ -0,0 +1,16 @@
++What:		/sys/bus/platform/drivers/xiaomi-nabu-keyboard/*/connected
++Date:		August 2026
++Contact:	MCC45TR <mcc45tr@users.noreply.github.com>
++Description:
++		Read-only physical keyboard-cover presence. The value is 1 when
++		the active-low pogo-cover detect GPIO is asserted and 0 otherwise.
++
++What:		/sys/bus/platform/drivers/xiaomi-nabu-keyboard/*/computer_mode
++Date:		August 2026
++Contact:	MCC45TR <mcc45tr@users.noreply.github.com>
++Description:
++		Read-write boolean policy controlling SW_TABLET_MODE. It defaults
++		to 0, so attaching the keyboard alone keeps the device in tablet
++		mode. Writing 1 is accepted only while the cover is connected and
++		reports computer mode by clearing SW_TABLET_MODE. Cover removal
++		resets the value to 0.
+diff --git a/drivers/input/misc/Kconfig b/drivers/input/misc/Kconfig
+index 8bbf6ce00a94..590db6249c02 100644
+--- a/drivers/input/misc/Kconfig
++++ b/drivers/input/misc/Kconfig
+@@ -997,8 +997,9 @@ config INPUT_XIAOMI_NABU_TABLET_MODE
+ 	bool "Xiaomi Pad 5 keyboard-aware tablet-mode switch"
+ 	depends on ARCH_QCOM
+ 	help
+-	  Report standard SW_TABLET_MODE state and allow the Xiaomi Pad 5
+-	  keyboard-cover driver to switch it off while the cover is attached.
++	  Report the Xiaomi Pad 5 through the standard SW_TABLET_MODE interface.
++	  The device remains in tablet mode unless computer mode is explicitly
++	  enabled while a keyboard cover is physically attached.
+ 
+ config INPUT_XIAOMI_NABU_KEYBOARD
+ 	tristate "Xiaomi Pad 5 keyboard-cover controller"
+@@ -1007,7 +1008,8 @@ config INPUT_XIAOMI_NABU_KEYBOARD
+ 	help
+ 	  Control power/reset for the internal pogo-keyboard USB controller,
+ 	  debounce its physical detect line, publish connection uevents, and
+-	  update the standard tablet-mode input switch.
++	  expose an explicit computer-mode policy while preserving tablet mode
++	  by default.
+ 
+ 	  Say Y when building a kernel for Xiaomi Pad 5 (nabu).
+ 
+diff --git a/drivers/input/misc/xiaomi-nabu-keyboard.c b/drivers/input/misc/xiaomi-nabu-keyboard.c
+index c10ec69d5827..70e07728d364 100644
+--- a/drivers/input/misc/xiaomi-nabu-keyboard.c
++++ b/drivers/input/misc/xiaomi-nabu-keyboard.c
+@@ -1,10 +1,11 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+-/* Xiaomi Pad 5 pogo keyboard-cover power and presence controller. */
++/* Xiaomi Pad 5 pogo keyboard-cover power, presence and mode controller. */
+ 
+ #include <linux/delay.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/interrupt.h>
+ #include <linux/module.h>
++#include <linux/mutex.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_wakeup.h>
+@@ -20,29 +21,43 @@ struct nabu_keyboard {
+ 	struct gpio_desc *reset;
+ 	struct gpio_desc *detect;
+ 	struct delayed_work detect_work;
++	struct mutex lock;
+ 	int irq;
+ 	bool connected;
++	bool computer_mode;
+ 	bool wake_enabled;
+ };
+ 
+ static void nabu_keyboard_publish_state(struct nabu_keyboard *keyboard,
+ 					bool connected, bool force)
+ {
+-	char state[40];
+-	char *envp[2];
+-
+-	if (!force && keyboard->connected == connected)
++	char connected_state[40];
++	char mode_state[40];
++	char *envp[] = { connected_state, mode_state, NULL };
++	bool computer_mode;
++
++	mutex_lock(&keyboard->lock);
++	if (!force && keyboard->connected == connected) {
++		mutex_unlock(&keyboard->lock);
+ 		return;
++	}
+ 
+ 	keyboard->connected = connected;
+-	xiaomi_nabu_keyboard_set_attached(connected);
+-	snprintf(state, sizeof(state), "XIAOMI_KEYBOARD_CONNECTED=%u",
+-		 connected);
+-	envp[0] = state;
+-	envp[1] = NULL;
++	if (!connected)
++		keyboard->computer_mode = false;
++	computer_mode = keyboard->computer_mode;
++	xiaomi_nabu_keyboard_update_mode(keyboard->connected,
++					  computer_mode);
++	snprintf(connected_state, sizeof(connected_state),
++		 "XIAOMI_KEYBOARD_CONNECTED=%u", keyboard->connected);
++	snprintf(mode_state, sizeof(mode_state),
++		 "XIAOMI_KEYBOARD_COMPUTER_MODE=%u", computer_mode);
++	mutex_unlock(&keyboard->lock);
++
+ 	kobject_uevent_env(&keyboard->dev->kobj, KOBJ_CHANGE, envp);
+-	dev_info(keyboard->dev, "keyboard cover %s\n",
+-		 connected ? "attached" : "detached");
++	dev_info(keyboard->dev, "keyboard cover %s; computer mode %s\n",
++		 connected ? "attached" : "detached",
++		 computer_mode ? "enabled" : "disabled");
+ }
+ 
+ static void nabu_keyboard_detect_work(struct work_struct *work)
+@@ -77,11 +92,74 @@ static ssize_t connected_show(struct device *dev,
+ 			      struct device_attribute *attr, char *buf)
+ {
+ 	struct nabu_keyboard *keyboard = dev_get_drvdata(dev);
++	bool connected;
+ 
+-	return sysfs_emit(buf, "%u\n", keyboard->connected);
++	mutex_lock(&keyboard->lock);
++	connected = keyboard->connected;
++	mutex_unlock(&keyboard->lock);
++
++	return sysfs_emit(buf, "%u\n", connected);
+ }
+ static DEVICE_ATTR_RO(connected);
+ 
++static ssize_t computer_mode_show(struct device *dev,
++				  struct device_attribute *attr, char *buf)
++{
++	struct nabu_keyboard *keyboard = dev_get_drvdata(dev);
++	bool computer_mode;
++
++	mutex_lock(&keyboard->lock);
++	computer_mode = keyboard->computer_mode;
++	mutex_unlock(&keyboard->lock);
++
++	return sysfs_emit(buf, "%u\n", computer_mode);
++}
++
++static ssize_t computer_mode_store(struct device *dev,
++				   struct device_attribute *attr,
++				   const char *buf, size_t count)
++{
++	struct nabu_keyboard *keyboard = dev_get_drvdata(dev);
++	char mode_state[40];
++	char *envp[] = { mode_state, NULL };
++	bool computer_mode;
++	int ret;
++
++	ret = kstrtobool(buf, &computer_mode);
++	if (ret)
++		return ret;
++
++	mutex_lock(&keyboard->lock);
++	if (computer_mode && !keyboard->connected) {
++		mutex_unlock(&keyboard->lock);
++		return -ENODEV;
++	}
++	if (keyboard->computer_mode == computer_mode) {
++		mutex_unlock(&keyboard->lock);
++		return count;
++	}
++
++	keyboard->computer_mode = computer_mode;
++	xiaomi_nabu_keyboard_update_mode(keyboard->connected,
++					  keyboard->computer_mode);
++	snprintf(mode_state, sizeof(mode_state),
++		 "XIAOMI_KEYBOARD_COMPUTER_MODE=%u", keyboard->computer_mode);
++	mutex_unlock(&keyboard->lock);
++
++	kobject_uevent_env(&keyboard->dev->kobj, KOBJ_CHANGE, envp);
++	dev_info(keyboard->dev, "computer mode %s\n",
++		 computer_mode ? "enabled" : "disabled");
++	return count;
++}
++static DEVICE_ATTR_RW(computer_mode);
++
++static struct attribute *nabu_keyboard_attrs[] = {
++	&dev_attr_connected.attr,
++	&dev_attr_computer_mode.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(nabu_keyboard);
++
+ static int nabu_keyboard_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+@@ -94,6 +172,7 @@ static int nabu_keyboard_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	keyboard->dev = dev;
++	mutex_init(&keyboard->lock);
+ 	keyboard->vdd = devm_gpiod_get(dev, "vdd", GPIOD_OUT_LOW);
+ 	if (IS_ERR(keyboard->vdd))
+ 		return dev_err_probe(dev, PTR_ERR(keyboard->vdd),
+@@ -132,23 +211,17 @@ static int nabu_keyboard_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto err_power_off;
+ 
+-	ret = device_create_file(dev, &dev_attr_connected);
+-	if (ret)
+-		goto err_power_off;
+-
+ 	device_init_wakeup(dev,
+ 			   of_property_read_bool(dev->of_node, "wakeup-source"));
+ 	connected = gpiod_get_value_cansleep(keyboard->detect);
+ 	if (connected < 0) {
+ 		ret = connected;
+-		goto err_remove_file;
++		goto err_power_off;
+ 	}
+ 	nabu_keyboard_publish_state(keyboard, connected, true);
+ 
+ 	return 0;
+ 
+-err_remove_file:
+-	device_remove_file(dev, &dev_attr_connected);
+ err_power_off:
+ 	gpiod_set_value_cansleep(keyboard->reset, 1);
+ 	gpiod_set_value_cansleep(keyboard->vdd, 0);
+@@ -159,7 +232,6 @@ static void nabu_keyboard_remove(struct platform_device *pdev)
+ {
+ 	struct nabu_keyboard *keyboard = platform_get_drvdata(pdev);
+ 
+-	device_remove_file(keyboard->dev, &dev_attr_connected);
+ 	cancel_delayed_work_sync(&keyboard->detect_work);
+ 	nabu_keyboard_publish_state(keyboard, false, true);
+ 	gpiod_set_value_cansleep(keyboard->reset, 1);
+@@ -210,6 +282,7 @@ static struct platform_driver nabu_keyboard_driver = {
+ 		.name = "xiaomi-nabu-keyboard",
+ 		.of_match_table = nabu_keyboard_of_match,
+ 		.pm = pm_sleep_ptr(&nabu_keyboard_pm_ops),
++		.dev_groups = nabu_keyboard_groups,
+ 	},
+ };
+ module_platform_driver(nabu_keyboard_driver);
+diff --git a/drivers/input/misc/xiaomi-nabu-tablet-mode.c b/drivers/input/misc/xiaomi-nabu-tablet-mode.c
+index 8d24156b5f48..d61c353a0e3b 100644
+--- a/drivers/input/misc/xiaomi-nabu-tablet-mode.c
++++ b/drivers/input/misc/xiaomi-nabu-tablet-mode.c
+@@ -1,11 +1,10 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ /*
+- * Xiaomi Pad 5 dynamic tablet-mode input switch.
++ * Xiaomi Pad 5 keyboard-aware tablet-mode input switch.
+  *
+- * Nabu is a tablet unless its keyboard cover is physically attached. Exposing
+- * that state through SW_TABLET_MODE lets desktop environments switch between
+- * touch-first tablet mode and keyboard-first computer mode without mistaking
+- * an unrelated USB pointer for a convertible keyboard.
++ * Nabu stays in tablet mode unless the keyboard cover is physically attached
++ * and computer mode is explicitly requested. This keeps automatic rotation
++ * active when a cover or an unrelated USB pointer is present.
+  */
+ 
+ #include <linux/input.h>
+@@ -18,19 +17,24 @@
+ static struct input_dev *nabu_tablet_mode_input;
+ static DEFINE_MUTEX(nabu_tablet_mode_lock);
+ static bool nabu_keyboard_attached;
++static bool nabu_computer_mode;
+ 
+-void xiaomi_nabu_keyboard_set_attached(bool attached)
++void xiaomi_nabu_keyboard_update_mode(bool attached, bool computer_mode)
+ {
++	bool tablet_mode;
++
+ 	mutex_lock(&nabu_tablet_mode_lock);
+ 	nabu_keyboard_attached = attached;
++	nabu_computer_mode = attached && computer_mode;
++	tablet_mode = !(nabu_keyboard_attached && nabu_computer_mode);
+ 	if (nabu_tablet_mode_input) {
+ 		input_report_switch(nabu_tablet_mode_input, SW_TABLET_MODE,
+-				    !attached);
++				    tablet_mode);
+ 		input_sync(nabu_tablet_mode_input);
+ 	}
+ 	mutex_unlock(&nabu_tablet_mode_lock);
+ }
+-EXPORT_SYMBOL_GPL(xiaomi_nabu_keyboard_set_attached);
++EXPORT_SYMBOL_GPL(xiaomi_nabu_keyboard_update_mode);
+ 
+ static int __init nabu_tablet_mode_init(void)
+ {
+@@ -57,7 +61,8 @@ static int __init nabu_tablet_mode_init(void)
+ 
+ 	mutex_lock(&nabu_tablet_mode_lock);
+ 	nabu_tablet_mode_input = input;
+-	input_report_switch(input, SW_TABLET_MODE, !nabu_keyboard_attached);
++	input_report_switch(input, SW_TABLET_MODE,
++			    !(nabu_keyboard_attached && nabu_computer_mode));
+ 	input_sync(input);
+ 	mutex_unlock(&nabu_tablet_mode_lock);
+ 
+diff --git a/include/linux/input/xiaomi-nabu-keyboard.h b/include/linux/input/xiaomi-nabu-keyboard.h
+index 6632e16f887a..49b39a8fbcee 100644
+--- a/include/linux/input/xiaomi-nabu-keyboard.h
++++ b/include/linux/input/xiaomi-nabu-keyboard.h
+@@ -5,9 +5,10 @@
+ #include <linux/types.h>
+ 
+ #if IS_ENABLED(CONFIG_INPUT_XIAOMI_NABU_TABLET_MODE)
+-void xiaomi_nabu_keyboard_set_attached(bool attached);
++void xiaomi_nabu_keyboard_update_mode(bool attached, bool computer_mode);
+ #else
+-static inline void xiaomi_nabu_keyboard_set_attached(bool attached) { }
++static inline void xiaomi_nabu_keyboard_update_mode(bool attached,
++					     bool computer_mode) { }
+ #endif
+ 
+ #endif

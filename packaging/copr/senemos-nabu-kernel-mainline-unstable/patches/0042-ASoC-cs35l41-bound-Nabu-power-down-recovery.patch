@@ -1,0 +1,148 @@
+From 7d761a2d0d7ed91ec1d6b0a31e04de8a0ff7c4f2 Mon Sep 17 00:00:00 2001
+From: MCC45TR <mursitcancihan@gmail.com>
+Date: Sat, 29 Aug 2026 13:05:28 +0300
+Subject: [PATCH 42/64] ASoC: cs35l41: bound Nabu power-down recovery
+
+---
+ .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      |  4 ++
+ sound/soc/codecs/cs35l41-lib.c                |  9 ++-
+ sound/soc/codecs/cs35l41.c                    | 56 +++++++++++++++++--
+ 3 files changed, 61 insertions(+), 8 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index df1a514b8b4d..e5613ccdcdf6 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -540,6 +540,7 @@ cs35l41_br: cs35l41@40 {
+ 		cirrus,boost-peak-milliamp = <4000>;
+ 		cirrus,boost-ind-nanohenry = <1000>;
+ 		cirrus,boost-cap-microfarad = <15>;
++		cirrus,allow-missing-pdn-done;
+ 		cirrus,asp-sdout-hiz = <3>;
+ 		cirrus,gpio2-src-select = <4>;
+ 		cirrus,gpio2-output-enable;
+@@ -556,6 +557,7 @@ cs35l41_tr: cs35l41@41 {
+ 		cirrus,boost-peak-milliamp = <4000>;
+ 		cirrus,boost-ind-nanohenry = <1000>;
+ 		cirrus,boost-cap-microfarad = <15>;
++		cirrus,allow-missing-pdn-done;
+ 		cirrus,asp-sdout-hiz = <3>;
+ 		cirrus,gpio2-src-select = <4>;
+ 		cirrus,gpio2-output-enable;
+@@ -572,6 +574,7 @@ cs35l41_bl: cs35l41@42 {
+ 		cirrus,boost-peak-milliamp = <4000>;
+ 		cirrus,boost-ind-nanohenry = <1000>;
+ 		cirrus,boost-cap-microfarad = <15>;
++		cirrus,allow-missing-pdn-done;
+ 		cirrus,asp-sdout-hiz = <3>;
+ 		cirrus,gpio2-src-select = <4>;
+ 		cirrus,gpio2-output-enable;
+@@ -588,6 +591,7 @@ cs35l41_tl: cs35l41@43 {
+ 		cirrus,boost-peak-milliamp = <4000>;
+ 		cirrus,boost-ind-nanohenry = <1000>;
+ 		cirrus,boost-cap-microfarad = <15>;
++		cirrus,allow-missing-pdn-done;
+ 		cirrus,asp-sdout-hiz = <3>;
+ 		cirrus,gpio2-src-select = <4>;
+ 		cirrus,gpio2-output-enable;
+diff --git a/sound/soc/codecs/cs35l41-lib.c b/sound/soc/codecs/cs35l41-lib.c
+index b0fa80705be7..37c273876770 100644
+--- a/sound/soc/codecs/cs35l41-lib.c
++++ b/sound/soc/codecs/cs35l41-lib.c
+@@ -1244,8 +1244,13 @@ int cs35l41_global_enable(struct device *dev, struct regmap *regmap, enum cs35l4
+ 	switch (b_type) {
+ 	case CS35L41_SHD_BOOST_ACTV:
+ 	case CS35L41_SHD_BOOST_PASS:
+-		regmap_read(regmap, CS35L41_PWR_CTRL3, &pwr_ctrl3);
+-		regmap_read(regmap, CS35L41_GPIO_PAD_CONTROL, &pad_control);
++		ret = regmap_read(regmap, CS35L41_PWR_CTRL3, &pwr_ctrl3);
++		if (ret)
++			return ret;
++
++		ret = regmap_read(regmap, CS35L41_GPIO_PAD_CONTROL, &pad_control);
++		if (ret)
++			return ret;
+ 
+ 		pwr_ctrl3 &= ~CS35L41_SYNC_EN_MASK;
+ 		pwr_ctrl1 = enable << CS35L41_GLOBAL_EN_SHIFT;
+diff --git a/sound/soc/codecs/cs35l41.c b/sound/soc/codecs/cs35l41.c
+index b2a076706c79..afb0150640a9 100644
+--- a/sound/soc/codecs/cs35l41.c
++++ b/sound/soc/codecs/cs35l41.c
+@@ -400,12 +400,15 @@ static irqreturn_t cs35l41_irq(int irq, void *data)
+ 	ret = IRQ_NONE;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(status); i++) {
+-		regmap_read(cs35l41->regmap,
+-			    CS35L41_IRQ1_STATUS1 + (i * CS35L41_REGSTRIDE),
+-			    &status[i]);
+-		regmap_read(cs35l41->regmap,
+-			    CS35L41_IRQ1_MASK1 + (i * CS35L41_REGSTRIDE),
+-			    &masks[i]);
++		if (regmap_read(cs35l41->regmap,
++				CS35L41_IRQ1_STATUS1 + (i * CS35L41_REGSTRIDE),
++				&status[i]) ||
++		    regmap_read(cs35l41->regmap,
++				CS35L41_IRQ1_MASK1 + (i * CS35L41_REGSTRIDE),
++				&masks[i])) {
++			dev_err_ratelimited(cs35l41->dev, "failed to read IRQ status\n");
++			goto done;
++		}
+ 	}
+ 
+ 	/* Check to see if unmasked bits are active */
+@@ -505,6 +508,46 @@ static const struct reg_sequence cs35l41_pdn_patch[] = {
+ 	{ CS35L41_TEST_KEY_CTL, 0x00000033 },
+ };
+ 
++#define CS35L41_PROTECTION_ERROR_MASK	(CS35L41_AMP_SHORT_ERR_MASK | \
++					 CS35L41_BST_SHORT_ERR_MASK | \
++					 CS35L41_TEMP_WARN_MASK | \
++					 CS35L41_TEMP_ERR_MASK | \
++					 CS35L41_BST_OVP_ERR_MASK | \
++					 CS35L41_BST_DCM_UVP_ERR_MASK)
++
++static int cs35l41_handle_missing_pdn_done(struct cs35l41_private *cs35l41,
++					   int ret)
++{
++	unsigned int pwr_ctrl1 = ~0U, pwr_ctrl2 = ~0U, irq_status1 = ~0U;
++	int pwr1_ret, pwr2_ret, irq_ret;
++
++	if (ret != -ETIMEDOUT ||
++	    !device_property_read_bool(cs35l41->dev,
++				       "cirrus,allow-missing-pdn-done"))
++		return ret;
++
++	pwr1_ret = regmap_read(cs35l41->regmap, CS35L41_PWR_CTRL1, &pwr_ctrl1);
++	pwr2_ret = regmap_read(cs35l41->regmap, CS35L41_PWR_CTRL2, &pwr_ctrl2);
++	irq_ret = regmap_read(cs35l41->regmap, CS35L41_IRQ1_STATUS1, &irq_status1);
++
++	if (!pwr1_ret && !pwr2_ret && !irq_ret &&
++	    !(pwr_ctrl1 & CS35L41_GLOBAL_EN_MASK) &&
++	    !(pwr_ctrl2 & CS35L41_AMP_EN_MASK) &&
++	    !(irq_status1 & CS35L41_PROTECTION_ERROR_MASK)) {
++		dev_warn_ratelimited(cs35l41->dev,
++				     "PDN_DONE timeout accepted: GLOBAL_EN and AMP_EN are clear, status1=0x%08x\n",
++				     irq_status1);
++		return 0;
++	}
++
++	dev_err_ratelimited(cs35l41->dev,
++			    "PDN_DONE timeout rejected: read=%d/%d/%d pwr1=0x%08x pwr2=0x%08x status1=0x%08x\n",
++			    pwr1_ret, pwr2_ret, irq_ret, pwr_ctrl1, pwr_ctrl2,
++			    irq_status1);
++
++	return ret;
++}
++
+ static int cs35l41_main_amp_event(struct snd_soc_dapm_widget *w,
+ 				  struct snd_kcontrol *kcontrol, int event)
+ {
+@@ -524,6 +567,7 @@ static int cs35l41_main_amp_event(struct snd_soc_dapm_widget *w,
+ 	case SND_SOC_DAPM_POST_PMD:
+ 		ret = cs35l41_global_enable(cs35l41->dev, cs35l41->regmap, cs35l41->hw_cfg.bst_type,
+ 					    0, &cs35l41->dsp.cs_dsp);
++		ret = cs35l41_handle_missing_pdn_done(cs35l41, ret);
+ 
+ 		regmap_multi_reg_write_bypassed(cs35l41->regmap,
+ 						cs35l41_pdn_patch,

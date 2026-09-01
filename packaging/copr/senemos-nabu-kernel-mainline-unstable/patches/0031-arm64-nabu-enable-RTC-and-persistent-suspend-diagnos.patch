@@ -1,0 +1,57 @@
+From b4f8cf3dc82c3dc7c7114737afc5add26b3e9505 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Tue, 1 Sep 2026 22:09:37 +0300
+Subject: [PATCH 31/64] arm64: nabu: enable RTC and persistent suspend
+ diagnostics
+
+---
+ .../arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts |  5 +++--
+ senemos/configs/nabu-minimal.config            | 18 +++++++++++++++++-
+ 2 files changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index 1327b2c547af..113de7d67084 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -116,8 +116,9 @@ cdsp_mem: memory@99100000 {
+ 		ramoops@b0000000 {
+ 			compatible = "ramoops";
+ 			reg = <0x0 0xb0000000 0x0 0x400000>;
+-			record-size = <0x1000>;
+-			console-size = <0x200000>;
++			record-size = <0x100000>;
++			console-size = <0x100000>;
++			ftrace-size = <0x200000>;
+ 			ecc-size = <16>;
+ 			no-map;
+ 		};
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 5a14e11d10b1..939ff79324ca 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -84,8 +84,24 @@ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_PMSG=y
+ CONFIG_PSTORE_RAM=y
++CONFIG_PSTORE_FTRACE=y
++CONFIG_PM_DEBUG=y
++CONFIG_PM_ADVANCED_DEBUG=y
++CONFIG_PM_SLEEP_DEBUG=y
++CONFIG_DPM_WATCHDOG=y
++CONFIG_DPM_WATCHDOG_TIMEOUT=30
++CONFIG_DPM_WATCHDOG_WARNING_TIMEOUT=10
++CONFIG_FTRACE=y
++CONFIG_FUNCTION_TRACER=y
++CONFIG_FUNCTION_GRAPH_TRACER=y
++CONFIG_DYNAMIC_FTRACE=y
+ CONFIG_RTC_CLASS=y
+-CONFIG_RTC_DRV_PM8XXX=m
++# Nabu UEFI does not provide a reliable wall clock. Keep the PM8150 RTC
++# available before the root filesystem and use it as rtc0 for HCTOSYS.
++CONFIG_RTC_DRV_EFI=n
++CONFIG_RTC_DRV_PM8XXX=y
++CONFIG_RTC_HCTOSYS=y
++CONFIG_RTC_HCTOSYS_DEVICE="rtc0"
+ 
+ # Nabu front/rear cameras, CAMSS/CCI and CN3927 autofocus.
+ CONFIG_MEDIA_CAMERA_SUPPORT=y

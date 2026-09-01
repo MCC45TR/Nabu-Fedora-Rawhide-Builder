@@ -1,0 +1,70 @@
+From 85973a002ccdc3fd89c36cb051075f759e385035 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 00:07:18 +0300
+Subject: [PATCH 62/64] dt-bindings: power: validate SMB5 Nabu policy arrays
+
+---
+ .../power/supply/qcom,pmi8998-charger.yaml         | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/power/supply/qcom,pmi8998-charger.yaml b/Documentation/devicetree/bindings/power/supply/qcom,pmi8998-charger.yaml
+index 2e9e271187bc..0b17aef938b2 100644
+--- a/Documentation/devicetree/bindings/power/supply/qcom,pmi8998-charger.yaml
++++ b/Documentation/devicetree/bindings/power/supply/qcom,pmi8998-charger.yaml
+@@ -32,7 +32,6 @@ properties:
+ 
+   io-channels:
+     minItems: 2
+-    maxItems: 3
+     items:
+       - description: USB in current in uA
+       - description: USB in voltage in uV
+@@ -40,7 +39,6 @@ properties:
+ 
+   io-channel-names:
+     minItems: 2
+-    maxItems: 3
+     items:
+       - const: usbin_i
+       - const: usbin_v
+@@ -60,32 +58,36 @@ properties:
+       maximum cooling state. Higher states select lower charge-current limits.
+ 
+   qcom,thermal-mitigation-microamp:
+-    $ref: /schemas/types.yaml#/definitions/uint32-array
+     minItems: 1
+     maxItems: 32
++    items:
++      minimum: 0
+     description:
+       Descending fast-charge-current limits, one for each cooling state.
+ 
+   qcom,thermal-mitigation-input-microamp:
+-    $ref: /schemas/types.yaml#/definitions/uint32-array
+     minItems: 1
+     maxItems: 32
++    items:
++      minimum: 0
+     description:
+       Descending USB input-current limits. The number of entries must match
+       qcom,thermal-mitigation-microamp.
+ 
+   qcom,thermal-mitigation-dcp-microamp:
+-    $ref: /schemas/types.yaml#/definitions/uint32-array
+     minItems: 1
+     maxItems: 32
++    items:
++      minimum: 0
+     description:
+       Optional descending DCP-specific USB input-current limits. The number of
+       entries must match qcom,thermal-mitigation-microamp.
+ 
+   qcom,thermal-mitigation-pd-microamp:
+-    $ref: /schemas/types.yaml#/definitions/uint32-array
+     minItems: 1
+     maxItems: 32
++    items:
++      minimum: 0
+     description:
+       Optional descending 5 V PD base input-current limits. For higher fixed
+       PDO voltages the driver scales these limits to maintain a conservative

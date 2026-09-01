@@ -46,8 +46,40 @@ Patch0027:      0027-kernel-overlay-preserve-usable-legacy-VP9-output.patch
 Patch0028:      0028-kernel-overlay-filter-hidden-VP9-superframes.patch
 Patch0029:      0029-kernel-overlay-make-Nabu-Iris-device-tree-append-onl.patch
 Patch0030:      0030-media-qcom-adapt-current-Nabu-Iris-overlay-to-Linux-.patch
-Patch0031:      0031-media-qcom-update-Venus-close-helper-for-Linux-7.2.patch
-Patch0032:      0032-media-qcom-update-Venus-MDT-loading-for-Linux-7.2.patch
+Patch0031:      0031-arm64-nabu-enable-RTC-and-persistent-suspend-diagnos.patch
+Patch0032:      0032-spi-geni-qcom-bound-timeout-recovery-state.patch
+Patch0033:      0033-Input-nt36523-bound-retries-while-SPI-recovers.patch
+Patch0034:      0034-Input-nt36523-bound-SPI-fault-recovery.patch
+Patch0035:      0035-input-gate-NVT-gestures-during-suspend-preparation.patch
+Patch0036:      0036-misc-fastrpc-harden-Nabu-SDSP-ownership-recovery.patch
+Patch0037:      0037-wifi-ath10k-keep-crash-teardown-local-after-transpor.patch
+Patch0038:      0038-wifi-ath10k-ignore-channel-less-survey-events.patch
+Patch0039:      0039-Bluetooth-hci_qca-demote-setup-only-framing-discard.patch
+Patch0040:      0040-arm64-dts-qcom-nabu-complete-WCN3990-supplies.patch
+Patch0041:      0041-dt-bindings-sound-cs35l41-allow-verified-missing-PDN.patch
+Patch0042:      0042-ASoC-cs35l41-bound-Nabu-power-down-recovery.patch
+Patch0043:      0043-ASoC-cs35l41-defer-accepted-Nabu-PDN-timeout-logging.patch
+Patch0044:      0044-ASoC-cs35l41-demote-accepted-Nabu-PDN-timeout.patch
+Patch0045:      0045-arm64-dts-qcom-nabu-describe-CS35L41-supplies.patch
+Patch0046:      0046-slimbus-qcom-ngd-make-duplicate-UP-work-idempotent.patch
+Patch0047:      0047-input-add-explicit-mode-Nabu-keyboard-cover-support.patch
+Patch0048:      0048-nabu-keep-keyboard-and-legacy-Iris-from-blocking-sus.patch
+Patch0049:      0049-power-supply-integrate-protected-LN8000-charging-on-.patch
+Patch0050:      0050-dt-bindings-power-ln8000-describe-unwired-input-NTC.patch
+Patch0051:      0051-power-supply-ln8000-disable-unwired-Nabu-input-NTC.patch
+Patch0052:      0052-power-supply-add-fail-safe-Nabu-thermal-charging-pol.patch
+Patch0053:      0053-dt-bindings-power-supply-add-SMB5-thermal-policy-dat.patch
+Patch0054:      0054-power-supply-align-Nabu-charging-policy-with-OEM-lim.patch
+Patch0055:      0055-arm64-dts-qcom-nabu-add-OEM-derived-charging-policy.patch
+Patch0056:      0056-dt-bindings-power-supply-describe-SMB5-connector-the.patch
+Patch0057:      0057-power-supply-stop-Nabu-charging-on-connector-overhea.patch
+Patch0058:      0058-power-supply-make-Nabu-charging-policy-fail-safe.patch
+Patch0059:      0059-media-venus-restore-coexistence-with-Iris-on-Linux-7.patch
+Patch0060:      0060-power-supply-adapt-Nabu-charging-to-Linux-7.2-APIs.patch
+Patch0061:      0061-ASoC-cs35l41-include-property-API-for-PDN-policy.patch
+Patch0062:      0062-dt-bindings-power-validate-SMB5-Nabu-policy-arrays.patch
+Patch0063:      0063-usb-nabu-restore-dual-role-VBUS-operation-on-7.2.patch
+Patch0064:      0064-senemos-add-staged-7.2.2-HIL-validation-plan.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -160,6 +192,14 @@ grep -Fxq 'cdc_acm' \
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_CN3927=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_USB_GADGET=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_PHY_QCOM_USB_SNPS_FEMTO_V2=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fq 'vbus-supply = <&pm8150b_vbus>;' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+! grep -Fq 'lionsemi,allow-direct-charging' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 grep -Fxq '# CONFIG_DEBUG_INFO_BTF is not set' %{buildroot}/boot/config-%{uname_r}
 for module in qcom-iris qcom-camss i2c-qcom-cci cn3927 ov13b10 ov8856; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
@@ -191,6 +231,11 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Carry the reviewed 6.17 RTC, SPI, input, FastRPC, wireless, audio and charging fixes.
+- Restore dual-role USB-C and PM8150B VBUS ownership for OTG HIL.
+- Keep direct LN8000 2:1 charging disabled until instrumented qualification.
+
 * Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Port the ChengFangming/CFM880 Nabu camera and Iris/Venus work to Linux 7.2.2.
 - Ship the combined Iris-camera DTB as this unstable kernel family's canonical Nabu DTB.

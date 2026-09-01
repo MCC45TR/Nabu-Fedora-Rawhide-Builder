@@ -23,5 +23,10 @@ It does not obsolete or conflict with the 6.17 fallback, Android return entry,
 or the existing 7.2 alpha family.
 
 The daily updater checks the official Linux 7.2.y checksum list. It commits a
-new point release only after all 32 checksum-locked Nabu patches apply cleanly;
+new point release only after all 64 checksum-locked Nabu patches apply cleanly;
 a conflict stops publication and leaves the preceding COPR build untouched.
+
+The 7.2.2-test extension carries the reviewed RTC/diagnostic, bounded SPI and
+NT36523 recovery, FastRPC ownership, wireless, keyboard, CS35L41 and charging
+work. USB-C is forced back to a built-in dual-role stack with explicit PM8150B
+VBUS ownership. Direct LN8000 2:1 charging remains disabled in the normal DTB.
