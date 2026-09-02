@@ -93,6 +93,7 @@ Patch0074:      0074-remoteproc-qcom-q6v5-Make-handover-IRQ-one-shot.patch
 Patch0075:      0075-senemos-keep-shared-GPIO-proxy-built-in-for-Nabu-aud.patch
 Patch0076:      0076-arm64-dts-qcom-persist-Nabu-RTC-time-in-SDAM.patch
 Patch0077:      0077-senemos-activate-SELinux-in-Nabu-LSM-stack.patch
+Patch0078:      0078-senemos-classify-Nabu-SAR-separately-from-proximity.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
