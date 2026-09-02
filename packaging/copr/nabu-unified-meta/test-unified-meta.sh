@@ -28,7 +28,15 @@ grep -Fq 'gnome-shell mutter gnome-settings-daemon' "$root/test-gnome-mobile-rep
 for gnome_spec in "$root/gnome-nabu-meta.spec" "$root/gnome-mobile-nabu-meta.spec"; do
     grep -Fq 'Requires:       mutter >= 51~rc-1' "$gnome_spec" || fail "upstream Mutter auto-rotation fix is not required by $gnome_spec"
 done
-! grep -RqE '^Name:[[:space:]]*mutter([[:space:]]|$)' "$root/.." --include='*.spec' || fail "Fedora Mutter must never be forked in Nabu COPR packaging"
+while IFS= read -r copr_spec; do
+    source_name=$(sed -nE 's/^Name:[[:space:]]+([^[:space:]]+).*/\1/p' "$copr_spec" | head -n 1)
+    [[ -n $source_name ]] || fail "source package name missing in $copr_spec"
+    [[ $source_name == *nabu* ]] || fail \
+        "default Fedora package fork is forbidden in Nabu COPR: $source_name ($copr_spec)"
+done < <(find "$root/.." \
+    -path '*/.rpmbuild*' -prune -o \
+    -path '*/rpmbuild' -prune -o \
+    -type f -name '*.spec' -print)
 
 core="$root/nabu-core-meta.spec"
 grep -Fq 'Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)' "$core" || fail "two-family kernel OR requirement"
