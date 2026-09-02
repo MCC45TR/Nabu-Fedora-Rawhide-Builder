@@ -64,3 +64,4 @@ ba851da0289b46173f0796688ae5eb74776de72d5f947187abd80d670082632f  0062-dt-bindin
 fa4b7f566131d27d157f275b4260cf42c05f1897d70ad8d6268940432aec908b  0064-senemos-add-staged-7.2.2-HIL-validation-plan.patch
 5a1fd9b622f79a9eea99f7c5328ccee54c43ff762ec4f6e6917713baa2f6fc9e  0065-senemos-prune-7.2.2-to-Nabu-hardware.patch
 689dff190f85c976141b510c2eeb851f2ac55a49d6210fd5eacb72e7a9ab52fd  0066-senemos-retain-module-signing-helper-in-Nabu-config.patch
+04e0eff34636e4e56bb6027040426f29c5e458bb5817d4d73abfdc68bf9dd535  0067-arm64-dts-qcom-restore-Nabu-display-and-RTC-persiste.patch

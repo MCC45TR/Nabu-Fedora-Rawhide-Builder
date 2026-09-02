@@ -2,6 +2,8 @@
 set -Eeuo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+! grep -Eq '^Provides:[[:space:]]+kernel-uname-r' \
+    "$root/senemos-nabu-kernel-mainline-unstable.spec"
 version=$(sed -nE 's/^Version:[[:space:]]+([^[:space:]]+).*/\1/p' \
     "$root/senemos-nabu-kernel-mainline-unstable.spec")
 work=$(mktemp -d)
@@ -18,7 +20,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 67
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 68
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -29,6 +31,8 @@ test -s "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-c
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' \
+    "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_REGULATOR_QCOM_REFGEN=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_MODULE_SIG=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
@@ -61,6 +65,7 @@ for setting in \
     'CONFIG_VIDEO_OV13B10=m' \
     'CONFIG_VIDEO_OV8856=m' \
     'CONFIG_DRM_MSM=y' \
+    'CONFIG_REGULATOR_QCOM_REFGEN=y' \
     'CONFIG_SCSI_UFS_QCOM=y' \
     'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \
     'CONFIG_ATH10K_SNOC=m' \
@@ -71,10 +76,12 @@ for setting in \
     grep -Fxq "$setting" "$config_dir/.config"
 done
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
+grep -Fq 'allow-set-time;' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 66 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 67 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"

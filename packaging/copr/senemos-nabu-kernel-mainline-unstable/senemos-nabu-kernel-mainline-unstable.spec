@@ -82,6 +82,7 @@ Patch0063:      0063-usb-nabu-restore-dual-role-VBUS-operation-on-7.2.patch
 Patch0064:      0064-senemos-add-staged-7.2.2-HIL-validation-plan.patch
 Patch0065:      0065-senemos-prune-7.2.2-to-Nabu-hardware.patch
 Patch0066:      0066-senemos-retain-module-signing-helper-in-Nabu-config.patch
+Patch0067:      0067-arm64-dts-qcom-restore-Nabu-display-and-RTC-persiste.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -106,7 +107,6 @@ Requires:       nabu-kernel-maintenance-api >= 5
 Requires:       nabu-boot-integration >= 2.0.0-29.test
 Requires(posttrans): coreutils
 Requires(postun): kmod
-Provides:       kernel-uname-r(%{uname_r})
 
 %description
 Official Linux 7.2.y plus a checksum-locked, ordered Xiaomi Pad 5 (nabu)
@@ -202,6 +202,7 @@ grep -Fxq 'CONFIG_VIDEO_CN3927=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_GADGET=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_REGULATOR_QCOM_REFGEN=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_PHY_QCOM_USB_SNPS_FEMTO_V2=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_ACM=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_MODULE_SIG=y' %{buildroot}/boot/config-%{uname_r}
@@ -211,6 +212,8 @@ grep -Fxq '# CONFIG_PCI is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ARCH_MEDIATEK is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ARCH_ROCKCHIP is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fq 'vbus-supply = <&pm8150b_vbus>;' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+grep -Fq 'allow-set-time;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 ! grep -Fq 'lionsemi,allow-direct-charging' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
@@ -252,6 +255,8 @@ fi
 - Use a faster module compression level for COPR test publications.
 - Carry the reviewed 6.17 RTC, SPI, input, FastRPC, wireless, audio and charging fixes.
 - Restore dual-role USB-C and PM8150B VBUS ownership for OTG HIL.
+- Restore the built-in DSI REFGEN supply and permit PM8150 RTC time persistence.
+- Let DNF replace this same-name kernel package instead of treating it as install-only.
 - Keep direct LN8000 2:1 charging disabled until instrumented qualification.
 
 * Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
