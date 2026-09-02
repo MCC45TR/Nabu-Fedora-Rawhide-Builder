@@ -25,6 +25,10 @@ grep -Fq 'enable-animations false' "$root/20-nabu-mobile-user-mode.conf" || fail
 grep -Fqx 'gpgcheck=1' "$root/gnome-mobile-copr.repo" || fail "GNOME Mobile gpgcheck disabled"
 grep -Fqx 'skip_if_unavailable=False' "$root/gnome-mobile-copr.repo" || fail "GNOME Mobile repo fails open"
 grep -Fq 'gnome-shell mutter gnome-settings-daemon' "$root/test-gnome-mobile-repo-sync.sh" || fail "GNOME Mobile package set missing"
+for gnome_spec in "$root/gnome-nabu-meta.spec" "$root/gnome-mobile-nabu-meta.spec"; do
+    grep -Fq 'Requires:       mutter >= 51~rc-1' "$gnome_spec" || fail "upstream Mutter auto-rotation fix is not required by $gnome_spec"
+done
+! grep -RqE '^Name:[[:space:]]*mutter([[:space:]]|$)' "$root/.." --include='*.spec' || fail "Fedora Mutter must never be forked in Nabu COPR packaging"
 
 core="$root/nabu-core-meta.spec"
 grep -Fq 'Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)' "$core" || fail "two-family kernel OR requirement"

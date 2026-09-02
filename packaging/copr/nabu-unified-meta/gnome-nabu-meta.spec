@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           gnome-nabu-meta
 Version:        3.0.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Complete GNOME release profile for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -26,7 +26,9 @@ Requires:       gnome-session-wayland-session
 Requires:       gdm
 Requires:       gnome-control-center
 Requires:       gnome-initial-setup
-Requires:       mutter
+# 51~rc includes upstream MR 4962, which keeps the orientation sensor claim
+# balanced when a touchscreen-only device starts directly in touch mode.
+Requires:       mutter >= 51~rc-1
 Requires:       gnome-settings-daemon
 Requires:       gnome-software
 Requires:       ptyxis
@@ -116,6 +118,9 @@ test "$(find flashlight/translations -name '*.po' | wc -l)" = 27
 %{_userunitdir}/nabu-gnome-extension-enable.service
 %{_userunitdir}/graphical-session.target.wants/nabu-gnome-extension-enable.service
 %changelog
+* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-5
+- Require the upstream Mutter auto-rotation lifecycle fix for touch-first devices.
+
 * Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-4
 - Expand the independent stock GNOME Quick Settings extension into
   capability-aware Nabu tablet controls and enable it once at first login.

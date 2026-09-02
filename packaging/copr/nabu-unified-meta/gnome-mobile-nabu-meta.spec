@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           gnome-mobile-nabu-meta
 Version:        3.0.0
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        Complete touch-oriented GNOME release profile for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -37,7 +37,9 @@ Requires:       gdm
 Requires:       gnome-control-center
 Requires:       gnome-initial-setup
 Requires:       gnome-settings-daemon
-Requires:       mutter
+# 51~rc includes upstream MR 4962, which keeps the orientation sensor claim
+# balanced when a touchscreen-only device starts directly in touch mode.
+Requires:       mutter >= 51~rc-1
 Requires:       ibus
 Requires:       ibus-gtk3
 Requires:       ibus-gtk4
@@ -146,6 +148,9 @@ touch /var/lib/nabu-gnome-mobile-sync/pending
 %{_presetdir}/90-nabu-gnome-mobile-sync.preset
 %{_userunitdir}/org.gnome.Shell@initial-setup.service.d/20-nabu-mobile-user-mode.conf
 %changelog
+* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-10
+- Require the upstream Mutter auto-rotation lifecycle fix for touch-first devices.
+
 * Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-9
 - Never start the deferred DNF synchronizer from inside an active RPM
   transaction; leave the pending marker for the enabled boot/retry units.
