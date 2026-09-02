@@ -81,6 +81,7 @@ Patch0062:      0062-dt-bindings-power-validate-SMB5-Nabu-policy-arrays.patch
 Patch0063:      0063-usb-nabu-restore-dual-role-VBUS-operation-on-7.2.patch
 Patch0064:      0064-senemos-add-staged-7.2.2-HIL-validation-plan.patch
 Patch0065:      0065-senemos-prune-7.2.2-to-Nabu-hardware.patch
+Patch0066:      0066-senemos-retain-module-signing-helper-in-Nabu-config.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -203,6 +204,7 @@ grep -Fxq 'CONFIG_USB_GADGET=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_PHY_QCOM_USB_SNPS_FEMTO_V2=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_ACM=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_MODULE_SIG=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SECURITY_SELINUX=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ACPI is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_PCI is not set' %{buildroot}/boot/config-%{uname_r}

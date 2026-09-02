@@ -63,3 +63,4 @@ ba851da0289b46173f0796688ae5eb74776de72d5f947187abd80d670082632f  0062-dt-bindin
 9deacd04a0c24a6ca34729f3b3f1012c0c71a0a81a20d414f501b1b555e2b073  0063-usb-nabu-restore-dual-role-VBUS-operation-on-7.2.patch
 fa4b7f566131d27d157f275b4260cf42c05f1897d70ad8d6268940432aec908b  0064-senemos-add-staged-7.2.2-HIL-validation-plan.patch
 5a1fd9b622f79a9eea99f7c5328ccee54c43ff762ec4f6e6917713baa2f6fc9e  0065-senemos-prune-7.2.2-to-Nabu-hardware.patch
+689dff190f85c976141b510c2eeb851f2ac55a49d6210fd5eacb72e7a9ab52fd  0066-senemos-retain-module-signing-helper-in-Nabu-config.patch

@@ -18,7 +18,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 66
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 67
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -29,6 +29,8 @@ test -s "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-c
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' \
+    "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_MODULE_SIG=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 
 config_dir="$work/config"
@@ -64,6 +66,7 @@ for setting in \
     'CONFIG_ATH10K_SNOC=m' \
     'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     'CONFIG_USB_ACM=y' \
+    'CONFIG_MODULE_SIG=y' \
     'CONFIG_SECURITY_SELINUX=y'; do
     grep -Fxq "$setting" "$config_dir/.config"
 done
@@ -72,5 +75,5 @@ grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 65 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 66 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"
