@@ -72,6 +72,7 @@ for setting in \
 done
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
+! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 

@@ -214,7 +214,7 @@ grep -Fq 'vbus-supply = <&pm8150b_vbus>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 ! grep -Fq 'lionsemi,allow-direct-charging' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
-grep -Fxq '# CONFIG_DEBUG_INFO_BTF is not set' %{buildroot}/boot/config-%{uname_r}
+! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' %{buildroot}/boot/config-%{uname_r}
 test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
 for module in qcom-iris qcom-camss i2c-qcom-cci cn3927 ov13b10 ov8856; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
