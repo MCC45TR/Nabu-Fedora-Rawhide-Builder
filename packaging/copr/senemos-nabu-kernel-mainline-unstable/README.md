@@ -23,15 +23,17 @@ It does not obsolete or conflict with the 6.17 fallback, Android return entry,
 or the existing 7.2 alpha family.
 
 The daily updater checks the official Linux 7.2.y checksum list. It commits a
-new point release only after all 70 checksum-locked Nabu patches apply cleanly;
+new point release only after all 71 checksum-locked Nabu patches apply cleanly;
 a conflict stops publication and leaves the preceding COPR build untouched.
 
 The 7.2.2-test extension carries the reviewed RTC/diagnostic, bounded SPI and
 NT36523 recovery, FastRPC ownership, wireless, keyboard, CS35L41 and charging
 work. USB-C is forced back to a built-in dual-role stack with explicit PM8150B
 VBUS ownership. The DSI REFGEN regulator and writable PM8150 RTC are kept in
-the minimal profile. Direct LN8000 2:1 charging remains disabled in the normal
-DTB. The package deliberately omits the generic `kernel-uname-r` capability so
+the minimal profile. The connector thermistor ADC is explicitly enabled so the
+fail-closed SMB5 policy can probe, and DRP prefers sink while remaining able to
+source VBUS for OTG accessories. Direct LN8000 2:1 charging remains disabled in
+the normal DTB. The package deliberately omits the generic `kernel-uname-r` capability so
 DNF replaces this same-name kernel package instead of retaining it as an
 install-only family; the separate 6.17 fallback remains independently owned.
 The compact nftables set used by the validated 6.17 kernel is retained so

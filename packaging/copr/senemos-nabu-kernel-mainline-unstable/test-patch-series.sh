@@ -20,7 +20,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 71
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 72
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -92,10 +92,15 @@ grep -Fq '#define FASTRPC_SDSP_IOVA_BASE' \
     "$work/linux-$version/drivers/misc/fastrpc.c"
 grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
     "$work/linux-$version/drivers/misc/fastrpc.c"
+grep -A10 -F '&pm8150b_adc {' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts" \
+    | grep -Fq 'status = "okay";'
+grep -Fq 'try-power-role = "sink";' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 70 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 71 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"
