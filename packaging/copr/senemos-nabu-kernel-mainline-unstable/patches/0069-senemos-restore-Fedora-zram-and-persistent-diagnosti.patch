@@ -1,0 +1,56 @@
+From 858477b3eb606a50a961b7094e3cf6a6662d079d Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 13:21:35 +0300
+Subject: [PATCH] senemos: restore Fedora zram and persistent diagnostics
+
+---
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi | 4 ++--
+ senemos/configs/nabu-minimal.config                   | 9 ++++++++-
+ 2 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+index 03a6a3655287..82b5eb07ad19 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+@@ -7,9 +7,9 @@
+  */
+ 
+ &{/reserved-memory/ramoops@b0000000} {
+-	/* Keep the complete printk console across hard resets. */
++	/* Split the 4 MiB region evenly between printk and persistent ftrace. */
+ 	record-size = <0>;
+-	console-size = <0x400000>;
++	console-size = <0x200000>;
+ 	ecc-size = <0>;
+ };
+ 
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index cc26a9c5da73..24e634b8c079 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -15,7 +15,9 @@ CONFIG_REGULATOR_QCOM_REFGEN=y
+ 
+ # Keep UFS and its PHY available before the root filesystem is mounted.
+ CONFIG_SCSI=y
+-CONFIG_RPMB=y
++# The Nabu UFS RPMB path is unused and Linux 7.2's UFS helper attempts to add
++# devices to an unregistered private bus. Match the validated 6.17 profile.
++# CONFIG_RPMB is not set
+ CONFIG_SCSI_UFSHCD=y
+ CONFIG_SCSI_UFSHCD_PLATFORM=y
+ CONFIG_SCSI_UFS_QCOM=y
+@@ -117,6 +119,11 @@ CONFIG_NF_NAT=m
+ CONFIG_NF_REJECT_IPV4=m
+ CONFIG_NF_REJECT_IPV6=m
+ 
++# Fedora's zram-generator expects this compact swap backend.
++CONFIG_ZRAM=m
++CONFIG_ZRAM_BACKEND_ZSTD=y
++CONFIG_ZRAM_DEF_COMP_ZSTD=y
++
+ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_PMSG=y
+-- 
+2.55.0
+

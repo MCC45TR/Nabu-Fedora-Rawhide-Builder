@@ -20,7 +20,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 69
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 70
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -69,6 +69,8 @@ for setting in \
     'CONFIG_NF_TABLES=m' \
     'CONFIG_NFT_CT=m' \
     'CONFIG_NFT_REJECT_INET=m' \
+    'CONFIG_ZRAM=m' \
+    'CONFIG_ZRAM_DEF_COMP_ZSTD=y' \
     'CONFIG_SCSI_UFS_QCOM=y' \
     'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \
     'CONFIG_ATH10K_SNOC=m' \
@@ -79,12 +81,17 @@ for setting in \
     grep -Fxq "$setting" "$config_dir/.config"
 done
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
+grep -Fxq '# CONFIG_RPMB is not set' "$config_dir/.config"
 grep -Fq 'allow-set-time;' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
+grep -Fq 'console-size = <0x200000>;' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi"
+grep -Fq 'ftrace-size = <0x200000>;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 68 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 69 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"
