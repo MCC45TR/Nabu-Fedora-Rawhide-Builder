@@ -20,7 +20,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 68
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 69
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -66,6 +66,9 @@ for setting in \
     'CONFIG_VIDEO_OV8856=m' \
     'CONFIG_DRM_MSM=y' \
     'CONFIG_REGULATOR_QCOM_REFGEN=y' \
+    'CONFIG_NF_TABLES=m' \
+    'CONFIG_NFT_CT=m' \
+    'CONFIG_NFT_REJECT_INET=m' \
     'CONFIG_SCSI_UFS_QCOM=y' \
     'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \
     'CONFIG_ATH10K_SNOC=m' \
@@ -83,5 +86,5 @@ grep -Fq 'allow-set-time;' \
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 67 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 68 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"

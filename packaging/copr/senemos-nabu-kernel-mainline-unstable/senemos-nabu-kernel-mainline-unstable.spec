@@ -83,6 +83,7 @@ Patch0064:      0064-senemos-add-staged-7.2.2-HIL-validation-plan.patch
 Patch0065:      0065-senemos-prune-7.2.2-to-Nabu-hardware.patch
 Patch0066:      0066-senemos-retain-module-signing-helper-in-Nabu-config.patch
 Patch0067:      0067-arm64-dts-qcom-restore-Nabu-display-and-RTC-persiste.patch
+Patch0068:      0068-senemos-retain-nftables-for-Fedora-firewalld.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -203,6 +204,9 @@ grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_GADGET=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_REGULATOR_QCOM_REFGEN=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_NF_TABLES=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_NFT_CT=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_NFT_REJECT_INET=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_PHY_QCOM_USB_SNPS_FEMTO_V2=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_ACM=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_MODULE_SIG=y' %{buildroot}/boot/config-%{uname_r}
@@ -257,6 +261,7 @@ fi
 - Restore dual-role USB-C and PM8150B VBUS ownership for OTG HIL.
 - Restore the built-in DSI REFGEN supply and permit PM8150 RTC time persistence.
 - Let DNF replace this same-name kernel package instead of treating it as install-only.
+- Retain the nftables surface required by Fedora firewalld.
 - Keep direct LN8000 2:1 charging disabled until instrumented qualification.
 
 * Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable

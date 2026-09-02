@@ -23,7 +23,7 @@ It does not obsolete or conflict with the 6.17 fallback, Android return entry,
 or the existing 7.2 alpha family.
 
 The daily updater checks the official Linux 7.2.y checksum list. It commits a
-new point release only after all 67 checksum-locked Nabu patches apply cleanly;
+new point release only after all 68 checksum-locked Nabu patches apply cleanly;
 a conflict stops publication and leaves the preceding COPR build untouched.
 
 The 7.2.2-test extension carries the reviewed RTC/diagnostic, bounded SPI and
@@ -34,6 +34,8 @@ the minimal profile. Direct LN8000 2:1 charging remains disabled in the normal
 DTB. The package deliberately omits the generic `kernel-uname-r` capability so
 DNF replaces this same-name kernel package instead of retaining it as an
 install-only family; the separate 6.17 fallback remains independently owned.
+The compact nftables set used by the validated 6.17 kernel is retained so
+Fedora firewalld remains functional.
 
 ## COPR build profile
 
