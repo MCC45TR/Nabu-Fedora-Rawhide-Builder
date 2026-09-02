@@ -1,0 +1,2 @@
+enable nabu-gnome-mobile-sync.service
+enable nabu-gnome-mobile-sync.timer

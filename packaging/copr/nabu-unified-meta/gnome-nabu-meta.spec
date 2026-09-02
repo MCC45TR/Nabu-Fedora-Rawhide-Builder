@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           gnome-nabu-meta
 Version:        3.0.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Complete GNOME release profile for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -10,10 +10,13 @@ Source0:        nabu-kde-l10n-1.1.0.tar.gz
 Source1:        nabu-flashlight-integration-1.0.0.tar.gz
 BuildArch:      noarch
 BuildRequires:  python3
+BuildRequires:  gettext
+BuildRequires:  systemd-rpm-macros
 Requires:       nabu-core-meta >= 3.0.0
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       coreutils
+Requires:       grep
 Requires:       filesystem
 Requires:       gzip
 Requires:       tar
@@ -83,10 +86,22 @@ tar -xzf %{SOURCE1} -C flashlight --strip-components=1
 install -Dm0755 l10n/nabu-restore-kde-locales %{buildroot}%{_libexecdir}/senemos-nabu/nabu-restore-kde-locales
 install -Dm0644 l10n/macros.nabu-languages %{buildroot}%{_sysconfdir}/rpm/macros.nabu-languages
 install -d %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org
-cp -a flashlight/gnome/. %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/
+install -Dm0644 flashlight/gnome/extension.js %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/extension.js
+install -Dm0644 flashlight/gnome/metadata.json %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/metadata.json
+for po in flashlight/translations/*.po; do
+    lang="$(basename "$po" .po)"
+    install -d %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/locale/$lang/LC_MESSAGES
+    msgfmt --check --check-format -o %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/locale/$lang/LC_MESSAGES/nabu_tablet_control.mo "$po"
+done
+install -Dm0755 flashlight/gnome/integration/nabu-gnome-extension-enable %{buildroot}%{_libexecdir}/nabu-gnome-extension-enable
+install -Dm0644 flashlight/gnome/integration/nabu-gnome-extension-enable.service %{buildroot}%{_userunitdir}/nabu-gnome-extension-enable.service
+install -d %{buildroot}%{_userunitdir}/graphical-session.target.wants
+ln -s ../nabu-gnome-extension-enable.service %{buildroot}%{_userunitdir}/graphical-session.target.wants/nabu-gnome-extension-enable.service
 
 %check
 python3 -m json.tool flashlight/gnome/metadata.json >/dev/null
+sh -n flashlight/gnome/integration/nabu-gnome-extension-enable
+test "$(find flashlight/translations -name '*.po' | wc -l)" = 27
 
 %posttrans
 %{_libexecdir}/senemos-nabu/nabu-restore-kde-locales || :
@@ -97,7 +112,14 @@ python3 -m json.tool flashlight/gnome/metadata.json >/dev/null
 %{_libexecdir}/senemos-nabu/nabu-restore-kde-locales
 %{_sysconfdir}/rpm/macros.nabu-languages
 %{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/
+%{_libexecdir}/nabu-gnome-extension-enable
+%{_userunitdir}/nabu-gnome-extension-enable.service
+%{_userunitdir}/graphical-session.target.wants/nabu-gnome-extension-enable.service
 %changelog
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-4
+- Expand the independent stock GNOME Quick Settings extension into
+  capability-aware Nabu tablet controls and enable it once at first login.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
 - Make DE exclusivity explicit by package name so this manifest updates itself.
 

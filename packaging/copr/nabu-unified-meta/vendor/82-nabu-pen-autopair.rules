@@ -1,0 +1,2 @@
+# Pair only the address authenticated and emitted by the Nabu IDTP9418 driver.
+ACTION=="change", SUBSYSTEM=="i2c", ENV{IDTP9418_PEN_MAC}=="?*:*:*:*:*:*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="nabu-pen-autopair@$env{IDTP9418_PEN_MAC}.service"

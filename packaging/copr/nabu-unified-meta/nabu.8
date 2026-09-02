@@ -14,13 +14,13 @@ nabu \- inspect and manage co-installable Nabu kernel families
 .SH DESCRIPTION
 The nabu-core-meta package requires at least one Nabu kernel family and
 recommends alpha for fresh installations. Stable, alpha, mainline and the
-future LTS family may coexist as install-only fallbacks.
+future LTS family may coexist for development. Each family upgrades in place,
+so a normal single-family installation retains only that family's newest RPM.
 .PP
 The use command installs the requested family and records it as the preferred
-canonical UKI target. The add command installs an additional family without
-changing the preference. Neither operation reboots or removes older kernels.
+canonical UKI target. The add command installs an additional development family
+without changing the preference. Neither operation reboots the device.
 The legacy branch, brunch and brucnh forms remain compatibility aliases.
 .SH FILES
 .I /etc/nabu/kernel.conf
 stores the preferred family and is preserved as an RPM noreplace configuration.
-

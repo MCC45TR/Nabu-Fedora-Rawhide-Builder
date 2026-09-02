@@ -5,13 +5,14 @@ export PATH
 
 readonly PROGRAM=${0##*/}
 readonly CONFIG=/etc/nabu/kernel.conf
-readonly -a FAMILIES=(alpha stable mainline lts)
+readonly -a FAMILIES=(alpha stable mainline mainline-unstable lts)
 
 selector_for() {
     case ${1:-} in
         alpha) printf '%s\n' senemos-nabu-kernel-alpha ;;
         stable) printf '%s\n' senemos-nabu-kernel ;;
-        mainline|unstable) printf '%s\n' senemos-nabu-kernel-mainline-alpha ;;
+        mainline) printf '%s\n' senemos-nabu-kernel-mainline-alpha ;;
+        mainline-unstable|unstable) printf '%s\n' senemos-nabu-kernel-mainline-unstable ;;
         lts) printf '%s\n' senemos-nabu-kernel-lts ;;
         *) return 2 ;;
     esac
@@ -20,7 +21,7 @@ selector_for() {
 preferred_family() {
     local value=alpha
     if [[ -r $CONFIG ]]; then
-        value=$(sed -nE 's/^preferred=(alpha|stable|mainline|lts)$/\1/p' "$CONFIG" | tail -n1)
+        value=$(sed -nE 's/^preferred=(alpha|stable|mainline|mainline-unstable|lts)$/\1/p' "$CONFIG" | tail -n1)
     fi
     printf '%s\n' "${value:-alpha}"
 }
@@ -45,13 +46,14 @@ usage() {
 Usage:
   nabu kernel status
   nabu kernel list
-  nabu kernel use alpha|stable|mainline|lts
-  nabu kernel add alpha|stable|mainline|lts
+  nabu kernel use alpha|stable|mainline|mainline-unstable|lts
+  nabu kernel add alpha|stable|mainline|mainline-unstable|lts
   nabu branch [status|list|alpha|stable|unstable]
 
 At least one Nabu kernel family is always required by nabu-core-meta. "use"
 installs a family and makes it the preferred UKI target; "add" installs an
-additional fallback family. Neither command reboots or removes older kernels.
+additional development family. Each family upgrades in place. Neither command
+reboots the device.
 EOF
 }
 
@@ -78,7 +80,7 @@ list_families() {
 
 install_family() {
     local mode=$1 family=$2 selector temporary
-    [[ $family == unstable ]] && family=mainline
+    [[ $family == unstable ]] && family=mainline-unstable
     selector=$(selector_for "$family") || {
         printf '%s: unknown kernel family: %s\n' "$PROGRAM" "$family" >&2
         return 2
@@ -100,7 +102,7 @@ install_family() {
     fi
 
     rpm -q "$selector" >/dev/null
-    /usr/bin/sudo /usr/libexec/nabu-kernel-maintenance --prepare-only
+    /usr/bin/sudo /usr/libexec/nabu-kernel-maintenance
     printf '%s kernel family installed%s. Reboot was not requested.\n' \
         "$family" "$([[ $mode == use ]] && printf ' and preferred' || :)"
 }
@@ -121,7 +123,7 @@ main() {
             case $action in
                 status) show_status ;;
                 list) list_families ;;
-                alpha|stable|unstable|mainline|lts) install_family use "$action" ;;
+                alpha|stable|unstable|mainline|mainline-unstable|lts) install_family use "$action" ;;
                 help|-h|--help) usage ;;
                 *) usage >&2; return 2 ;;
             esac
@@ -134,4 +136,3 @@ main() {
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     main "$@"
 fi
-

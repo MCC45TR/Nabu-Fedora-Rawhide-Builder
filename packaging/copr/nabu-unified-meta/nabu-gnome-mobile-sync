@@ -1,0 +1,36 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+PATH=${NABU_GNOME_MOBILE_PATH:-/usr/sbin:/usr/bin}
+export PATH
+
+readonly repo_id=copr:copr.fedorainfracloud.org:group_mobility:gnome-mobile
+readonly repo_file=${NABU_GNOME_MOBILE_REPO_FILE:-/etc/yum.repos.d/gnome-mobile-copr.repo}
+readonly state_dir=${NABU_GNOME_MOBILE_STATE_DIR:-/var/lib/nabu-gnome-mobile-sync}
+readonly pending_file=$state_dir/pending
+readonly lock_file=${NABU_GNOME_MOBILE_LOCK_FILE:-/run/nabu-gnome-mobile-sync.lock}
+readonly dnf_command=${NABU_GNOME_MOBILE_DNF:-/usr/bin/dnf5}
+readonly rpm_command=${NABU_GNOME_MOBILE_RPM:-/usr/bin/rpm}
+readonly packages=(gnome-shell mutter gnome-settings-daemon)
+
+[[ -e $pending_file ]] || exit 0
+[[ -r $repo_file ]] || { printf 'GNOME Mobile repository file is missing.\n' >&2; exit 2; }
+grep -Fqx "[$repo_id]" "$repo_file" || { printf 'GNOME Mobile repository id is invalid.\n' >&2; exit 2; }
+grep -Fqx 'gpgcheck=1' "$repo_file" || { printf 'GNOME Mobile RPM signature checking is disabled.\n' >&2; exit 2; }
+grep -Fqx 'skip_if_unavailable=False' "$repo_file" || { printf 'GNOME Mobile repository is allowed to fail open.\n' >&2; exit 2; }
+
+install -d -m0755 "${lock_file%/*}"
+exec 9>"$lock_file"
+flock -w 300 9 || { printf 'Another GNOME Mobile synchronization is active.\n' >&2; exit 3; }
+
+"$dnf_command" --assumeyes --refresh distro-sync \
+    --from-repo="$repo_id" "${packages[@]}"
+
+for package in "${packages[@]}"; do
+    evr=$("$rpm_command" -q --qf '%{EPOCHNUM}:%{VERSION}-%{RELEASE}\n' "$package")
+    [[ $evr == *mobile* ]] || {
+        printf '%s did not resolve to the GNOME Mobile build: %s\n' "$package" "$evr" >&2
+        exit 4
+    }
+done
+rm -f -- "$pending_file"
+printf 'GNOME Mobile packages synchronized from %s.\n' "$repo_id"

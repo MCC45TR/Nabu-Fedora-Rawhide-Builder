@@ -10,6 +10,7 @@ install -m0644 "$copr_dir/nabu-repository-config/nabu-linux-copr.repo" "$top_dir
 install -m0644 "$copr_dir/nabu-repository-config/90-nabu-disable-cisco-openh264.repo" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.service" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.timer" "$top_dir/SOURCES/"
+install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.path" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-kernel-maintenance/90-nabu-kernel-maintenance.preset" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-plasma-base/95-nabu-plasma-login.preset" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-plasma-login-theme/80-nabu-plasma-login-theme.conf" "$top_dir/SOURCES/"
@@ -19,8 +20,18 @@ install -m0644 "$copr_dir/nabu-kde-mobile-base/20-nabu-mobile-session.conf" "$to
 install -m0644 "$copr_dir/nabu-kde-mobile-base/90-nabu-mobile-login.conf" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-kde-mobile-base/95-nabu-plasma-mobile.preset" "$top_dir/SOURCES/"
 install -m0755 "$source_dir/nabu" "$source_dir/nabu-kernel-maintenance" "$top_dir/SOURCES/"
+install -m0755 "$source_dir/test-kernel-maintenance-family.sh" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/nabu.8" "$source_dir/kernel.conf" "$top_dir/SOURCES/"
+install -m0644 "$source_dir/gnome-mobile-copr.repo" \
+    "$source_dir/nabu-gnome-mobile-sync.service" \
+    "$source_dir/nabu-gnome-mobile-sync.timer" \
+    "$source_dir/90-nabu-gnome-mobile-sync.preset" \
+    "$source_dir/20-nabu-mobile-user-mode.conf" "$top_dir/SOURCES/"
+install -m0755 "$source_dir/nabu-gnome-mobile-sync" \
+    "$source_dir/test-gnome-mobile-repo-sync.sh" "$top_dir/SOURCES/"
+install -m0644 "$source_dir/80-nabu-kernel-retention.conf" "$top_dir/SOURCES/"
 install -m0644 "$source_dir"/vendor/*.{c,gz,zst} "$top_dir/SOURCES/"
+install -m0644 "$source_dir/vendor/nabu-pen-autopair" "$source_dir/vendor/82-nabu-pen-autopair.rules" "$source_dir/vendor/nabu-pen-autopair@.service" "$top_dir/SOURCES/"
 
 for spec in "$source_dir"/*.spec; do
     staged="$top_dir/SPECS/$(basename -- "$spec")"

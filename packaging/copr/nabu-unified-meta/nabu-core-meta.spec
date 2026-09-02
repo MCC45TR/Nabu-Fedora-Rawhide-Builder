@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        6%{?dist}
+Release:        31%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -20,22 +20,31 @@ Source9:        nabu-system-integration-2.0.0.tar.zst
 Source10:       nabu-flashlight-integration-1.0.0.tar.gz
 Source11:       nabu-sar-service-0.1.1.tar.zst
 Source12:       nabu-ssc-probe.c
+Source13:       nabu-pen-autopair
+Source14:       82-nabu-pen-autopair.rules
+Source15:       nabu-pen-autopair@.service
+Source16:       nabu-kernel-maintenance.path
+Source17:       80-nabu-kernel-retention.conf
+Source18:       test-kernel-maintenance-family.sh
 BuildRequires:  gcc
+BuildRequires:  gcc-c++
 BuildRequires:  meson
 BuildRequires:  pkgconfig(gio-2.0)
 BuildRequires:  pkgconfig(libssc)
+BuildRequires:  pkgconfig(Qt6Core)
+BuildRequires:  pkgconfig(Qt6DBus)
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  systemd-udev
 
-# One kernel family is mandatory.  Alpha is listed first and recommended for
-# fresh installations, while installed stable/mainline kernels continue to
-# satisfy the hard requirement and multiple families may coexist.
-Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel or senemos-nabu-kernel-mainline-alpha or senemos-nabu-kernel-lts)
+# One ESP-supported kernel family is mandatory. Alpha is the normal release
+# line and mainline-unstable is the explicit comparison line; the other COPR
+# packages may remain installed but do not consume the constrained Nabu ESP.
+Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)
 Recommends:     senemos-nabu-kernel-alpha
 
 # Hardware, boot, firmware and service payloads remain independently built
 # where architecture, ABI, licensing or physical validation lifecycles differ.
-Requires:       nabu-boot-integration >= 2.0.0
+Requires:       nabu-boot-integration >= 2.0.0-31.test
 Requires:       nabu-boot-manager
 Requires:       hexagonrpc-nabu
 Requires:       libssc-nabu
@@ -57,8 +66,10 @@ Requires:       NetworkManager-wifi
 Requires:       alsa-ucm
 Requires:       atheros-firmware
 Requires:       bash
+Requires:       bluez
 Requires:       coreutils
 Requires:       dnf5
+Requires:       dosfstools
 Requires:       dracut
 Requires:       feedbackd
 %if 0%{?fedora} >= 45
@@ -94,7 +105,7 @@ Provides:       nabu-repository-config-api = 2
 Provides:       nabu-branch-manager = %{version}-%{release}
 Provides:       nabu-branch-manager-api = 2
 Provides:       nabu-kernel-maintenance = %{version}-%{release}
-Provides:       nabu-kernel-maintenance-api = 2
+Provides:       nabu-kernel-maintenance-api = 5
 Provides:       nabu-meta = %{version}-%{release}
 Provides:       nabu-system-integration = %{version}-%{release}
 Provides:       nabu-runtime-integration = %{version}-%{release}
@@ -103,9 +114,11 @@ Provides:       nabu-device-config = %{version}-%{release}
 Provides:       nabu-audio-config = %{version}-%{release}
 Provides:       nabu-flashlight-integration = %{version}-%{release}
 Provides:       nabu-flashlight-integration = 1.0.0-10.fc46
+Provides:       nabu-flashlight-integration = 1.0.0-14.fc46
 Provides:       nabu-sar-service = %{version}-%{release}
 Provides:       nabu-ssc-probe = %{version}-%{release}
 Provides:       nabu-camera-stack = %{version}-%{release}
+Provides:       senemos-nabu-pen-autopair = %{version}-%{release}
 
 # Bounded Nabu-only transition.  No Fedora, KDE or third-party package is
 # obsoleted.  Kernel payload packages are deliberately retained.
@@ -128,6 +141,9 @@ Obsoletes:      nabu-flashlight-integration < %{legacy_meta_max}
 Obsoletes:      nabu-sar-service < %{legacy_meta_max}
 Obsoletes:      nabu-ssc-probe < %{legacy_meta_max}
 Obsoletes:      nabu-suspend-diagnostics < %{legacy_meta_max}
+Obsoletes:      senemos-nabu-pen-autopair < 1:1.17.0-1.v1.4.0.7.1.2
+# Legacy split payloads are intentionally not obsoleted in the first unified
+# release: one of them may be the running kernel and DNF must preserve it.
 
 %description
 The single hardware-side release manifest for Fedora on Xiaomi Pad 5 (nabu).
@@ -151,6 +167,9 @@ bash -n %{SOURCE2}
 bash -n %{SOURCE4}
 %{__cc} %{build_cflags} %{build_ldflags} -o nabu-flashlight flashlight-integration/src/nabu-flashlight.c
 %{__cc} %{build_cflags} %{build_ldflags} -o nabu-usb-role flashlight-integration/src/nabu-usb-role.c
+%{__cxx} -std=c++17 %{build_cxxflags} $(pkg-config --cflags Qt6Core Qt6DBus) \
+    -o nabu-accessory-state flashlight-integration/src/nabu-accessory-state.cpp \
+    %{build_ldflags} $(pkg-config --libs Qt6Core Qt6DBus)
 %{__cc} %{build_cflags} %{build_ldflags} -o nabu-ssc-probe nabu-ssc-probe.c $(pkg-config --cflags --libs gio-2.0 libssc)
 meson setup sar-build sar-service \
     --prefix=%{_prefix} --libexecdir=%{_libexecdir} \
@@ -165,8 +184,13 @@ install -Dm0644 %{SOURCE3} %{buildroot}%{_mandir}/man8/nabu.8
 install -Dm0755 %{SOURCE4} %{buildroot}%{_libexecdir}/nabu-kernel-maintenance
 install -Dm0644 %{SOURCE5} %{buildroot}%{_unitdir}/nabu-kernel-maintenance.service
 install -Dm0644 %{SOURCE6} %{buildroot}%{_unitdir}/nabu-kernel-maintenance.timer
+install -Dm0644 %{SOURCE16} %{buildroot}%{_unitdir}/nabu-kernel-maintenance.path
 install -Dm0644 %{SOURCE7} %{buildroot}%{_presetdir}/90-nabu-kernel-maintenance.preset
 install -Dm0644 %{SOURCE8} %{buildroot}%{_sysconfdir}/nabu/kernel.conf
+install -Dm0755 %{SOURCE13} %{buildroot}%{_libexecdir}/nabu-pen-autopair
+install -Dm0644 %{SOURCE14} %{buildroot}%{_udevrulesdir}/82-nabu-pen-autopair.rules
+install -Dm0644 %{SOURCE15} %{buildroot}%{_unitdir}/nabu-pen-autopair@.service
+install -Dm0644 %{SOURCE17} %{buildroot}%{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
 install -d %{buildroot}%{_sysconfdir}/systemd/system
 ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.timer
 
@@ -176,14 +200,20 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/modules-load.d/scsi_dh.conf
 install -Dm0755 system-integration/runtime/nabu-pmic-rtc-sync %{buildroot}%{_libexecdir}/senemos-nabu/nabu-pmic-rtc-sync
 install -Dm0755 system-integration/runtime/nabu-slpi-suspend %{buildroot}%{_libexecdir}/senemos-nabu/nabu-slpi-suspend
 install -Dm0755 system-integration/runtime/nabu-sensor-session-gate %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-session-gate
+install -Dm0755 system-integration/runtime/nabu-sensor-registry-runtime %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
+install -Dm0755 system-integration/runtime/nabu-esp32-cdc-journal-log %{buildroot}%{_libexecdir}/senemos-nabu/nabu-esp32-cdc-journal-log
 install -Dm0755 system-integration/runtime/nabu-prepare-selinux-labels %{buildroot}%{_libexecdir}/senemos-nabu/nabu-prepare-selinux-labels
 install -Dm0755 system-integration/runtime/senemos-nabu-status %{buildroot}%{_bindir}/senemos-nabu-status
 install -Dm0644 system-integration/runtime/nabu-pmic-rtc-sync.service %{buildroot}%{_unitdir}/nabu-pmic-rtc-sync.service
 install -Dm0644 system-integration/runtime/nabu-slpi-suspend.service %{buildroot}%{_unitdir}/nabu-slpi-suspend.service
 install -Dm0644 system-integration/runtime/nabu-sensor-session-gate.service %{buildroot}%{_unitdir}/nabu-sensor-session-gate.service
+install -Dm0644 system-integration/runtime/nabu-sensor-registry-runtime.service %{buildroot}%{_unitdir}/nabu-sensor-registry-runtime.service
+install -Dm0644 system-integration/runtime/nabu-esp32-cdc-log.service %{buildroot}%{_unitdir}/nabu-esp32-cdc-log.service
 install -Dm0644 system-integration/runtime/mnt-vendor-persist.mount %{buildroot}%{_unitdir}/mnt-vendor-persist.mount
 install -Dm0644 system-integration/runtime/90-senemos-nabu.preset %{buildroot}%{_presetdir}/90-senemos-nabu.preset
 install -Dm0644 system-integration/runtime/10-nabu-sensor-stack.conf %{buildroot}%{_unitdir}/iio-sensor-proxy.service.d/10-nabu-sensor-stack.conf
+install -Dm0644 system-integration/runtime/20-nabu-sensor-cache.conf %{buildroot}%{_unitdir}/iio-sensor-proxy.service.d/20-nabu-sensor-cache.conf
+install -Dm0644 system-integration/runtime/20-nabu-runtime-registry.conf %{buildroot}%{_unitdir}/hexagonrpcd-sdsp.service.d/20-nabu-runtime-registry.conf
 install -Dm0644 system-integration/runtime/10-nabu-wlan-firmware-order.conf %{buildroot}%{_unitdir}/rmtfs.service.d/10-nabu-wlan-firmware-order.conf
 install -Dm0644 system-integration/runtime/90-nabu-user-slice-freeze.conf %{buildroot}%{_unitdir}/systemd-suspend.service.d/90-nabu-user-slice-freeze.conf
 install -Dm0644 system-integration/runtime/20-nabu-wifi-wowlan.conf %{buildroot}%{_sysconfdir}/NetworkManager/conf.d/20-nabu-wifi-wowlan.conf
@@ -199,24 +229,34 @@ install -Dm0644 system-integration/nabu.pa %{buildroot}%{_sysconfdir}/pulse/defa
 
 install -Dpm2755 nabu-flashlight %{buildroot}%{_libexecdir}/nabu-flashlight
 install -Dpm0755 nabu-usb-role %{buildroot}%{_libexecdir}/nabu-usb-role
+install -Dpm0755 nabu-accessory-state %{buildroot}%{_libexecdir}/nabu-accessory-state
 ln -s %{_libexecdir}/nabu-flashlight %{buildroot}%{_bindir}/nabu-flashlightctl
 ln -s %{_libexecdir}/nabu-usb-role %{buildroot}%{_bindir}/nabu-usb-role
+ln -s %{_libexecdir}/nabu-accessory-state %{buildroot}%{_bindir}/nabu-accessory-state
 install -Dpm0644 flashlight-integration/polkit/org.senemos.nabu.tablet-control.policy %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
 DESTDIR=%{buildroot} meson install -C sar-build
 install -Dm0755 nabu-ssc-probe %{buildroot}%{_bindir}/nabu-ssc-probe
 
 %check
+bash %{SOURCE18}
 bash -n system-integration/runtime/nabu-pmic-rtc-sync
 bash -n system-integration/runtime/nabu-slpi-suspend
 bash -n system-integration/runtime/nabu-sensor-session-gate
+bash -n system-integration/runtime/nabu-sensor-registry-runtime
+bash -n system-integration/runtime/nabu-esp32-cdc-journal-log
 bash -n system-integration/runtime/nabu-prepare-selinux-labels
 (cd system-integration && bash tests/test-sensor-session-gate.sh)
+(cd system-integration && bash tests/test-sensor-registry-runtime.sh)
 (cd system-integration && bash tests/test-selinux-label-preparation.sh)
 (cd system-integration && bash tests/test-suspend-user-slice-policy.sh)
 bash -n system-integration/runtime/senemos-nabu-status
 udevadm verify %{buildroot}%{_udevrulesdir}/99-libinput-calibration-matrix.rules
+test ! -e %{buildroot}%{_udevrulesdir}/81-nabu-sensor-orientation.rules
+test ! -e %{buildroot}%{_libexecdir}/nabu-import-mount-matrix
+! grep -Eq '(^|,)senemos-nabu-kernel-mainline-unstable(,|$)' %{SOURCE17}
 meson test -C sar-build --print-errorlogs
 test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-flashlight)" = 2755
+test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-accessory-state)" = 755
 grep -Fq '/usr/libexec/nabu-usb-role' %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
 
 %pretrans -p /usr/bin/bash
@@ -236,6 +276,7 @@ fi
 %{_libexecdir}/nabu-kernel-maintenance
 %{_unitdir}/nabu-kernel-maintenance.service
 %{_unitdir}/nabu-kernel-maintenance.timer
+%{_unitdir}/nabu-kernel-maintenance.path
 %{_presetdir}/90-nabu-kernel-maintenance.preset
 %license system-integration/licenses/*
 %doc system-integration/FIRMWARE-PROVENANCE.md flashlight-integration/API.md
@@ -253,16 +294,23 @@ fi
 %{_libexecdir}/senemos-nabu/nabu-pmic-rtc-sync
 %{_libexecdir}/senemos-nabu/nabu-slpi-suspend
 %{_libexecdir}/senemos-nabu/nabu-sensor-session-gate
+%{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
+%{_libexecdir}/senemos-nabu/nabu-esp32-cdc-journal-log
 %{_libexecdir}/senemos-nabu/nabu-prepare-selinux-labels
 %{_unitdir}/ath10k-shutdown.service
 %{_unitdir}/nabu-pmic-rtc-sync.service
 %{_unitdir}/nabu-slpi-suspend.service
 %{_unitdir}/nabu-sensor-session-gate.service
+%{_unitdir}/nabu-sensor-registry-runtime.service
+%{_unitdir}/nabu-esp32-cdc-log.service
 %{_unitdir}/mnt-vendor-persist.mount
 %{_presetdir}/80-nabu-core.preset
 %{_presetdir}/90-senemos-nabu.preset
 %dir %{_unitdir}/iio-sensor-proxy.service.d
 %{_unitdir}/iio-sensor-proxy.service.d/10-nabu-sensor-stack.conf
+%{_unitdir}/iio-sensor-proxy.service.d/20-nabu-sensor-cache.conf
+%dir %{_unitdir}/hexagonrpcd-sdsp.service.d
+%{_unitdir}/hexagonrpcd-sdsp.service.d/20-nabu-runtime-registry.conf
 %dir %{_unitdir}/rmtfs.service.d
 %{_unitdir}/rmtfs.service.d/10-nabu-wlan-firmware-order.conf
 %dir %{_unitdir}/systemd-suspend.service.d
@@ -275,16 +323,22 @@ fi
 %{_udevhwdbdir}/90-nabu-mcc45tr.hwdb
 %attr(2755,root,feedbackd) %{_libexecdir}/nabu-flashlight
 %{_libexecdir}/nabu-usb-role
+%{_libexecdir}/nabu-accessory-state
 %{_bindir}/nabu-flashlightctl
 %{_bindir}/nabu-usb-role
+%{_bindir}/nabu-accessory-state
 %{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
 %{_libexecdir}/nabu-sar-service
 %{_unitdir}/nabu-sar-service.service
 %{_datadir}/dbus-1/system.d/org.senemos.Nabu.Sar.conf
 %{_bindir}/nabu-ssc-probe
+%{_libexecdir}/nabu-pen-autopair
+%{_udevrulesdir}/82-nabu-pen-autopair.rules
+%{_unitdir}/nabu-pen-autopair@.service
+%{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
 
 %post
-%systemd_post nabu-kernel-maintenance.timer ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service mnt-vendor-persist.mount nabu-sar-service.service
+%systemd_post nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
@@ -292,6 +346,7 @@ fi
 %posttrans
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl enable --now nabu-kernel-maintenance.timer >/dev/null 2>&1 || :
+    /usr/bin/systemctl enable --now nabu-kernel-maintenance.path >/dev/null 2>&1 || :
     /usr/bin/systemctl reset-failed nabu-kernel-maintenance.service >/dev/null 2>&1 || :
 fi
 /usr/libexec/senemos-nabu/nabu-prepare-selinux-labels || printf 'Warning: Nabu SELinux labels are not ready.\n' >&2
@@ -301,26 +356,133 @@ if [ -x /usr/bin/udevadm ]; then
 fi
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl daemon-reload >/dev/null 2>&1 || :
+    /usr/bin/systemctl reenable nabu-sensor-session-gate.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
     /usr/bin/systemctl disable --now hexagonrpcd-adsp-sensorspd.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable rmtfs.service tqftpserv.service mnt-vendor-persist.mount hexagonrpcd-sdsp.service hexagonrpcd-adsp-rootpd.service iio-sensor-proxy.service nabu-sensor-session-gate.service nabu-sar-service.service >/dev/null 2>&1 || :
     case "$(/usr/bin/systemctl is-system-running 2>/dev/null || :)" in
         running|degraded)
-            /usr/bin/systemctl start mnt-vendor-persist.mount hexagonrpcd-sdsp.service hexagonrpcd-adsp-rootpd.service nabu-sar-service.service >/dev/null 2>&1 || :
+            /usr/bin/systemctl start mnt-vendor-persist.mount >/dev/null 2>&1 || :
+            /usr/bin/systemctl restart nabu-sensor-registry-runtime.service hexagonrpcd-sdsp.service >/dev/null 2>&1 || :
+            /usr/bin/systemctl start hexagonrpcd-adsp-rootpd.service nabu-sar-service.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
             /usr/bin/systemctl restart iio-sensor-proxy.service >/dev/null 2>&1 || :
             ;;
     esac
 fi
 
 %preun
-%systemd_preun nabu-kernel-maintenance.timer ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service mnt-vendor-persist.mount nabu-sar-service.service
+%systemd_preun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service
 
 %postun
-%systemd_postun_with_restart nabu-kernel-maintenance.timer ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service mnt-vendor-persist.mount nabu-sar-service.service
+%systemd_postun_with_restart nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
 
 %changelog
+* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-31
+- Retire the legacy shell importer and duplicate Nabu orientation rule; the
+  sensor package now consumes the kernel-exported Device Tree matrix directly.
+- Let the canonical 7.2.2 package self-update normally while preserving the
+  independently named 6.17 fallback kernel family.
+
+* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-30
+- Import Nabu's accelerometer matrix from the FastRPC sysfs attribute backed by
+  Device Tree instead of duplicating board orientation as a userspace constant.
+- Import the trusted matrix with a bounded helper that accepts only a Nabu
+  sysfs path and a valid 3x3 signed-unit rotation matrix.
+- Keep SDSP as the sole SSC sensor source and prevent duplicate ADSP discovery.
+
+* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-28
+- Make SDSP the sole Nabu SSC sensor owner and prevent duplicate ADSP sensors.
+- Export the verified Nabu accelerometer matrix through the udev device property.
+
+* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-27
+- Expose only the supported alpha and mainline-unstable families on the ESP.
+- Keep stable, LTS and old mainline packages available without generating UKIs.
+
+* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-26
+- Align kernel maintenance verification with the standard EFI/fedora UKI path.
+- Require the dynamic rEFInd-capable boot integration before enabling maintenance.
+
+* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-25
+- Copy the Android SSC registry version marker beside the volatile registry so
+  SDSP discovery can validate and open the complete calibration database.
+
+* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-24
+- Stage packaged SSC data and read-only Android calibration in a volatile
+  fastrpc-owned registry; give iio-sensor-proxy a system cache under SELinux.
+- Remove the sensor health check from the graphical critical path.
+- Keep ESP32 CDC journal streaming healthy across cable disconnects.
+- Install the FAT checker and include signed regulatory data in release UKIs.
+- Retry deferred UKI work once at boot instead of rerunning failed dracut jobs.
+
+* Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-21
+- Keep the existing stable package as the independent SENEMOS616 UKI family.
+- Preserve exactly five named kernel package families without UKI collisions.
+
+* Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-20
+- Require the corrected SENEMOS7U-aware boot integration build.
+
+* Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-19
+- Manage the separate mainline-unstable package as the SENEMOS7U UKI family.
+
+* Sun Aug 30 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-18
+- Maintain one latest UKI independently for SENEMOS6, SENEMOS7 and SENEMOS6LTS.
+- Preserve user-installed kernels and select the preferred family only as the default.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-17
+- Verify the exact UKI derived from the shared kernel identity instead of
+  treating the manager-neutral manifest as the only success artifact.
+- Skip regeneration only when the prepared record's UKI digest still matches
+  the exact canonical artifact on the ESP.
+- Require boot integration support for the COPR uname form with the preserved
+  SENEMOS timestamped EFI name.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-16
+- Skip the full-root SELinux relabel and verification pass when the stored
+  policy digest is current and no autorelabel request exists.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-15
+- Make the ESP an explicit writable path in the hardened UKI maintenance
+  service and serialize it after rEFInd synchronization.
+- Rate-limit failed path-triggered retries while retaining the pending marker
+  for the timer's later retry.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-14
+- Add the native BlueZ, stylus-power and pogo-keyboard state helper required
+  by the stock GNOME and Plasma tablet-control integrations.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-13
+- Classify stable, alpha and mainline package names as install-only after the
+  first unified upgrade while retaining exactly two versions per family.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-12
+- Retain at most two versions of each installed Nabu kernel family using DNF's
+  native install-only policy without disabling running-kernel protection.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-11
+- Preserve legacy split payloads during the first unified transaction so DNF's
+  running-kernel safety gate remains effective.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-10
+- Drain deferred work for installed non-preferred kernel families so the path
+  unit cannot retrigger continuously; only the selected family owns a UKI.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-9
+- Support one-RPM kernel families and migrate every former core/modules split.
+- Merge the Nabu stylus autopair hardware integration into CORE.
+- Require scriptlet-free boot integration 2.0.0-17.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-8
+- Retire only pre-migration install-only payload EVRs so a normal DNF update
+  converges on one version per installed family and removes orphan payloads.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-7
+- Consume exact per-family kernel markers without running DNF recursively or
+  scanning unrelated installed kernels.
+- Manage one canonical Linux entry, never require or inspect a Linux fallback, and
+  preserve the Android return artifact when it exists.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-6
 - Ship the stock Fedora libcamera, PipeWire, GStreamer and V4L2 camera stack
   from CORE for the Nabu CAMSS/CCI alpha kernel; no KDE or Fedora application

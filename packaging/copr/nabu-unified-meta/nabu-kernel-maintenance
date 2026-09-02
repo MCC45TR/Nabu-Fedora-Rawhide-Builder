@@ -1,138 +1,159 @@
 #!/usr/bin/bash
 set -Eeuo pipefail
-PATH=/usr/sbin:/usr/bin
+PATH=${NABU_MAINT_PATH:-/usr/sbin:/usr/bin}
 export PATH
 
-exec 9>/run/nabu-package-management.lock
-flock -n 9 || {
-    printf 'Another Nabu package or UKI operation is active; retrying later.\n'
-    exit 0
-}
+readonly state_dir=${NABU_MAINT_STATE_DIR:-/var/lib/nabu-kernel-maintenance}
+readonly pending_dir=$state_dir/pending.d
+readonly prepared_dir=$state_dir/prepared.d
+readonly identity_tool=${NABU_MAINT_IDENTITY_TOOL:-/usr/libexec/senemos-nabu/kernel-build-identity}
+readonly boot_dir=${NABU_MAINT_BOOT_DIR:-/boot}
+readonly esp=${NABU_MAINT_ESP:-/boot/efi}
+readonly regenerate_command=${NABU_MAINT_REGENERATE_COMMAND:-/usr/bin/nabu-regenerate-uki}
+readonly configure_command=${NABU_MAINT_CONFIGURE_COMMAND:-/usr/bin/nabu-configure-boot-manager}
+readonly compatible_path=${NABU_MAINT_COMPATIBLE_PATH:-/sys/firmware/devicetree/base/compatible}
+readonly config_file=${NABU_MAINT_CONFIG:-/etc/nabu/kernel.conf}
 
-if [[ -r /sys/firmware/devicetree/base/compatible ]] &&
-   ! grep -aq 'xiaomi,nabu' /sys/firmware/devicetree/base/compatible; then
-    printf 'This is not a Xiaomi Pad 5 (nabu); skipping maintenance.\n'
+lock_file=${NABU_MAINT_LOCK_FILE:-/run/nabu-kernel-maintenance.lock}
+install -d -m0755 "${lock_file%/*}"
+exec 9>"$lock_file"
+flock -n 9 || exit 0
+
+if [[ -r $compatible_path ]] && ! grep -aq 'xiaomi,nabu' "$compatible_path"; then
     exit 0
 fi
 
-declare -A selector=(
+declare -Ar selector=(
     [alpha]=senemos-nabu-kernel-alpha
-    [stable]=senemos-nabu-kernel
-    [mainline]=senemos-nabu-kernel-mainline-alpha
-    [lts]=senemos-nabu-kernel-lts
+    [mainline-unstable]=senemos-nabu-kernel-mainline-unstable
 )
-declare -A core=(
-    [alpha]=senemos-nabu-kernel-alpha-core
-    [stable]=senemos-nabu-kernel-core
-    [mainline]=senemos-nabu-kernel-mainline-alpha-core
-    [lts]=senemos-nabu-kernel-lts-core
+declare -Ar efi_family=(
+    [alpha]=SENEMOS6
+    [mainline-unstable]=SENEMOS7U
 )
+
+identity_is_newer() {
+    local candidate=$1 current=$2 newest
+    if [[ $candidate =~ ^[0-9]{10}$ && ! $current =~ ^[0-9]{10}$ ]]; then
+        return 0
+    fi
+    if [[ ! $candidate =~ ^[0-9]{10}$ && $current =~ ^[0-9]{10}$ ]]; then
+        return 1
+    fi
+    newest=$(printf '%s\n%s\n' "$current" "$candidate" | sort -V | tail -n1)
+    [[ $newest == "$candidate" && $candidate != "$current" ]]
+}
+
+install -d -m0755 "$state_dir" "$pending_dir" "$prepared_dir"
+declare -A selected_kernel=() selected_identity=() selected_channel=()
+installed_count=0
+for channel in alpha mainline-unstable; do
+    rpm -q "${selector[$channel]}" >/dev/null 2>&1 || continue
+    installed_count=$((installed_count + 1))
+    package_nevra=$(rpm -q --qf '%{NEVRA}\n' "${selector[$channel]}" | tail -n1)
+    mapfile -t kernels < <(rpm -ql "$package_nevra" | sed -n "s@^${boot_dir}/vmlinuz-@@p")
+    [[ ${#kernels[@]} -eq 1 ]] || {
+        printf 'Expected one kernel image in %s, found %s.\n' "$package_nevra" "${#kernels[@]}" >&2
+        exit 3
+    }
+    kernel=${kernels[0]}
+    owner=$(rpm -qf --qf '%{NAME}\n' "$boot_dir/vmlinuz-$kernel" 2>/dev/null | head -n1 || :)
+    [[ $owner == "${selector[$channel]}" ]] || {
+        printf 'Kernel %s is not owned by %s.\n' "$kernel" "${selector[$channel]}" >&2
+        exit 4
+    }
+    [[ -s $boot_dir/vmlinuz-$kernel && -d ${NABU_MAINT_MODULES_DIR:-/usr/lib/modules}/$kernel ]] || {
+        printf 'Incomplete kernel payload: %s\n' "$kernel" >&2
+        exit 5
+    }
+    identity=$("$identity_tool" --field=stamp "$kernel" 2>/dev/null || :)
+    if [[ ! $identity =~ ^[0-9]{10}$ ]]; then
+        package_release=$(rpm -q --qf '%{RELEASE}\n' "$package_nevra" | tail -n1)
+        identity=$(sed -nE 's/^([0-9]{10})([.]|$).*/\1/p' <<<"$package_release")
+    fi
+    [[ $identity =~ ^[0-9]{10}$ ]] || {
+        printf 'Cannot derive the SENEMOS identity for %s from the kernel or RPM release.\n' \
+            "$kernel" >&2
+        exit 6
+    }
+    family=${efi_family[$channel]}
+    if [[ -z ${selected_kernel[$family]:-} ]] ||
+       identity_is_newer "$identity" "${selected_identity[$family]}"; then
+        selected_kernel[$family]=$kernel
+        selected_identity[$family]=$identity
+        selected_channel[$family]=$channel
+    fi
+done
+(( installed_count > 0 )) || { printf 'No managed Nabu kernel family is installed.\n' >&2; exit 2; }
 
 preferred=alpha
-if [[ -r /etc/nabu/kernel.conf ]]; then
-    configured=$(sed -nE 's/^preferred=(alpha|stable|mainline|lts)$/\1/p' /etc/nabu/kernel.conf | tail -n1)
-    [[ -n $configured ]] && preferred=$configured
+if [[ -r $config_file ]]; then
+    configured=$(sed -nE 's/^preferred=(alpha|mainline-unstable)$/\1/p' "$config_file" | tail -n1)
+    [[ -z $configured ]] || preferred=$configured
+fi
+preferred_family=${efi_family[$preferred]}
+if [[ -z ${selected_kernel[$preferred_family]:-} ]]; then
+    mapfile -t available_families < <(printf '%s\n' "${!selected_kernel[@]}" | sort -V)
+    preferred_family=${available_families[0]}
 fi
 
-installed=()
-for family in alpha stable mainline lts; do
-    rpm -q "${selector[$family]}" >/dev/null 2>&1 && installed+=("$family")
-done
-[[ ${#installed[@]} -ge 1 ]] || {
-    printf 'No Nabu kernel family is installed.\n' >&2
-    exit 2
-}
-
-if ! rpm -q "${selector[$preferred]}" >/dev/null 2>&1; then
-    preferred=${installed[0]}
-    printf 'Configured family is absent; using installed family %s.\n' "$preferred"
+android_entry=$esp/loader/entries/android.conf
+android_efi=
+android_entry_digest=
+android_efi_digest=
+if [[ -r $android_entry ]]; then
+    android_efi=$(sed -nE 's@^efi[[:space:]]+(/.*)@\1@p' "$android_entry" | head -n1)
+    [[ -n $android_efi && -s $esp$android_efi ]] || {
+        printf 'Android return entry is incomplete.\n' >&2
+        exit 7
+    }
+    android_entry_digest=$(sha256sum "$android_entry" | cut -d' ' -f1)
+    android_efi_digest=$(sha256sum "$esp$android_efi" | cut -d' ' -f1)
 fi
 
-if [[ ${1:-} != --prepare-only ]]; then
-    packages=()
-    for family in "${installed[@]}"; do
-        packages+=("${selector[$family]}")
+# Prepare non-default families first. The final sync makes the preferred family
+# the default while retaining exactly one latest UKI for every known family.
+mapfile -t ordered_families < <(printf '%s\n' "${!selected_kernel[@]}" | sort -V)
+for family in "${ordered_families[@]}" "$preferred_family"; do
+    [[ $family != "$preferred_family" || ${family_seen:-0} -eq 0 ]] || continue
+    [[ $family == "$preferred_family" ]] && family_seen=1
+    kernel=${selected_kernel[$family]}
+    identity=${selected_identity[$family]}
+    uki_name="${family}-${identity}.efi"
+    prepared_file=$prepared_dir/$family
+    regenerate=1
+    if [[ -r $prepared_file ]] && read -r prepared_kernel prepared_digest <"$prepared_file" &&
+       [[ $prepared_kernel == "$kernel" && $prepared_digest =~ ^[0-9a-f]{64}$ ]] &&
+       [[ -s $esp/EFI/fedora/$uki_name ]] &&
+       [[ $(sha256sum "$esp/EFI/fedora/$uki_name" | cut -d' ' -f1) == "$prepared_digest" ]]; then
+        regenerate=0
+    fi
+    if (( regenerate )); then
+        "$regenerate_command" --family "$family" "$kernel"
+        [[ -s $esp/EFI/fedora/$uki_name ]] || {
+            printf 'Generated family UKI is incomplete: %s\n' "$uki_name" >&2
+            exit 8
+        }
+        temporary=$(mktemp "$prepared_dir/.${family}.XXXXXX")
+        uki_digest=$(sha256sum "$esp/EFI/fedora/$uki_name" | cut -d' ' -f1)
+        printf '%s %s\n' "$kernel" "$uki_digest" >"$temporary"
+        chmod 0644 "$temporary"
+        mv -f "$temporary" "$prepared_file"
+    fi
+    for channel in alpha mainline-unstable; do
+        [[ ${efi_family[$channel]} == "$family" ]] && rm -f -- "$pending_dir/$channel"
     done
-    dnf5 --assumeyes --refresh upgrade "${packages[@]}"
+done
+
+preferred_uki="${preferred_family}-${selected_identity[$preferred_family]}.efi"
+"$configure_command" --sync-only --uki "$preferred_uki"
+
+if [[ -n $android_efi ]]; then
+    [[ $(sha256sum "$android_entry" | cut -d' ' -f1) == "$android_entry_digest" &&
+       $(sha256sum "$esp$android_efi" | cut -d' ' -f1) == "$android_efi_digest" ]] || {
+        printf 'Android return artifact changed unexpectedly.\n' >&2
+        exit 9
+    }
 fi
-
-latest_core=$(rpm -q --last "${core[$preferred]}" | sed -n '1s/[[:space:]].*//p')
-[[ -n $latest_core ]] || {
-    printf 'No installed kernel core package was found for %s.\n' "$preferred" >&2
-    exit 3
-}
-mapfile -t kernels < <(rpm -ql "$latest_core" | sed -n 's@^/boot/vmlinuz-@@p')
-[[ ${#kernels[@]} -eq 1 ]] || {
-    printf 'Expected exactly one RPM-owned kernel in %s.\n' "$latest_core" >&2
-    exit 4
-}
-kernel=${kernels[0]}
-[[ -s /boot/vmlinuz-$kernel && -d /usr/lib/modules/$kernel ]] || {
-    printf 'Incomplete RPM-owned kernel payload: %s\n' "$kernel" >&2
-    exit 5
-}
-
-pending=/var/lib/nabu-kernel-maintenance/pending-kernel
-prepared=/var/lib/nabu-kernel-maintenance/prepared-kernel
-install -d -m0755 /var/lib/nabu-kernel-maintenance
-
-# The maintenance path may replace only the canonical Nabu entry.  Snapshot the
-# user's current loader default plus the protected Android/fallback entries and
-# their EFI payloads before regeneration, then prove that they did not change.
-loader_conf=/boot/efi/loader/loader.conf
-[[ -r $loader_conf ]] || {
-    printf 'Loader configuration is missing or unreadable.\n' >&2
-    exit 6
-}
-loader_default_before=$(sed -nE 's/^[[:space:]]*default[[:space:]]+([^#[:space:]]+).*$/\1/p' "$loader_conf" | tail -n1)
-[[ -n $loader_default_before ]] || {
-    printf 'Loader default is not explicit; refusing an unverifiable UKI change.\n' >&2
-    exit 6
-}
-declare -A protected_entry_digest protected_efi_digest protected_efi_path
-for protected in android.conf fallback.conf; do
-    protected_path=/boot/efi/loader/entries/$protected
-    [[ -r $protected_path ]] || {
-        printf 'Protected boot entry is missing: %s\n' "$protected" >&2
-        exit 7
-    }
-    protected_efi=$(sed -nE 's@^efi[[:space:]]+(/.*)@\1@p' "$protected_path" | head -n1)
-    [[ -n $protected_efi && -s /boot/efi"$protected_efi" ]] || {
-        printf 'Protected EFI payload is missing: %s\n' "$protected" >&2
-        exit 8
-    }
-    protected_efi_path[$protected]=$protected_efi
-    protected_entry_digest[$protected]=$(sha256sum "$protected_path" | cut -d' ' -f1)
-    protected_efi_digest[$protected]=$(sha256sum /boot/efi"$protected_efi" | cut -d' ' -f1)
-done
-
-printf '%s\n' "$kernel" >"$pending"
-/usr/bin/nabu-regenerate-uki "$kernel"
-
-entry=/boot/efi/loader/entries/senemos.conf
-efi_path=$(sed -nE 's@^efi[[:space:]]+(/.*)@\1@p' "$entry" | head -n1)
-[[ -n $efi_path && -s /boot/efi"$efi_path" ]] || {
-    printf 'Canonical entry does not reference a complete UKI.\n' >&2
-    exit 6
-}
-for protected in android.conf fallback.conf; do
-    protected_path=/boot/efi/loader/entries/$protected
-    protected_efi=${protected_efi_path[$protected]}
-    [[ -r $protected_path && -s /boot/efi"$protected_efi" ]] || {
-        printf 'Protected boot artifact disappeared: %s\n' "$protected" >&2
-        exit 7
-    }
-    [[ $(sha256sum "$protected_path" | cut -d' ' -f1) == "${protected_entry_digest[$protected]}" &&
-       $(sha256sum /boot/efi"$protected_efi" | cut -d' ' -f1) == "${protected_efi_digest[$protected]}" ]] || {
-        printf 'Protected boot artifact changed unexpectedly: %s\n' "$protected" >&2
-        exit 8
-    }
-done
-loader_default_after=$(sed -nE 's/^[[:space:]]*default[[:space:]]+([^#[:space:]]+).*$/\1/p' "$loader_conf" | tail -n1)
-[[ $loader_default_after == "$loader_default_before" ]] || {
-    printf 'Loader default changed unexpectedly (%s -> %s).\n' "$loader_default_before" "$loader_default_after" >&2
-    exit 9
-}
-printf '%s\n' "$kernel" >"$prepared"
-rm -f "$pending"
-printf 'Prepared preferred %s kernel and UKI: %s (%s)\n' "$preferred" "$kernel" "$efi_path"
+printf 'Prepared %s managed kernel families; default family: %s.\n' \
+    "${#selected_kernel[@]}" "$preferred_family"
