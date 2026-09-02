@@ -89,6 +89,9 @@ Patch0070:      0070-misc-fastrpc-restore-SM8150-SDSP-IOVA-windows.patch
 Patch0071:      0071-arm64-dts-qcom-fix-Nabu-charging-and-DRP-preference.patch
 Patch0072:      0072-Input-nt36523-drop-obsolete-MediaTek-SPI-setup.patch
 Patch0073:      0073-media-qcom-expose-CAMSS-sensors-as-each-one-binds.patch
+Patch0074:      0074-remoteproc-qcom-q6v5-Make-handover-IRQ-one-shot.patch
+Patch0075:      0075-senemos-keep-shared-GPIO-proxy-built-in-for-Nabu-aud.patch
+Patch0076:      0076-arm64-dts-qcom-persist-Nabu-RTC-time-in-SDAM.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -218,6 +221,7 @@ grep -Fxq '# CONFIG_RPMB is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_PHY_QCOM_USB_SNPS_FEMTO_V2=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_ACM=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_MODULE_SIG=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_GPIO_SHARED_PROXY=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SECURITY_SELINUX=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ACPI is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_PCI is not set' %{buildroot}/boot/config-%{uname_r}
@@ -225,8 +229,11 @@ grep -Fxq '# CONFIG_ARCH_MEDIATEK is not set' %{buildroot}/boot/config-%{uname_r
 grep -Fxq '# CONFIG_ARCH_ROCKCHIP is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fq 'vbus-supply = <&pm8150b_vbus>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
-grep -Fq 'allow-set-time;' \
+grep -Fq 'nvmem-cells = <&rtc_offset>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+! grep -Fq 'allow-set-time;' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+grep -Fq 'IRQF_NO_AUTOEN' drivers/remoteproc/qcom_q6v5.c
 grep -Fq 'console-size = <0x200000>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
 grep -Fq 'ftrace-size = <0x200000>;' \
