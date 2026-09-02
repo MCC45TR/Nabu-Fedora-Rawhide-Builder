@@ -92,6 +92,7 @@ Patch0073:      0073-media-qcom-expose-CAMSS-sensors-as-each-one-binds.patch
 Patch0074:      0074-remoteproc-qcom-q6v5-Make-handover-IRQ-one-shot.patch
 Patch0075:      0075-senemos-keep-shared-GPIO-proxy-built-in-for-Nabu-aud.patch
 Patch0076:      0076-arm64-dts-qcom-persist-Nabu-RTC-time-in-SDAM.patch
+Patch0077:      0077-senemos-activate-SELinux-in-Nabu-LSM-stack.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -223,6 +224,9 @@ grep -Fxq 'CONFIG_USB_ACM=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_MODULE_SIG=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_GPIO_SHARED_PROXY=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SECURITY_SELINUX=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DEFAULT_SECURITY_SELINUX=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"' \
+    %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ACPI is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_PCI is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ARCH_MEDIATEK is not set' %{buildroot}/boot/config-%{uname_r}

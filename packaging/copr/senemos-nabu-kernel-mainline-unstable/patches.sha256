@@ -74,3 +74,4 @@ ff9c49d847774427128a3ec541d4ea0d6ef277f357f8bf3203bf8fc64b63bbae  0072-Input-nt3
 e97045f7019b31f1a7318ba1edabef63cf0c0321e66ce4f0a714edf59b272372  0074-remoteproc-qcom-q6v5-Make-handover-IRQ-one-shot.patch
 7b40c791096269c50026b493518730c3b678571bca1d969af0a6f9e6a688494a  0075-senemos-keep-shared-GPIO-proxy-built-in-for-Nabu-aud.patch
 0969b163abd02ea89137a414b5b327fcf8ed978f09420c96c764c771ce9a5a22  0076-arm64-dts-qcom-persist-Nabu-RTC-time-in-SDAM.patch
+74741093b6959fa6efa57e92350f5d2bc3ca2160efd64fd67f6112bdebf2c4c1  0077-senemos-activate-SELinux-in-Nabu-LSM-stack.patch
