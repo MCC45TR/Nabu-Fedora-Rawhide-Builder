@@ -69,3 +69,5 @@ fa4b7f566131d27d157f275b4260cf42c05f1897d70ad8d6268940432aec908b  0064-senemos-a
 40eb35d83801b358441d63f462aef7369be9cf33e97b10a354a303d0e69b412b  0069-senemos-restore-Fedora-zram-and-persistent-diagnosti.patch
 5b48ec97c1e29baf8d98cfdb6303f7ce9e531a63d0a3087480d8ab995ea5a6ba  0070-misc-fastrpc-restore-SM8150-SDSP-IOVA-windows.patch
 20a8da2d1511006bb7dfbf37411b30976c1fa6823aa951d821b9e4c284677bb4  0071-arm64-dts-qcom-fix-Nabu-charging-and-DRP-preference.patch
+ff9c49d847774427128a3ec541d4ea0d6ef277f357f8bf3203bf8fc64b63bbae  0072-Input-nt36523-drop-obsolete-MediaTek-SPI-setup.patch
+848e24a855c9b73b5c6733b3c36cdae9bd64519386619aae2bd97ba8705747f3  0073-media-qcom-expose-CAMSS-sensors-as-each-one-binds.patch

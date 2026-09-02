@@ -87,6 +87,8 @@ Patch0068:      0068-senemos-retain-nftables-for-Fedora-firewalld.patch
 Patch0069:      0069-senemos-restore-Fedora-zram-and-persistent-diagnosti.patch
 Patch0070:      0070-misc-fastrpc-restore-SM8150-SDSP-IOVA-windows.patch
 Patch0071:      0071-arm64-dts-qcom-fix-Nabu-charging-and-DRP-preference.patch
+Patch0072:      0072-Input-nt36523-drop-obsolete-MediaTek-SPI-setup.patch
+Patch0073:      0073-media-qcom-expose-CAMSS-sensors-as-each-one-binds.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -279,6 +281,8 @@ fi
 - Restore Nabu's proven 34-bit SM8150 SDSP IOVA allocation windows.
 - Enable the real PM8150B connector thermistor channel so SMB5 can probe.
 - Prefer USB-C sink operation while retaining automatic dual-role OTG.
+- Drop obsolete MediaTek-only setup from the Nabu NT36523 SPI driver.
+- Expose each working CAMSS sensor even if another camera fails to probe.
 - Keep direct LN8000 2:1 charging disabled until instrumented qualification.
 
 * Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable

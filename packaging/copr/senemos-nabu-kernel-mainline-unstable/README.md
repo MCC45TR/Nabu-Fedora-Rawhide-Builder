@@ -23,7 +23,7 @@ It does not obsolete or conflict with the 6.17 fallback, Android return entry,
 or the existing 7.2 alpha family.
 
 The daily updater checks the official Linux 7.2.y checksum list. It commits a
-new point release only after all 71 checksum-locked Nabu patches apply cleanly;
+new point release only after all 73 checksum-locked Nabu patches apply cleanly;
 a conflict stops publication and leaves the preceding COPR build untouched.
 
 The 7.2.2-test extension carries the reviewed RTC/diagnostic, bounded SPI and
@@ -42,6 +42,8 @@ while unused UFS RPMB support is disabled. The fixed 4 MiB ramoops area is
 split evenly between the persistent console and ftrace instead of overcommitted.
 The modern FastRPC lifetime and VMID hardening remains in place, while SM8150
 SDSP allocations use Nabu's physically proven 34-bit, SID-specific IOVA windows.
+CAMSS links and exposes each sensor as it binds, so one failed camera no longer
+keeps another working camera out of the media graph.
 
 ## COPR build profile
 
