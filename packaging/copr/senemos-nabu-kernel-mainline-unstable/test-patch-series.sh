@@ -20,7 +20,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 79
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 81
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -80,6 +80,7 @@ for setting in \
     'CONFIG_GPIO_SHARED_PROXY=y' \
     'CONFIG_SECURITY_SELINUX=y' \
     'CONFIG_DEFAULT_SECURITY_SELINUX=y' \
+    'CONFIG_QCOM_SSC_CCT=m' \
     'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"'; do
     grep -Fxq "$setting" "$config_dir/.config"
 done
@@ -114,5 +115,5 @@ grep -A50 -F 'static int camss_subdev_notifier_bound' \
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 78 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 80 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"

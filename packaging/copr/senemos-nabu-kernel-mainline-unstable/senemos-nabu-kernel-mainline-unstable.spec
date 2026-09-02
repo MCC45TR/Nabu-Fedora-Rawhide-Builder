@@ -94,6 +94,8 @@ Patch0075:      0075-senemos-keep-shared-GPIO-proxy-built-in-for-Nabu-aud.patch
 Patch0076:      0076-arm64-dts-qcom-persist-Nabu-RTC-time-in-SDAM.patch
 Patch0077:      0077-senemos-activate-SELinux-in-Nabu-LSM-stack.patch
 Patch0078:      0078-senemos-classify-Nabu-SAR-separately-from-proximity.patch
+Patch0079:      0079-iio-light-add-Qualcomm-SSC-color-temperature-endpoin.patch
+Patch0080:      0080-senemos-enable-SSC-CCT-IIO-bridge-in-Nabu-profile.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -226,6 +228,7 @@ grep -Fxq 'CONFIG_MODULE_SIG=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_GPIO_SHARED_PROXY=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SECURITY_SELINUX=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_DEFAULT_SECURITY_SELINUX=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_QCOM_SSC_CCT=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"' \
     %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ACPI is not set' %{buildroot}/boot/config-%{uname_r}
@@ -250,7 +253,7 @@ grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' %{buildroot}/boot/config-%{uname_r}
 test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
-for module in qcom-iris qcom-camss i2c-qcom-cci cn3927 ov13b10 ov8856; do
+for module in qcom-iris qcom-camss i2c-qcom-cci cn3927 ov13b10 ov8856 qcom-ssc-cct; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
 done
@@ -280,6 +283,9 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Publish validated SSC color temperature through the standard IIO ABI.
+
 * Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Replace Fedora's general-purpose ARM64 module set with an Nabu-focused profile.
 - Disable legacy Venus in favor of Iris and omit runtime-unneeded debug information.
