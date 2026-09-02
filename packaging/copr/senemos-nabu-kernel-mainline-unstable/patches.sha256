@@ -67,3 +67,4 @@ fa4b7f566131d27d157f275b4260cf42c05f1897d70ad8d6268940432aec908b  0064-senemos-a
 04e0eff34636e4e56bb6027040426f29c5e458bb5817d4d73abfdc68bf9dd535  0067-arm64-dts-qcom-restore-Nabu-display-and-RTC-persiste.patch
 2f2aaab7a513b1bc8d703ea569d31a593f786dd4c783547feb388113c10a7c12  0068-senemos-retain-nftables-for-Fedora-firewalld.patch
 40eb35d83801b358441d63f462aef7369be9cf33e97b10a354a303d0e69b412b  0069-senemos-restore-Fedora-zram-and-persistent-diagnosti.patch
+5b48ec97c1e29baf8d98cfdb6303f7ce9e531a63d0a3087480d8ab995ea5a6ba  0070-misc-fastrpc-restore-SM8150-SDSP-IOVA-windows.patch

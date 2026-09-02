@@ -85,6 +85,7 @@ Patch0066:      0066-senemos-retain-module-signing-helper-in-Nabu-config.patch
 Patch0067:      0067-arm64-dts-qcom-restore-Nabu-display-and-RTC-persiste.patch
 Patch0068:      0068-senemos-retain-nftables-for-Fedora-firewalld.patch
 Patch0069:      0069-senemos-restore-Fedora-zram-and-persistent-diagnosti.patch
+Patch0070:      0070-misc-fastrpc-restore-SM8150-SDSP-IOVA-windows.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -227,6 +228,9 @@ grep -Fq 'console-size = <0x200000>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
 grep -Fq 'ftrace-size = <0x200000>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+grep -Fq '#define FASTRPC_SDSP_IOVA_BASE' drivers/misc/fastrpc.c
+grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
+    drivers/misc/fastrpc.c
 ! grep -Fq 'lionsemi,allow-direct-charging' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' %{buildroot}/boot/config-%{uname_r}
@@ -271,6 +275,7 @@ fi
 - Let DNF replace this same-name kernel package instead of treating it as install-only.
 - Retain the nftables surface required by Fedora firewalld.
 - Restore Fedora zram, fix the ramoops console/ftrace split and omit unused RPMB.
+- Restore Nabu's proven 34-bit SM8150 SDSP IOVA allocation windows.
 - Keep direct LN8000 2:1 charging disabled until instrumented qualification.
 
 * Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
