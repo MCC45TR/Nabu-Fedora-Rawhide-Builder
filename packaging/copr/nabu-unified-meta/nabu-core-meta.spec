@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        31%{?dist}
+Release:        32%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -379,6 +379,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-32
+- Skip the expensive full-root SELinux relabel and verification pass when the
+  stored policy digest is already current and no autorelabel was requested.
+
 * Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-31
 - Retire the legacy shell importer and duplicate Nabu orientation rule; the
   sensor package now consumes the kernel-exported Device Tree matrix directly.
