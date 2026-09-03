@@ -96,6 +96,7 @@ Patch0077:      0077-senemos-activate-SELinux-in-Nabu-LSM-stack.patch
 Patch0078:      0078-senemos-classify-Nabu-SAR-separately-from-proximity.patch
 Patch0079:      0079-iio-light-add-Qualcomm-SSC-color-temperature-endpoin.patch
 Patch0080:      0080-senemos-enable-SSC-CCT-IIO-bridge-in-Nabu-profile.patch
+Patch0081:      0081-iio-light-invalidate-stale-SSC-color-temperature.patch
 
 BuildRequires:  bc
 BuildRequires:  bison

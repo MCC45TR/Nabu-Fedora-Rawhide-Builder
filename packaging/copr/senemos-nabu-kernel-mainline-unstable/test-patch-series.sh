@@ -20,7 +20,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 81
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 82
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -107,6 +107,10 @@ grep -Fq 'try-power-role = "sink";' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 grep -Fq 'Link each sensor as soon as it binds.' \
     "$work/linux-$version/drivers/media/platform/qcom/camss/camss.c"
+grep -Fq 'const struct firmware_version *min_fw;' \
+    "$work/linux-$version/drivers/media/platform/qcom/venus/core.h"
+grep -Fq 'if (!core->res->min_fw)' \
+    "$work/linux-$version/drivers/media/platform/qcom/venus/hfi_msgs.c"
 grep -A50 -F 'static int camss_subdev_notifier_bound' \
     "$work/linux-$version/drivers/media/platform/qcom/camss/camss.c" \
     | grep -Fq 'v4l2_device_register_subdev_nodes'
@@ -115,5 +119,5 @@ grep -A50 -F 'static int camss_subdev_notifier_bound' \
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 80 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 81 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"
