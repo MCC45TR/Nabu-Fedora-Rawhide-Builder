@@ -298,6 +298,7 @@ fi
 - Restore Nabu's proven Quaternary TDM framing so speaker PCM writes reach ADSP.
 - Preserve full CAMSS DMA addresses until each VFE backend programs hardware.
 - Program the SM8150 CSI PHY lane table so Nabu cameras can deliver frames.
+- Lock Nabu's static FastRPC accelerometer matrix into the release validation gate.
 
 * Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Make Nabu CCI, CAMCC and DMA heaps available before userspace and probe timeout.

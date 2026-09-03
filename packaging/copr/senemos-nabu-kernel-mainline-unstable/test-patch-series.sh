@@ -129,6 +129,18 @@ grep -Fq 'u8 wm, dma_addr_t addr,' \
 grep -A4 -F 'case CAMSS_845:' \
     "$work/linux-$version/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c" \
     | grep -Fq 'case CAMSS_8150:'
+# Nabu has one physical sensor placement. Keep its board matrix in the DT and
+# require FastRPC to expose it through the kernel ABI for every desktop stack.
+test "$(grep -c 'mount-matrix = "-1", "0", "0",' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts")" -eq 2
+test "$(grep -c '"0", "-1", "0",' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts")" -eq 2
+test "$(grep -c '"0", "0", "1";' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts")" -eq 2
+grep -Fq 'static DEVICE_ATTR_RO(mount_matrix);' \
+    "$work/linux-$version/drivers/misc/fastrpc.c"
+grep -Fq 'fdev->miscdev.groups = fastrpc_sensor_groups;' \
+    "$work/linux-$version/drivers/misc/fastrpc.c"
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
