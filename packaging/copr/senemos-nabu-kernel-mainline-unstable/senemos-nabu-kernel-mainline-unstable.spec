@@ -259,7 +259,10 @@ grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' %{buildroot}/boot/config-%{uname_r}
 test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
-for module in qcom-iris qcom-camss i2c-qcom-cci cn3927 ov13b10 ov8856 qcom-ssc-cct; do
+# Built-in platform prerequisites (I2C_QCOM_CCI, SM_CAMCC_8150 and DMA-BUF
+# heaps) are validated through the config checks above.  Only loadable camera
+# and sensor drivers have module payloads to verify here.
+for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 qcom-ssc-cct; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
 done
