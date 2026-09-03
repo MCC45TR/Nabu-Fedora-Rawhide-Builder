@@ -20,7 +20,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 83
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 85
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -121,10 +121,18 @@ grep -Fq '.compatible = "ovti,ov13b10"' \
     "$work/linux-$version/drivers/media/i2c/ov13b10.c"
 grep -Fq 'MODULE_DEVICE_TABLE(of, ov13b10_of_match);' \
     "$work/linux-$version/drivers/media/i2c/ov13b10.c"
+grep -A10 -F '&q6afedai {' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts" \
+    | grep -Fq 'qcom,tdm-data-delay = <1>;'
+grep -Fq 'u8 wm, dma_addr_t addr,' \
+    "$work/linux-$version/drivers/media/platform/qcom/camss/camss-vfe.h"
+grep -A4 -F 'case CAMSS_845:' \
+    "$work/linux-$version/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c" \
+    | grep -Fq 'case CAMSS_8150:'
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 82 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 84 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"

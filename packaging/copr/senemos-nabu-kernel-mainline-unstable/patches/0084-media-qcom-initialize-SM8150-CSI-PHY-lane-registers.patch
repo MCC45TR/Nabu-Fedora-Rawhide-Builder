@@ -1,0 +1,30 @@
+From 58368164164c20f793d2a979d48021d095b68575 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 4 Sep 2026 01:03:55 +0300
+Subject: [PATCH] media: qcom: initialize SM8150 CSI PHY lane registers
+
+Linux 7.2 moved CSI PHY register selection into csiphy_init(), but the switch
+only retained CAMSS_845 for the shared Gen2 1.0 hardware. Select the same
+proven SDM845 lane table for CAMSS_8150 so Nabu actually programs its D-PHY
+lanes and can deliver sensor packets to CSID.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
+index 1336fce4f007..756f16cfa3ec 100644
+--- a/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
++++ b/drivers/media/platform/qcom/camss/camss-csiphy-3ph-1-0.c
+@@ -1219,6 +1219,7 @@ static int csiphy_init(struct csiphy_device *csiphy)
+ 
+ 	switch (csiphy->camss->res->version) {
+ 	case CAMSS_845:
++	case CAMSS_8150:
+ 		regs->lane_regs = &lane_regs_sdm845[0];
+ 		regs->lane_array_size = ARRAY_SIZE(lane_regs_sdm845);
+ 		break;
+-- 
+2.55.0
+

@@ -98,6 +98,8 @@ Patch0079:      0079-iio-light-add-Qualcomm-SSC-color-temperature-endpoin.patch
 Patch0080:      0080-senemos-enable-SSC-CCT-IIO-bridge-in-Nabu-profile.patch
 Patch0081:      0081-iio-light-invalidate-stale-SSC-color-temperature.patch
 Patch0082:      0082-media-qcom-stabilize-Nabu-camera-enumeration.patch
+Patch0083:      0083-ASoC-qcom-restore-Nabu-TDM-framing-and-CAMSS-DMA-wi.patch
+Patch0084:      0084-media-qcom-initialize-SM8150-CSI-PHY-lane-registers.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -292,6 +294,11 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Restore Nabu's proven Quaternary TDM framing so speaker PCM writes reach ADSP.
+- Preserve full CAMSS DMA addresses until each VFE backend programs hardware.
+- Program the SM8150 CSI PHY lane table so Nabu cameras can deliver frames.
+
 * Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Make Nabu CCI, CAMCC and DMA heaps available before userspace and probe timeout.
 - Add the missing OV13B10 Device Tree match so the rear camera can autoload.

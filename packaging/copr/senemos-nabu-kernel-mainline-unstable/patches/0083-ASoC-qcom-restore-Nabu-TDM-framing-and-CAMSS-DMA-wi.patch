@@ -1,0 +1,164 @@
+From c592234e5a8d3fc9de74d63284d0c6a630735270 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 4 Sep 2026 00:48:18 +0300
+Subject: [PATCH] ASoC: qcom: restore Nabu TDM framing and CAMSS DMA width
+
+Restore the downstream-proven Quaternary TDM0 sync, inversion and data-delay
+properties lost during the Linux 7.2 port. Without them the AFE starts with
+zero timing parameters and the first PCM write fails with EIO.
+
+Keep CAMSS buffer addresses as dma_addr_t through the VFE hardware operations.
+This makes the Nabu VFE170 diagnostics valid and prevents silent truncation
+before each backend performs its explicit 32-bit register write.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts    | 12 ++++++++++++
+ drivers/media/platform/qcom/camss/camss-vfe-17x.c  |  2 +-
+ drivers/media/platform/qcom/camss/camss-vfe-340.c  |  5 +++--
+ drivers/media/platform/qcom/camss/camss-vfe-480.c  |  5 +++--
+ drivers/media/platform/qcom/camss/camss-vfe-680.c  |  5 +++--
+ drivers/media/platform/qcom/camss/camss-vfe-gen3.c | 11 ++++++-----
+ drivers/media/platform/qcom/camss/camss-vfe.h      |  2 +-
+ 7 files changed, 29 insertions(+), 13 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index eed7593c4251..c547f69d6a42 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -908,6 +908,18 @@ &pon_resin {
+ 	status = "okay";
+ };
+ 
++&q6afedai {
++	dai@72 {
++		reg = <QUATERNARY_TDM_RX_0>;
++		qcom,tdm-sync-mode = <1>;
++		qcom,tdm-sync-src = <1>;
++		qcom,tdm-data-out = <0>;
++		qcom,tdm-invert-sync = <1>;
++		qcom,tdm-data-delay = <1>;
++		qcom,tdm-data-align = <0>;
++	};
++};
++
+ &qupv3_id_0 {
+ 	status = "okay";
+ };
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe-17x.c b/drivers/media/platform/qcom/camss/camss-vfe-17x.c
+index 0aad36d05770..6a6569da51af 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe-17x.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe-17x.c
+@@ -276,7 +276,7 @@ static void vfe_wm_stop(struct vfe_device *vfe, u8 wm)
+ 	writel_relaxed(0, vfe->base + VFE_BUS_WM_CFG(wm));
+ }
+ 
+-static void vfe_wm_update(struct vfe_device *vfe, u8 wm, u32 addr,
++static void vfe_wm_update(struct vfe_device *vfe, u8 wm, dma_addr_t addr,
+ 			  struct vfe_line *line)
+ {
+ 	struct v4l2_pix_format_mplane *pix =
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe-340.c b/drivers/media/platform/qcom/camss/camss-vfe-340.c
+index 2526d568686d..49fa348103b3 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe-340.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe-340.c
+@@ -249,12 +249,13 @@ static void vfe_enable_irq(struct vfe_device *vfe)
+ 	       TFE_BUS_IRQ_MASK_0_IMG_VIOL, vfe->base + TFE_BUS_IRQ_MASK_0);
+ }
+ 
+-static void vfe_wm_update(struct vfe_device *vfe, u8 wm, u32 addr,
++static void vfe_wm_update(struct vfe_device *vfe, u8 wm, dma_addr_t addr,
+ 			  struct vfe_line *line)
+ {
+ 	u8 client = tfe_wm_client_map[wm];
+ 
+-	writel_relaxed(addr, vfe->base + TFE_BUS_IMAGE_ADDR(client));
++	writel_relaxed(lower_32_bits(addr),
++		       vfe->base + TFE_BUS_IMAGE_ADDR(client));
+ }
+ 
+ static u32 vfe_packer_format(struct vfe_device *vfe, u32 pixelformat)
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe-480.c b/drivers/media/platform/qcom/camss/camss-vfe-480.c
+index d73f733fde04..6e6056397429 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe-480.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe-480.c
+@@ -133,11 +133,12 @@ static void vfe_wm_stop(struct vfe_device *vfe, u8 wm)
+ 	writel_relaxed(0, vfe->base + VFE_BUS_WM_CFG(wm));
+ }
+ 
+-static void vfe_wm_update(struct vfe_device *vfe, u8 wm, u32 addr,
++static void vfe_wm_update(struct vfe_device *vfe, u8 wm, dma_addr_t addr,
+ 			  struct vfe_line *line)
+ {
+ 	wm = RDI_WM(wm); /* map to actual WM used (from wm=RDI index) */
+-	writel_relaxed(addr, vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
++	writel_relaxed(lower_32_bits(addr),
++		       vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
+ }
+ 
+ static void vfe_reg_update(struct vfe_device *vfe, enum vfe_line_id line_id)
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe-680.c b/drivers/media/platform/qcom/camss/camss-vfe-680.c
+index 99036e7c1e76..2e902741afa3 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe-680.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe-680.c
+@@ -144,12 +144,13 @@ static void vfe_disable_irq(struct vfe_device *vfe)
+ 	writel(0u, vfe->base + VFE_BUS_IRQn_MASK(vfe, 1));
+ }
+ 
+-static void vfe_wm_update(struct vfe_device *vfe, u8 rdi, u32 addr,
++static void vfe_wm_update(struct vfe_device *vfe, u8 rdi, dma_addr_t addr,
+ 			  struct vfe_line *line)
+ {
+ 	u8 wm = RDI_WM(rdi);
+ 
+-	writel(addr, vfe->base + VFE_BUS_IMAGE_ADDR(vfe, wm));
++	writel(lower_32_bits(addr),
++	       vfe->base + VFE_BUS_IMAGE_ADDR(vfe, wm));
+ }
+ 
+ static void vfe_wm_start(struct vfe_device *vfe, u8 rdi, struct vfe_line *line)
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe-gen3.c b/drivers/media/platform/qcom/camss/camss-vfe-gen3.c
+index 22579617def7..a69e5c7bcaef 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe-gen3.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe-gen3.c
+@@ -118,18 +118,19 @@ static void vfe_wm_stop(struct vfe_device *vfe, u8 wm)
+ 	writel(0, vfe->base + VFE_BUS_WM_CFG(wm));
+ }
+ 
+-static void vfe_wm_update(struct vfe_device *vfe, u8 wm, u32 addr,
++static void vfe_wm_update(struct vfe_device *vfe, u8 wm, dma_addr_t addr,
+ 			  struct vfe_line *line)
+ {
+ 	wm = RDI_WM(wm);
+ 
+ 	if (IS_VFE_690(vfe))
+-		writel(addr, vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
++		writel(lower_32_bits(addr),
++		       vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
+ 	else
+-		writel((addr >> 8), vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
++		writel(lower_32_bits(addr >> 8),
++		       vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
+ 
+-	dev_dbg(vfe->camss->dev, "wm:%d, image buf addr:0x%x\n",
+-		wm, addr);
++	dev_dbg(vfe->camss->dev, "wm:%d, image buf addr:%pad\n", wm, &addr);
+ }
+ 
+ static void vfe_reg_update(struct vfe_device *vfe, enum vfe_line_id line_id)
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe.h b/drivers/media/platform/qcom/camss/camss-vfe.h
+index ae9dad353a37..c8deae4bf16d 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe.h
++++ b/drivers/media/platform/qcom/camss/camss-vfe.h
+@@ -118,7 +118,7 @@ struct vfe_hw_ops {
+ 			     struct vfe_line *line);
+ 	void (*vfe_wm_stop)(struct vfe_device *vfe, u8 wm);
+ 	void (*vfe_buf_done)(struct vfe_device *vfe, int port_id);
+-	void (*vfe_wm_update)(struct vfe_device *vfe, u8 wm, u32 addr,
++	void (*vfe_wm_update)(struct vfe_device *vfe, u8 wm, dma_addr_t addr,
+ 			      struct vfe_line *line);
+ };
+ 
+-- 
+2.55.0
+
