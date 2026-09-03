@@ -1,0 +1,14 @@
+[Unit]
+Description=Nabu ath10k shutdown helper
+ConditionPathExists=/sys/module/ath10k_snoc
+Before=shutdown.target
+RefuseManualStop=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/true
+ExecStop=-/usr/sbin/modprobe -r ath10k_snoc ath10k_core
+
+[Install]
+WantedBy=multi-user.target

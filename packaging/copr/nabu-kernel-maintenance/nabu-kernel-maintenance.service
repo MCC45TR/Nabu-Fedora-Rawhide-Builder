@@ -1,12 +1,17 @@
 [Unit]
-Description=Maintain the selected Nabu kernel branch and canonical UKI
-After=network-online.target
-Wants=network-online.target
+Description=Maintain one latest UKI per installed SENEMOS kernel family
+ConditionPathExistsGlob=/var/lib/nabu-kernel-maintenance/pending.d/*
+After=nabu-refind-sync.service
+RequiresMountsFor=/boot/efi
+StartLimitIntervalSec=5min
+StartLimitBurst=2
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/systemd-inhibit --what=shutdown:sleep --mode=block --why=Nabu-kernel-and-UKI-maintenance /usr/libexec/nabu-kernel-maintenance
+ExecStart=/usr/bin/systemd-inhibit --what=shutdown:sleep --mode=block --why=Nabu-family-UKI-preparation /usr/libexec/nabu-kernel-maintenance
 TimeoutStartSec=45min
 Nice=10
 IOSchedulingClass=idle
-
+ProtectSystem=full
+ReadWritePaths=/boot /boot/efi /usr/lib/modules /var/lib/nabu-kernel-maintenance /var/lib/nabu-boot-backup
+PrivateTmp=yes

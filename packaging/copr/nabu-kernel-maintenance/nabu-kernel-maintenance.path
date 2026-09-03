@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for deferred Nabu kernel UKI work
+
+[Path]
+PathExistsGlob=/var/lib/nabu-kernel-maintenance/pending.d/*
+Unit=nabu-kernel-maintenance.service
+
+[Install]
+WantedBy=multi-user.target

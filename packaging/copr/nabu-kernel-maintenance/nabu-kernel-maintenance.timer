@@ -1,13 +1,10 @@
 [Unit]
-Description=Periodically maintain the selected Nabu kernel branch
+Description=Process deferred per-family Nabu UKI work
 
 [Timer]
-OnBootSec=15min
-OnUnitActiveSec=6h
-RandomizedDelaySec=45min
-Persistent=true
+OnBootSec=2min
+RandomizedDelaySec=30s
 Unit=nabu-kernel-maintenance.service
 
 [Install]
 WantedBy=timers.target
-

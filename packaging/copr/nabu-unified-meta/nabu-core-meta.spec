@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        34%{?dist}
+Release:        42%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -26,9 +26,13 @@ Source15:       nabu-pen-autopair@.service
 Source16:       nabu-kernel-maintenance.path
 Source17:       80-nabu-kernel-retention.conf
 Source18:       test-kernel-maintenance-family.sh
+Source19:       nabu-kernel-offline-finalize
+Source20:       90-nabu-offline-uki-finalize.conf
+Source21:       test-offline-kernel-finalize.sh
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  meson
+BuildRequires:  openssh
 BuildRequires:  pkgconfig(gio-2.0)
 BuildRequires:  pkgconfig(libssc)
 BuildRequires:  pkgconfig(Qt6Core)
@@ -63,6 +67,7 @@ Requires:       libcamera-tools
 Requires:       pipewire-plugin-libcamera
 Requires:       v4l-utils
 Requires:       NetworkManager-wifi
+Requires:       openssh-server
 Requires:       alsa-ucm
 Requires:       atheros-firmware
 Requires:       bash
@@ -183,6 +188,7 @@ install -Dm0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/dnf/repos.override.d/90-na
 install -Dm0755 %{SOURCE2} %{buildroot}%{_bindir}/nabu
 install -Dm0644 %{SOURCE3} %{buildroot}%{_mandir}/man8/nabu.8
 install -Dm0755 %{SOURCE4} %{buildroot}%{_libexecdir}/nabu-kernel-maintenance
+install -Dm0755 %{SOURCE19} %{buildroot}%{_libexecdir}/nabu-kernel-offline-finalize
 install -Dm0644 %{SOURCE5} %{buildroot}%{_unitdir}/nabu-kernel-maintenance.service
 install -Dm0644 %{SOURCE6} %{buildroot}%{_unitdir}/nabu-kernel-maintenance.timer
 install -Dm0644 %{SOURCE16} %{buildroot}%{_unitdir}/nabu-kernel-maintenance.path
@@ -192,6 +198,7 @@ install -Dm0755 %{SOURCE13} %{buildroot}%{_libexecdir}/nabu-pen-autopair
 install -Dm0644 %{SOURCE14} %{buildroot}%{_udevrulesdir}/82-nabu-pen-autopair.rules
 install -Dm0644 %{SOURCE15} %{buildroot}%{_unitdir}/nabu-pen-autopair@.service
 install -Dm0644 %{SOURCE17} %{buildroot}%{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
+install -Dm0644 %{SOURCE20} %{buildroot}%{_unitdir}/dnf5-offline-transaction.service.d/90-nabu-offline-uki-finalize.conf
 install -d %{buildroot}%{_sysconfdir}/systemd/system
 ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.timer
 
@@ -204,6 +211,7 @@ install -Dm0755 system-integration/runtime/nabu-sensor-session-gate %{buildroot}
 install -Dm0755 system-integration/runtime/nabu-sensor-registry-runtime %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
 install -Dm0755 system-integration/runtime/nabu-esp32-cdc-journal-log %{buildroot}%{_libexecdir}/senemos-nabu/nabu-esp32-cdc-journal-log
 install -Dm0755 system-integration/runtime/nabu-prepare-selinux-labels %{buildroot}%{_libexecdir}/senemos-nabu/nabu-prepare-selinux-labels
+install -Dm0755 system-integration/runtime/nabu-ssh-host-key-guard %{buildroot}%{_libexecdir}/senemos-nabu/nabu-ssh-host-key-guard
 install -Dm0755 system-integration/runtime/senemos-nabu-status %{buildroot}%{_bindir}/senemos-nabu-status
 install -Dm0644 system-integration/runtime/nabu-pmic-rtc-sync.service %{buildroot}%{_unitdir}/nabu-pmic-rtc-sync.service
 install -Dm0644 system-integration/runtime/nabu-slpi-suspend.service %{buildroot}%{_unitdir}/nabu-slpi-suspend.service
@@ -211,12 +219,17 @@ install -Dm0644 system-integration/runtime/nabu-sensor-session-gate.service %{bu
 install -Dm0644 system-integration/runtime/nabu-sensor-registry-runtime.service %{buildroot}%{_unitdir}/nabu-sensor-registry-runtime.service
 install -Dm0644 system-integration/runtime/nabu-esp32-cdc-log.service %{buildroot}%{_unitdir}/nabu-esp32-cdc-log.service
 install -Dm0644 system-integration/runtime/mnt-vendor-persist.mount %{buildroot}%{_unitdir}/mnt-vendor-persist.mount
+install -Dm0644 system-integration/runtime/nabu-root-growfs.service %{buildroot}%{_unitdir}/nabu-root-growfs.service
+install -Dm0644 system-integration/runtime/nabu-ssh-host-key-restore.service %{buildroot}%{_unitdir}/nabu-ssh-host-key-restore.service
+install -Dm0644 system-integration/runtime/nabu-ssh-host-key-save.service %{buildroot}%{_unitdir}/nabu-ssh-host-key-save.service
 install -Dm0644 system-integration/runtime/90-senemos-nabu.preset %{buildroot}%{_presetdir}/90-senemos-nabu.preset
 install -Dm0644 system-integration/runtime/10-nabu-sensor-stack.conf %{buildroot}%{_unitdir}/iio-sensor-proxy.service.d/10-nabu-sensor-stack.conf
 install -Dm0644 system-integration/runtime/20-nabu-sensor-cache.conf %{buildroot}%{_unitdir}/iio-sensor-proxy.service.d/20-nabu-sensor-cache.conf
 install -Dm0644 system-integration/runtime/20-nabu-runtime-registry.conf %{buildroot}%{_unitdir}/hexagonrpcd-sdsp.service.d/20-nabu-runtime-registry.conf
 install -Dm0644 system-integration/runtime/10-nabu-wlan-firmware-order.conf %{buildroot}%{_unitdir}/rmtfs.service.d/10-nabu-wlan-firmware-order.conf
 install -Dm0644 system-integration/runtime/90-nabu-user-slice-freeze.conf %{buildroot}%{_unitdir}/systemd-suspend.service.d/90-nabu-user-slice-freeze.conf
+install -Dm0644 system-integration/runtime/20-nabu-host-key-persistence.conf %{buildroot}%{_unitdir}/sshd.service.d/20-nabu-host-key-persistence.conf
+install -Dm0644 system-integration/runtime/90-nabu-dnf5-offline-cleanup.conf %{buildroot}%{_unitdir}/system-update-cleanup.service.d/90-nabu-dnf5-offline-cleanup.conf
 install -Dm0644 system-integration/runtime/20-nabu-wifi-wowlan.conf %{buildroot}%{_sysconfdir}/NetworkManager/conf.d/20-nabu-wifi-wowlan.conf
 install -Dm0644 system-integration/runtime/80-nabu-disable-efi-rtc-wakeup.rules %{buildroot}%{_udevrulesdir}/80-nabu-disable-efi-rtc-wakeup.rules
 install -Dm0644 system-integration/runtime/81-nabu-suspend-wake.rules %{buildroot}%{_udevrulesdir}/81-nabu-suspend-wake.rules
@@ -240,16 +253,26 @@ install -Dm0755 nabu-ssc-probe %{buildroot}%{_bindir}/nabu-ssc-probe
 
 %check
 bash %{SOURCE18}
+bash %{SOURCE21}
+bash -n %{SOURCE19}
+grep -Fqx 'ExecStartPost=/usr/libexec/nabu-kernel-offline-finalize' %{SOURCE20}
 bash -n system-integration/runtime/nabu-pmic-rtc-sync
 bash -n system-integration/runtime/nabu-slpi-suspend
 bash -n system-integration/runtime/nabu-sensor-session-gate
 bash -n system-integration/runtime/nabu-sensor-registry-runtime
 bash -n system-integration/runtime/nabu-esp32-cdc-journal-log
 bash -n system-integration/runtime/nabu-prepare-selinux-labels
+bash -n system-integration/runtime/nabu-ssh-host-key-guard
 (cd system-integration && bash tests/test-sensor-session-gate.sh)
+grep -Fxq 'Before=display-manager.service gdm.service plasmalogin.service' \
+    system-integration/runtime/nabu-sensor-session-gate.service
+grep -Fq -- '--sensor accelerometer --timeout 1' \
+    system-integration/runtime/nabu-sensor-session-gate
 (cd system-integration && bash tests/test-sensor-registry-runtime.sh)
 (cd system-integration && bash tests/test-selinux-label-preparation.sh)
 (cd system-integration && bash tests/test-suspend-user-slice-policy.sh)
+(cd system-integration && bash tests/test-ssh-host-key-guard.sh)
+(cd system-integration && bash tests/test-update-recovery-policy.sh)
 bash -n system-integration/runtime/senemos-nabu-status
 udevadm verify %{buildroot}%{_udevrulesdir}/99-libinput-calibration-matrix.rules
 test ! -e %{buildroot}%{_udevrulesdir}/81-nabu-sensor-orientation.rules
@@ -278,9 +301,12 @@ fi
 %{_bindir}/nabu
 %{_mandir}/man8/nabu.8*
 %{_libexecdir}/nabu-kernel-maintenance
+%{_libexecdir}/nabu-kernel-offline-finalize
 %{_unitdir}/nabu-kernel-maintenance.service
 %{_unitdir}/nabu-kernel-maintenance.timer
 %{_unitdir}/nabu-kernel-maintenance.path
+%dir %{_unitdir}/dnf5-offline-transaction.service.d
+%{_unitdir}/dnf5-offline-transaction.service.d/90-nabu-offline-uki-finalize.conf
 %{_presetdir}/90-nabu-kernel-maintenance.preset
 %license system-integration/licenses/*
 %doc system-integration/FIRMWARE-PROVENANCE.md flashlight-integration/API.md
@@ -292,6 +318,7 @@ fi
 %config(noreplace) %{_sysconfdir}/xdg/fastfetch/config.jsonc
 %config(noreplace) %{_sysconfdir}/NetworkManager/conf.d/20-nabu-wifi-wowlan.conf
 %config(noreplace) %{_sysconfdir}/nabu-sar.conf
+%{_prefix}/lib/modprobe.d/80-nabu-audio.conf
 %{_datadir}/alsa/ucm2/conf.d/sm8150/sm8150.conf
 %{_datadir}/alsa/ucm2/Xiaomi/nabu/HiFi.conf
 %{_bindir}/senemos-nabu-status
@@ -301,6 +328,7 @@ fi
 %{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
 %{_libexecdir}/senemos-nabu/nabu-esp32-cdc-journal-log
 %{_libexecdir}/senemos-nabu/nabu-prepare-selinux-labels
+%{_libexecdir}/senemos-nabu/nabu-ssh-host-key-guard
 %{_unitdir}/ath10k-shutdown.service
 %{_unitdir}/nabu-pmic-rtc-sync.service
 %{_unitdir}/nabu-slpi-suspend.service
@@ -308,6 +336,9 @@ fi
 %{_unitdir}/nabu-sensor-registry-runtime.service
 %{_unitdir}/nabu-esp32-cdc-log.service
 %{_unitdir}/mnt-vendor-persist.mount
+%{_unitdir}/nabu-root-growfs.service
+%{_unitdir}/nabu-ssh-host-key-restore.service
+%{_unitdir}/nabu-ssh-host-key-save.service
 %{_presetdir}/80-nabu-core.preset
 %{_presetdir}/90-senemos-nabu.preset
 %dir %{_unitdir}/iio-sensor-proxy.service.d
@@ -319,6 +350,10 @@ fi
 %{_unitdir}/rmtfs.service.d/10-nabu-wlan-firmware-order.conf
 %dir %{_unitdir}/systemd-suspend.service.d
 %{_unitdir}/systemd-suspend.service.d/90-nabu-user-slice-freeze.conf
+%dir %{_unitdir}/sshd.service.d
+%{_unitdir}/sshd.service.d/20-nabu-host-key-persistence.conf
+%dir %{_unitdir}/system-update-cleanup.service.d
+%{_unitdir}/system-update-cleanup.service.d/90-nabu-dnf5-offline-cleanup.conf
 %{_udevrulesdir}/80-nabu-disable-efi-rtc-wakeup.rules
 %{_udevrulesdir}/81-nabu-suspend-wake.rules
 %{_udevrulesdir}/99-libinput-calibration-matrix.rules
@@ -348,7 +383,7 @@ fi
 %{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
 
 %post
-%systemd_post nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service nabu-cct-iio-bridge.service
+%systemd_post nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
@@ -360,35 +395,66 @@ if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl reset-failed nabu-kernel-maintenance.service >/dev/null 2>&1 || :
 fi
 /usr/libexec/senemos-nabu/nabu-prepare-selinux-labels || printf 'Warning: Nabu SELinux labels are not ready.\n' >&2
+/usr/libexec/senemos-nabu/nabu-ssh-host-key-guard save || printf 'Warning: Nabu SSH host keys could not be persisted.\n' >&2
 if [ -x /usr/bin/udevadm ]; then
     /usr/bin/udevadm control --reload >/dev/null 2>&1 || :
     /usr/bin/udevadm trigger --action=change --subsystem-match=misc --sysname-match='fastrpc-*' >/dev/null 2>&1 || :
 fi
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl daemon-reload >/dev/null 2>&1 || :
+    /usr/bin/systemctl enable --now nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service >/dev/null 2>&1 || :
     /usr/bin/systemctl reenable nabu-sensor-session-gate.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
     /usr/bin/systemctl disable --now hexagonrpcd-adsp-sensorspd.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable rmtfs.service tqftpserv.service mnt-vendor-persist.mount hexagonrpcd-sdsp.service hexagonrpcd-adsp-rootpd.service iio-sensor-proxy.service nabu-sensor-session-gate.service nabu-sar-service.service nabu-cct-iio-bridge.service >/dev/null 2>&1 || :
-    case "$(/usr/bin/systemctl is-system-running 2>/dev/null || :)" in
-        running|degraded)
-            /usr/bin/systemctl start mnt-vendor-persist.mount >/dev/null 2>&1 || :
-            /usr/bin/systemctl restart nabu-sensor-registry-runtime.service hexagonrpcd-sdsp.service >/dev/null 2>&1 || :
-            /usr/bin/systemctl start hexagonrpcd-adsp-rootpd.service nabu-sar-service.service nabu-cct-iio-bridge.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
-            /usr/bin/systemctl restart iio-sensor-proxy.service >/dev/null 2>&1 || :
-            ;;
-    esac
 fi
 
 %preun
-%systemd_preun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service nabu-cct-iio-bridge.service
+%systemd_preun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
 
 %postun
-%systemd_postun_with_restart nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service nabu-cct-iio-bridge.service
+%systemd_postun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
 
 %changelog
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-42
+- Rate-limit invalid TCS3701 colour-temperature warnings while continuing to
+  reject out-of-range firmware samples from the standard IIO endpoint.
+
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-41
+- Load the WCD934x ASoC codec before the SM8150 machine driver so the Xiaomi
+  Pad 5 sound card cannot remain deferred after boot.
+
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-40
+- Refuse package-triggered manual stops of the ath10k shutdown helper so an
+  online upgrade cannot unload the active Wi-Fi driver.
+
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-39
+- Finish queued kernel UKI work inside the DNF5 offline transaction unit.
+- Hold the ordered offline reboot until the new EFI and rEFInd default are ready.
+
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-38
+- Recover once when SLPI is running without publishing its SSC QMI service.
+- Keep the live sensor stack undisturbed during package upgrades; new unit
+  definitions take effect on the next bounded boot instead of restarting
+  FastRPC consumers underneath the graphical session.
+
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-37
+- Add the openssh build dependency required by the packaged host-key
+  persistence test.
+
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-36
+- Gate graphical startup on a real SSC accelerometer sample and SensorProxy
+  publication instead of treating a running FastRPC filesystem server as ready.
+- Order the bounded recovery gate explicitly before GDM and Plasma Login so a
+  late SLPI enumeration is repaired before the desktop caches sensor state.
+
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-35
+- Grow undersized ext4 root filesystems to the provisioned Linux partition.
+- Preserve SSH host identity across boots even if another boot step removes keys.
+- Clear failed DNF5 offline-update state instead of repeating a broken update.
+
 * Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-34
 - Publish the SSC colour-temperature stream through a standard IIO endpoint.
 - Add fail-closed ADUX1050 grip-aware sleep inhibition and calibration tooling.

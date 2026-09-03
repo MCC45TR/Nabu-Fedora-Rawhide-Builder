@@ -1,0 +1,52 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+source_root=${NABU_SENSOR_SOURCE_ROOT:-/usr/lib/firmware/qcom/sm8150/xiaomi/nabu/hexagonfs}
+persist_registry=${NABU_SENSOR_PERSIST_REGISTRY:-/mnt/vendor/persist/sensors/registry/registry}
+persist_registry_parent=$(dirname -- "$persist_registry")
+runtime_root=${NABU_SENSOR_RUNTIME_ROOT:-/run/senemos-nabu-sensors/hexagonfs}
+runtime_user=${NABU_SENSOR_RUNTIME_USER:-fastrpc}
+runtime_group=${NABU_SENSOR_RUNTIME_GROUP:-fastrpc}
+staging_root=${runtime_root}.new
+
+if [[ ! -f ${source_root}/sensors/sns_reg.conf ||
+      ! -d ${source_root}/sensors/registry ]]; then
+    printf 'Nabu sensor registry source is incomplete: %s\n' "$source_root" >&2
+    exit 1
+fi
+
+case "$runtime_root" in
+    /run/senemos-nabu-sensors/hexagonfs|${TMPDIR:-/tmp}/*) ;;
+    *)
+        printf 'Refusing unexpected sensor runtime path: %s\n' "$runtime_root" >&2
+        exit 1
+        ;;
+esac
+
+install -d -m0755 "$(dirname -- "$runtime_root")"
+rm -rf -- "$staging_root"
+install -d -m0750 "$staging_root"
+cp -a -- "$source_root"/. "$staging_root"/
+
+# Android owns calibration with numeric UID/GID 1000 and mode 0600.  Never
+# modify or remount persist: copy readable files into the volatile tree and
+# normalize ownership only there.
+if [[ -d $persist_registry ]]; then
+    cp -a -- "$persist_registry"/. "$staging_root/sensors/registry"/
+fi
+# The SSC registry opens this sibling through
+# /persist/sensors/registry/registry/../sns_reg_version.  Keeping only the
+# registry directory makes discovery fail even when every calibration payload
+# is present.
+if [[ -f $persist_registry_parent/sns_reg_version ]]; then
+    cp -a -- "$persist_registry_parent/sns_reg_version" \
+        "$staging_root/sensors/sns_reg_version"
+fi
+chown -R -- "$runtime_user:$runtime_group" "$staging_root"
+find "$staging_root" -type d -exec chmod u=rwx,g=rx,o= {} +
+find "$staging_root" -type f -exec chmod u=rw,g=r,o= {} +
+
+rm -rf -- "$runtime_root"
+mv -- "$staging_root" "$runtime_root"
+test -r "$runtime_root/sensors/sns_reg.conf"
+test -w "$runtime_root/sensors/registry"

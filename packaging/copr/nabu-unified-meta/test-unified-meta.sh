@@ -4,9 +4,11 @@ set -Eeuo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
-bash -n "$root/nabu" "$root/nabu-kernel-maintenance" "$root/build-srpms.sh" "$root/test-kernel-maintenance-family.sh"
+bash -n "$root/nabu" "$root/nabu-kernel-maintenance" "$root/nabu-kernel-offline-finalize" "$root/build-srpms.sh" "$root/test-kernel-maintenance-family.sh"
 bash "$root/test-kernel-maintenance-family.sh"
+bash "$root/test-offline-kernel-finalize.sh"
 bash "$root/test-gnome-mobile-repo-sync.sh"
+[[ -d "$root/vendor-src/nabu-system-integration-2.0.0" ]] || fail "canonical system-integration source missing"
 mapfile -t specs < <(find "$root" -maxdepth 1 -type f -name '*.spec' | sort)
 [[ ${#specs[@]} -eq 6 ]] || fail "expected six specs"
 
@@ -26,7 +28,8 @@ grep -Fqx 'gpgcheck=1' "$root/gnome-mobile-copr.repo" || fail "GNOME Mobile gpgc
 grep -Fqx 'skip_if_unavailable=False' "$root/gnome-mobile-copr.repo" || fail "GNOME Mobile repo fails open"
 grep -Fq 'gnome-shell mutter gnome-settings-daemon' "$root/test-gnome-mobile-repo-sync.sh" || fail "GNOME Mobile package set missing"
 for gnome_spec in "$root/gnome-nabu-meta.spec" "$root/gnome-mobile-nabu-meta.spec"; do
-    grep -Fq 'Requires:       mutter >= 51~rc-1' "$gnome_spec" || fail "upstream Mutter auto-rotation fix is not required by $gnome_spec"
+    grep -Fqx 'Requires:       mutter' "$gnome_spec" || fail "Fedora Mutter dependency is missing from $gnome_spec"
+    ! grep -Eq '^Requires:[[:space:]]+mutter[[:space:]]+[<>=]' "$gnome_spec" || fail "stale Mutter EVR floor remains in $gnome_spec"
 done
 while IFS= read -r copr_spec; do
     source_name=$(sed -nE 's/^Name:[[:space:]]+([^[:space:]]+).*/\1/p' "$copr_spec" | head -n 1)
@@ -39,6 +42,10 @@ done < <(find "$root/.." \
     -type f -name '*.spec' -print)
 
 core="$root/nabu-core-meta.spec"
+! sed '/^%changelog/,$d' "$core" | grep -Eq 'systemctl (restart|try-restart) (nabu-sensor-registry-runtime|hexagonrpcd-sdsp|iio-sensor-proxy)' || fail "CORE upgrade disrupts the live sensor stack"
+! sed '/^%changelog/,$d' "$core" | grep -Fq '%systemd_postun_with_restart' || fail "CORE upgrade marks hardware services for a live restart"
+grep -Fqx 'RefuseManualStop=yes' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/systemd/system/ath10k-shutdown.service" || fail "ath10k shutdown helper can be restarted by RPM transactions"
+grep -Fqx 'softdep snd_soc_sm8150 pre: snd_soc_wcd934x' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/modprobe.d/80-nabu-audio.conf" || fail "WCD934x codec is not ordered before the SM8150 sound card"
 grep -Fq 'Source11:       nabu-sar-service-0.2.0.tar.zst' "$core" || fail "SAR 0.2 source missing"
 grep -Fq '%{_libexecdir}/nabu-sar-control' "$core" || fail "SAR control helper not packaged"
 grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge unit not packaged"
@@ -59,6 +66,8 @@ grep -Fq 'ReadWritePaths=/boot /boot/efi /usr/lib/modules ' "$root/../nabu-kerne
 grep -Fq 'After=nabu-refind-sync.service' "$root/../nabu-kernel-maintenance/nabu-kernel-maintenance.service" || fail "rEFInd synchronization is not ordered before UKI maintenance"
 ! grep -Fq 'OnUnitInactiveSec=' "$root/../nabu-kernel-maintenance/nabu-kernel-maintenance.timer" || fail "failed UKI work would be retried forever"
 grep -Fq '"$regenerate_command" --family "$family"' "$root/nabu-kernel-maintenance" || fail "family-aware regeneration missing"
+grep -Fq 'ExecStartPost=/usr/libexec/nabu-kernel-offline-finalize' "$root/90-nabu-offline-uki-finalize.conf" || fail "offline transaction does not finalize queued UKIs"
+grep -Fq '"$maintenance"' "$root/nabu-kernel-offline-finalize" || fail "offline UKI finalizer does not invoke maintenance"
 ! sed '/^%changelog/,$d' "$root/nabu-core-meta.spec" | grep -Eq '^Obsoletes:[[:space:]]+senemos-nabu-kernel.*-(core|modules)' || fail "CORE would erase a possibly running split kernel"
 grep -Fxq 'installonly_limit=2' "$root/80-nabu-kernel-retention.conf" || fail "two-version kernel retention missing"
 grep -Fxq 'installonlypkgs=senemos-nabu-kernel,senemos-nabu-kernel-alpha,senemos-nabu-kernel-mainline-alpha,senemos-nabu-kernel-lts' "$root/80-nabu-kernel-retention.conf" || fail "fallback kernel install-only names missing"
@@ -96,6 +105,10 @@ for retired in nabu-system-integration nabu-kde-integration nabu-kde-config nabu
 done
 
 (cd "$root/vendor" && sha256sum -c SHA256SUMS >/dev/null) || fail "vendored source checksum"
+tar --zstd -xOf "$root/vendor/nabu-sar-service-0.2.0.tar.zst" \
+    nabu-sar-service-0.2.0/src/nabu-cct-iio-bridge.c \
+    | grep -Fq '#define CCT_INVALID_WARNING_USEC (30 * G_USEC_PER_SEC)' \
+    || fail "TCS3701 invalid-sample warning throttle missing"
 
 for spec in "$root"/*-nabu-meta.spec; do
     if grep -E '^Obsoletes:' "$spec" | grep -Ev '^Obsoletes:[[:space:]]+nabu-' >/dev/null; then

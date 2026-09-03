@@ -1,0 +1,12 @@
+[Unit]
+Description=Grow the Nabu root filesystem to its partition
+After=local-fs.target
+ConditionPathIsMountPoint=/
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/systemd-growfs /
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

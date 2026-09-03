@@ -1,0 +1,17 @@
+[Unit]
+Description=Quiesce Nabu SLPI userspace clients across system sleep
+Documentation=man:systemd.special(7)
+Before=sleep.target
+StopWhenUnneeded=yes
+ConditionPathExists=/dev/fastrpc-sdsp
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/senemos-nabu/nabu-slpi-suspend prepare
+ExecStop=/usr/libexec/senemos-nabu/nabu-slpi-suspend resume
+TimeoutStartSec=20
+TimeoutStopSec=30
+
+[Install]
+RequiredBy=sleep.target

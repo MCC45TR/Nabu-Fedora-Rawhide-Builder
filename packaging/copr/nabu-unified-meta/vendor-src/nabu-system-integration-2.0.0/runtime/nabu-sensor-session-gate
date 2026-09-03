@@ -1,0 +1,103 @@
+#!/usr/bin/bash
+# Keep the graphical session behind a bounded SSC readiness check.  A running
+# hexagonrpcd process only proves that the FastRPC filesystem server was
+# started; it does not prove that SLPI has published the accelerometer yet.
+# Wait for an actual sample before accepting SensorProxy's discovery result.
+# If SLPI is running but never publishes SSC, cycle only that remote processor
+# once while its consumers are stopped.  If the proxy enumerated the FastRPC
+# device too early, restart it once after SSC is known to be ready.  Failure
+# remains non-fatal so a broken sensor DSP never prevents the user from reaching
+# the desktop and rolling back.
+
+set -u
+
+busctl_bin=${NABU_SENSOR_GATE_BUSCTL:-/usr/bin/busctl}
+grep_bin=${NABU_SENSOR_GATE_GREP:-/usr/bin/grep}
+ssccli_bin=${NABU_SENSOR_GATE_SSCCLI:-/usr/bin/ssccli}
+systemctl_bin=${NABU_SENSOR_GATE_SYSTEMCTL:-/usr/bin/systemctl}
+timeout_bin=${NABU_SENSOR_GATE_TIMEOUT:-/usr/bin/timeout}
+sleep_bin=${NABU_SENSOR_GATE_SLEEP:-/usr/bin/sleep}
+ssc_attempts=${NABU_SENSOR_GATE_SSC_ATTEMPTS:-6}
+proxy_attempts=${NABU_SENSOR_GATE_PROXY_ATTEMPTS:-12}
+interval=${NABU_SENSOR_GATE_INTERVAL:-0.25}
+recovery_attempts=${NABU_SENSOR_GATE_RECOVERY_ATTEMPTS:-16}
+slpi_state=${NABU_SENSOR_GATE_SLPI_STATE:-/sys/class/remoteproc/remoteproc0/state}
+
+ssc_ready() {
+	LC_ALL=C "${timeout_bin}" 2 "${ssccli_bin}" \
+		--sensor accelerometer --timeout 1 2>/dev/null |
+		"${grep_bin}" -qm1 '^Accelerometer sensor measurement:'
+}
+
+sensor_ready() {
+	[[ $("${busctl_bin}" get-property net.hadess.SensorProxy \
+		/net/hadess/SensorProxy net.hadess.SensorProxy \
+		HasAccelerometer 2>/dev/null || :) == 'b true' ]]
+}
+
+wait_until() {
+	local check=$1
+	local attempts=$2
+	local attempt
+
+	for ((attempt = 0; attempt < attempts; attempt++)); do
+		if "${check}"; then
+			return 0
+		fi
+		"${sleep_bin}" "${interval}"
+	done
+	return 1
+}
+
+recover_slpi() {
+	if [[ ! -w ${slpi_state} ]]; then
+		return 1
+	fi
+
+	# Consumers can keep stale QRTR/FastRPC handles across a remoteproc cycle.
+	# Stop them first and bring them back only after SSC is actually callable.
+	"${systemctl_bin}" stop nabu-cct-iio-bridge.service \
+		iio-sensor-proxy.service hexagonrpcd-sdsp.service || :
+	if ! printf 'stop' >"${slpi_state}"; then
+		return 1
+	fi
+	"${sleep_bin}" 1
+	if ! printf 'start' >"${slpi_state}"; then
+		return 1
+	fi
+	if ! wait_until ssc_ready "${recovery_attempts}"; then
+		return 1
+	fi
+
+	"${systemctl_bin}" start hexagonrpcd-sdsp.service || return 1
+	"${systemctl_bin}" start iio-sensor-proxy.service || return 1
+	"${systemctl_bin}" reset-failed nabu-cct-iio-bridge.service || :
+	"${systemctl_bin}" start nabu-cct-iio-bridge.service || :
+	return 0
+}
+
+if ! wait_until ssc_ready "${ssc_attempts}"; then
+	echo 'Nabu sensor gate: SSC produced no accelerometer sample within the bounded startup window.' >&2
+	echo 'Nabu sensor gate: attempting one bounded SLPI recovery.' >&2
+	if ! recover_slpi; then
+		echo 'Nabu sensor gate: SLPI recovery failed; allowing the desktop to start for recovery.' >&2
+		exit 0
+	fi
+	echo 'Nabu sensor gate: SSC recovered after one bounded SLPI cycle.'
+fi
+echo 'Nabu sensor gate: SSC produced an accelerometer sample.'
+
+if wait_until sensor_ready "${proxy_attempts}"; then
+	echo 'Nabu sensor gate: SensorProxy exported the accelerometer before the graphical session.'
+	exit 0
+fi
+
+echo 'Nabu sensor gate: restarting iio-sensor-proxy after late SSC publication.' >&2
+if "${systemctl_bin}" restart iio-sensor-proxy.service && \
+	wait_until sensor_ready "${proxy_attempts}"; then
+	echo 'Nabu sensor gate: SensorProxy exported the accelerometer after one bounded restart.'
+	exit 0
+fi
+
+echo 'Nabu sensor gate: accelerometer is still unavailable; allowing the desktop to start for recovery.' >&2
+exit 0
