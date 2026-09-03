@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ BuildRequires:  desktop-file-utils
 BuildRequires:  lcms2
 BuildRequires:  python3
 BuildRequires:  systemd-rpm-macros
-Requires:       nabu-core-meta >= 3.0.0
+Requires:       nabu-core-meta >= 3.0.0-34
 # Locale is a hard release contract, never a weak recommendation.
 Requires:       glibc-all-langpacks
 Requires:       bash
@@ -160,6 +160,8 @@ bash -n kde-integration/kde/senemos-nabu-color-settings
 desktop-file-validate kde-integration/kde/org.senemos.nabu.colorprofiles.desktop
 python3 -c 'import json, pathlib; root=pathlib.Path("widgets"); expected={"com.mcc45tr.filesearch","com.mcc45tr.mweather","com.mcc45tr.analogclock"}; assert {json.loads((root/x/"metadata.json").read_text())["KPlugin"]["Id"] for x in expected} == expected'
 python3 -m json.tool flashlight/plasma/metadata.json >/dev/null
+grep -Fq '/usr/libexec/nabu-sar-control' flashlight/plasma/contents/ui/main.qml
+grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 
 %files
 %{_presetdir}/95-nabu-plasma-login.preset
@@ -221,6 +223,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-6
+- Add grip-aware keep-awake state and control to the existing Plasma widget.
+- Keep the control disabled until real ADUX1050 calibration is available.
+
 * Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-5
 - Make DE exclusivity explicit by package name; do not conflict with the
   preceding version of this same updateable KDE manifest.

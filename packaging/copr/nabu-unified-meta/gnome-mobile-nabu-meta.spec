@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           gnome-mobile-nabu-meta
 Version:        3.0.0
-Release:        10%{?dist}
+Release:        12%{?dist}
 Summary:        Complete touch-oriented GNOME release profile for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,8 +18,9 @@ Source8:        20-nabu-mobile-user-mode.conf
 BuildArch:      noarch
 BuildRequires:  python3
 BuildRequires:  gettext
+BuildRequires:  glib2
 BuildRequires:  systemd-rpm-macros
-Requires:       nabu-core-meta >= 3.0.0
+Requires:       nabu-core-meta >= 3.0.0-34
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       coreutils
@@ -89,6 +90,10 @@ install -Dm0644 l10n/macros.nabu-languages %{buildroot}%{_sysconfdir}/rpm/macros
 install -d %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org
 install -Dm0644 flashlight/gnome/extension.js %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/extension.js
 install -Dm0644 flashlight/gnome/metadata.json %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/metadata.json
+install -Dm0644 flashlight/gnome/prefs.js %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/prefs.js
+install -d %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/schemas
+install -Dm0644 flashlight/gnome/schemas/*.gschema.xml %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/schemas/
+glib-compile-schemas --strict %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/schemas
 for po in flashlight/translations/*.po; do
     lang="$(basename "$po" .po)"
     install -d %{buildroot}%{_datadir}/gnome-shell/extensions/nabu-flashlight@senemos.org/locale/$lang/LC_MESSAGES
@@ -107,8 +112,11 @@ install -Dm0644 %{SOURCE8} %{buildroot}%{_userunitdir}/org.gnome.Shell@initial-s
 
 %check
 python3 -m json.tool flashlight/gnome/metadata.json >/dev/null
+glib-compile-schemas --strict --dry-run flashlight/gnome/schemas
 sh -n flashlight/gnome/integration/nabu-gnome-extension-enable
 test "$(find flashlight/translations -name '*.po' | wc -l)" = 27
+grep -Fq '/usr/libexec/nabu-sar-control' flashlight/gnome/extension.js
+grep -Fq 'show-hold-awake' flashlight/gnome/schemas/org.gnome.shell.extensions.nabu-tablet-controls.gschema.xml
 bash %{SOURCE7}
 grep -Fqx 'gpgcheck=1' %{SOURCE2}
 grep -Fqx 'skip_if_unavailable=False' %{SOURCE2}
@@ -148,6 +156,14 @@ touch /var/lib/nabu-gnome-mobile-sync/pending
 %{_presetdir}/90-nabu-gnome-mobile-sync.preset
 %{_userunitdir}/org.gnome.Shell@initial-setup.service.d/20-nabu-mobile-user-mode.conf
 %changelog
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-12
+- Add a configurable grip-aware keep-awake tile to the existing Quick Settings extension.
+- Keep the tile fail-closed until real ADUX1050 calibration and fresh data exist.
+
+* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-11
+- Add configurable one-column tablet tiles, sound placement and live flashlight slider.
+- Show pen and Xiaomi Keyboard tiles only while their accessories are connected.
+
 * Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-10
 - Require the upstream Mutter auto-rotation lifecycle fix for touch-first devices.
 

@@ -39,6 +39,10 @@ done < <(find "$root/.." \
     -type f -name '*.spec' -print)
 
 core="$root/nabu-core-meta.spec"
+grep -Fq 'Source11:       nabu-sar-service-0.2.0.tar.zst' "$core" || fail "SAR 0.2 source missing"
+grep -Fq '%{_libexecdir}/nabu-sar-control' "$core" || fail "SAR control helper not packaged"
+grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge unit not packaged"
+grep -Fq '%{_prefix}/lib/modules-load.d/nabu-cct-iio.conf' "$core" || fail "CCT module policy not packaged"
 grep -Fq 'Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)' "$core" || fail "two-family kernel OR requirement"
 grep -Fq 'Recommends:     senemos-nabu-kernel-alpha' "$core" || fail "alpha recommendation"
 grep -Fq 'nabu-kernel-maintenance-api = 5' "$core" || fail "maintenance API"
@@ -73,6 +77,14 @@ for spec in "$root"/*-nabu-meta.spec; do
     grep -Fq 'Provides:       nabu-desktop-profile-meta = 3' "$spec" || fail "manifest ABI mismatch in $spec"
     grep -Fq 'Conflicts:      nabu-desktop-profile-meta' "$spec" && fail "self-conflicting DE transition in $spec"
     grep -Eq '^Recommends:' "$spec" && fail "weak dependency in release manifest $spec"
+done
+
+for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-meta.spec"; do
+    grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
+done
+for gnome_spec in "$root/gnome-nabu-meta.spec" "$root/gnome-mobile-nabu-meta.spec"; do
+    grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$gnome_spec" || fail "GNOME SAR tile gate missing in $gnome_spec"
+    grep -Fq "grep -Fq 'show-hold-awake'" "$gnome_spec" || fail "GNOME SAR preference gate missing in $gnome_spec"
 done
 
 for merged in nabu-system-integration nabu-runtime-integration nabu-flashlight-integration nabu-sar-service nabu-ssc-probe nabu-suspend-diagnostics; do

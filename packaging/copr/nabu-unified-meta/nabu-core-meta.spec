@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        32%{?dist}
+Release:        34%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ Source7:        90-nabu-kernel-maintenance.preset
 Source8:        kernel.conf
 Source9:        nabu-system-integration-2.0.0.tar.zst
 Source10:       nabu-flashlight-integration-1.0.0.tar.gz
-Source11:       nabu-sar-service-0.1.1.tar.zst
+Source11:       nabu-sar-service-0.2.0.tar.zst
 Source12:       nabu-ssc-probe.c
 Source13:       nabu-pen-autopair
 Source14:       82-nabu-pen-autopair.rules
@@ -115,6 +115,7 @@ Provides:       nabu-audio-config = %{version}-%{release}
 Provides:       nabu-flashlight-integration = %{version}-%{release}
 Provides:       nabu-flashlight-integration = 1.0.0-10.fc46
 Provides:       nabu-flashlight-integration = 1.0.0-14.fc46
+Provides:       nabu-flashlight-integration = 1.0.0-15.fc46
 Provides:       nabu-sar-service = %{version}-%{release}
 Provides:       nabu-ssc-probe = %{version}-%{release}
 Provides:       nabu-camera-stack = %{version}-%{release}
@@ -255,9 +256,12 @@ test ! -e %{buildroot}%{_udevrulesdir}/81-nabu-sensor-orientation.rules
 test ! -e %{buildroot}%{_libexecdir}/nabu-import-mount-matrix
 ! grep -Eq '(^|,)senemos-nabu-kernel-mainline-unstable(,|$)' %{SOURCE17}
 meson test -C sar-build --print-errorlogs
+bash -n sar-service/tools/nabu-cct-iio-setup
+bash -n sar-service/tools/nabu-sar-capture
 test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-flashlight)" = 2755
 test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-accessory-state)" = 755
 grep -Fq '/usr/libexec/nabu-usb-role' %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
+grep -Fq '/usr/libexec/nabu-sar-control' %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
 
 %pretrans -p /usr/bin/bash
 /usr/bin/mkdir -p /mnt/vendor/persist || :
@@ -329,8 +333,14 @@ fi
 %{_bindir}/nabu-accessory-state
 %{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
 %{_libexecdir}/nabu-sar-service
+%{_libexecdir}/nabu-sar-control
+%{_libexecdir}/nabu-cct-iio-setup
+%{_libexecdir}/nabu-cct-iio-bridge
 %{_unitdir}/nabu-sar-service.service
+%{_unitdir}/nabu-cct-iio-bridge.service
+%{_prefix}/lib/modules-load.d/nabu-cct-iio.conf
 %{_datadir}/dbus-1/system.d/org.senemos.Nabu.Sar.conf
+%{_bindir}/nabu-sar-capture
 %{_bindir}/nabu-ssc-probe
 %{_libexecdir}/nabu-pen-autopair
 %{_udevrulesdir}/82-nabu-pen-autopair.rules
@@ -338,7 +348,7 @@ fi
 %{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
 
 %post
-%systemd_post nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service
+%systemd_post nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service nabu-cct-iio-bridge.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
@@ -358,27 +368,35 @@ if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl daemon-reload >/dev/null 2>&1 || :
     /usr/bin/systemctl reenable nabu-sensor-session-gate.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
     /usr/bin/systemctl disable --now hexagonrpcd-adsp-sensorspd.service >/dev/null 2>&1 || :
-    /usr/bin/systemctl enable rmtfs.service tqftpserv.service mnt-vendor-persist.mount hexagonrpcd-sdsp.service hexagonrpcd-adsp-rootpd.service iio-sensor-proxy.service nabu-sensor-session-gate.service nabu-sar-service.service >/dev/null 2>&1 || :
+    /usr/bin/systemctl enable rmtfs.service tqftpserv.service mnt-vendor-persist.mount hexagonrpcd-sdsp.service hexagonrpcd-adsp-rootpd.service iio-sensor-proxy.service nabu-sensor-session-gate.service nabu-sar-service.service nabu-cct-iio-bridge.service >/dev/null 2>&1 || :
     case "$(/usr/bin/systemctl is-system-running 2>/dev/null || :)" in
         running|degraded)
             /usr/bin/systemctl start mnt-vendor-persist.mount >/dev/null 2>&1 || :
             /usr/bin/systemctl restart nabu-sensor-registry-runtime.service hexagonrpcd-sdsp.service >/dev/null 2>&1 || :
-            /usr/bin/systemctl start hexagonrpcd-adsp-rootpd.service nabu-sar-service.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
+            /usr/bin/systemctl start hexagonrpcd-adsp-rootpd.service nabu-sar-service.service nabu-cct-iio-bridge.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
             /usr/bin/systemctl restart iio-sensor-proxy.service >/dev/null 2>&1 || :
             ;;
     esac
 fi
 
 %preun
-%systemd_preun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service
+%systemd_preun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service nabu-cct-iio-bridge.service
 
 %postun
-%systemd_postun_with_restart nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service
+%systemd_postun_with_restart nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-sar-service.service nabu-cct-iio-bridge.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
 
 %changelog
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-34
+- Publish the SSC colour-temperature stream through a standard IIO endpoint.
+- Add fail-closed ADUX1050 grip-aware sleep inhibition and calibration tooling.
+- Install the shared SAR control interface used by KDE Plasma and GNOME.
+
+* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-33
+- Add automatic USB-C power-role policy and correct Xiaomi Keyboard presence.
+
 * Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-32
 - Skip the expensive full-root SELinux relabel and verification pass when the
   stored policy digest is already current and no autorelabel was requested.
