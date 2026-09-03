@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        42%{?dist}
+Release:        43%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -34,7 +34,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  meson
 BuildRequires:  openssh
 BuildRequires:  pkgconfig(gio-2.0)
-BuildRequires:  pkgconfig(libssc)
+BuildRequires:  libssc-nabu-devel >= 0.4.4-6.nabu5.test
 BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  pkgconfig(Qt6DBus)
 BuildRequires:  systemd-rpm-macros
@@ -51,8 +51,8 @@ Recommends:     senemos-nabu-kernel-alpha
 Requires:       nabu-boot-integration >= 2.0.0-31.test
 Requires:       nabu-boot-manager
 Requires:       hexagonrpc-nabu
-Requires:       libssc-nabu
-Requires:       python3-ssc-nabu
+Requires:       libssc-nabu >= 0.4.4-6.nabu5.test
+Requires:       python3-ssc-nabu >= 0.4.4-6.nabu5.test
 Requires:       iio-sensor-proxy-nabu
 Requires:       xiaomi-nabu-firmware
 Requires:       senemos-nabu-plymouth >= 1.0.0-5.test
@@ -418,6 +418,11 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-43
+- Use the native TCS3701 cct_front protocol for colour temperature instead of
+  interpreting the cct_front_strm ambient-light payload as Kelvin.
+- Require the libssc release that exposes the complete typed CCT measurement.
+
 * Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-42
 - Rate-limit invalid TCS3701 colour-temperature warnings while continuing to
   reject out-of-range firmware samples from the standard IIO endpoint.

@@ -109,6 +109,12 @@ tar --zstd -xOf "$root/vendor/nabu-sar-service-0.2.0.tar.zst" \
     nabu-sar-service-0.2.0/src/nabu-cct-iio-bridge.c \
     | grep -Fq '#define CCT_INVALID_WARNING_USEC (30 * G_USEC_PER_SEC)' \
     || fail "TCS3701 invalid-sample warning throttle missing"
+tar --zstd -xOf "$root/vendor/nabu-sar-service-0.2.0.tar.zst" \
+    nabu-sar-service-0.2.0/src/nabu-cct-iio-bridge.c \
+    | grep -Fq 'SSC_SENSOR_DATA_TYPE, "cct_front"' \
+    || fail "TCS3701 native CCT endpoint missing"
+grep -Fq 'BuildRequires:  libssc-nabu-devel >= 0.4.4-6.nabu5.test' "$core" \
+    || fail "typed TCS3701 libssc build dependency missing"
 
 for spec in "$root"/*-nabu-meta.spec; do
     if grep -E '^Obsoletes:' "$spec" | grep -Ev '^Obsoletes:[[:space:]]+nabu-' >/dev/null; then
