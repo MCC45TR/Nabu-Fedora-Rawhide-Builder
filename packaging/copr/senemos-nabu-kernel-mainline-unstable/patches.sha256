@@ -79,3 +79,4 @@ e97045f7019b31f1a7318ba1edabef63cf0c0321e66ce4f0a714edf59b272372  0074-remotepro
 096086440be6cbbc2652ec3943c561be1aba74b8061d6ee8170b95ab61f623d5  0079-iio-light-add-Qualcomm-SSC-color-temperature-endpoin.patch
 81b91e8075bbe5b79fc85f069d6f262cd43063a29b35353b18df08b9224ab343  0080-senemos-enable-SSC-CCT-IIO-bridge-in-Nabu-profile.patch
 cdd9706d5648d8e74bc4b82570285461c3b55e4ade89906c75166dce6f8d0986  0081-iio-light-invalidate-stale-SSC-color-temperature.patch
+8c6dc129ec54d545dbe481d13e714c84d186d3ce6a763a87e46461eba1f61141  0082-media-qcom-stabilize-Nabu-camera-enumeration.patch

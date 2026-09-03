@@ -97,6 +97,7 @@ Patch0078:      0078-senemos-classify-Nabu-SAR-separately-from-proximity.patch
 Patch0079:      0079-iio-light-add-Qualcomm-SSC-color-temperature-endpoin.patch
 Patch0080:      0080-senemos-enable-SSC-CCT-IIO-bridge-in-Nabu-profile.patch
 Patch0081:      0081-iio-light-invalidate-stale-SSC-color-temperature.patch
+Patch0082:      0082-media-qcom-stabilize-Nabu-camera-enumeration.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -212,6 +213,10 @@ grep -Fxq 'cdc_acm' \
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_I2C_QCOM_CCI=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_SM_CAMCC_8150=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DMABUF_HEAPS_SYSTEM=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DMABUF_HEAPS_CMA=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_CN3927=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_GADGET=y' %{buildroot}/boot/config-%{uname_r}
@@ -284,6 +289,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Make Nabu CCI, CAMCC and DMA heaps available before userspace and probe timeout.
+- Add the missing OV13B10 Device Tree match so the rear camera can autoload.
+
 * Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Publish validated SSC color temperature through the standard IIO ABI.
 

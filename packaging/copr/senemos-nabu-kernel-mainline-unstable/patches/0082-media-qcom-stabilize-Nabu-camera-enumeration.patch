@@ -1,0 +1,91 @@
+From a7aa25f62daf8296ae247c3115274bd35228392f Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Thu, 3 Sep 2026 20:16:36 +0300
+Subject: [PATCH] media: qcom: stabilize Nabu camera enumeration
+
+Nabu's rear sensor is described by Device Tree, but the upstream OV13B10
+driver only advertises ACPI identifiers.  Add the missing OF match so the
+module is autoloaded and can bind to ovti,ov13b10.
+
+The CCI controller and camera clock controller must also be ready before
+the deferred-probe timeout expires.  Build both into the kernel.  Do the
+same for the system and CMA DMA heaps so libcamera always has an allocator
+without relying on userspace to discover and load unrelated modules.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/media/i2c/ov13b10.c          | 8 ++++++++
+ senemos/configs/nabu-minimal.config  | 7 +++++--
+ senemos/configs/prune-nabu-config.sh | 4 +++-
+ 3 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/i2c/ov13b10.c b/drivers/media/i2c/ov13b10.c
+index b0d34141a..61b833bb5 100644
+--- a/drivers/media/i2c/ov13b10.c
++++ b/drivers/media/i2c/ov13b10.c
+@@ -7,6 +7,7 @@
+ #include <linux/gpio/consumer.h>
+ #include <linux/i2c.h>
+ #include <linux/module.h>
++#include <linux/of.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/regulator/consumer.h>
+ #include <media/v4l2-ctrls.h>
+@@ -1705,10 +1706,17 @@ static const struct acpi_device_id ov13b10_acpi_ids[] = {
+ MODULE_DEVICE_TABLE(acpi, ov13b10_acpi_ids);
+ #endif
+ 
++static const struct of_device_id ov13b10_of_match[] = {
++	{ .compatible = "ovti,ov13b10" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, ov13b10_of_match);
++
+ static struct i2c_driver ov13b10_i2c_driver = {
+ 	.driver = {
+ 		.name = "ov13b10",
+ 		.pm = pm_ptr(&ov13b10_pm_ops),
++		.of_match_table = ov13b10_of_match,
+ 		.acpi_match_table = ACPI_PTR(ov13b10_acpi_ids),
+ 	},
+ 	.probe = ov13b10_probe,
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 2388fe250..f04bc5d28 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -149,12 +149,15 @@ CONFIG_RTC_HCTOSYS_DEVICE="rtc0"
+ 
+ # Nabu front/rear cameras, CAMSS/CCI and CN3927 autofocus.
+ CONFIG_MEDIA_CAMERA_SUPPORT=y
+-CONFIG_I2C_QCOM_CCI=m
+-CONFIG_SM_CAMCC_8150=m
++CONFIG_I2C_QCOM_CCI=y
++CONFIG_SM_CAMCC_8150=y
+ CONFIG_VIDEO_QCOM_CAMSS=m
+ CONFIG_VIDEO_OV13B10=m
+ CONFIG_VIDEO_OV8856=m
+ CONFIG_VIDEO_CN3927=m
++CONFIG_DMABUF_HEAPS=y
++CONFIG_DMABUF_HEAPS_SYSTEM=y
++CONFIG_DMABUF_HEAPS_CMA=y
+ CONFIG_CMA_SIZE_MBYTES=256
+ 
+ # SM8150 Iris1/Venus hardware video decoder.
+diff --git a/senemos/configs/prune-nabu-config.sh b/senemos/configs/prune-nabu-config.sh
+index 8b920e74e..a52ac7151 100755
+--- a/senemos/configs/prune-nabu-config.sh
++++ b/senemos/configs/prune-nabu-config.sh
+@@ -83,7 +83,9 @@ while IFS= read -r symbol; do
+ done < <(sed -n 's/^CONFIG_\([A-Z0-9_]*\(GCC\|GPUCC\|DISPCC\|VIDEOCC\|CAMCC\|TCSRCC\)[A-Z0-9_]*\)=[ym]$/\1/p' "$config_file")
+ 
+ "$config_tool" --file "$config_file" "${args[@]}" \
+-	--module SM_CAMCC_8150 \
++	--enable I2C_QCOM_CCI --enable SM_CAMCC_8150 \
++	--enable DMABUF_HEAPS --enable DMABUF_HEAPS_SYSTEM \
++	--enable DMABUF_HEAPS_CMA \
+ 	--enable GPIO_SHARED_PROXY \
+ 	--enable SECURITY --enable SECURITY_NETWORK --enable SECURITY_SELINUX \
+ 	--disable VIDEO_QCOM_VENUS \
+-- 
+2.55.0
+

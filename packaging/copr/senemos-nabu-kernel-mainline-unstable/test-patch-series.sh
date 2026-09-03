@@ -20,7 +20,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 82
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 83
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -58,9 +58,12 @@ if [[ $kernel_release != "$version-nabu-senemos-mainline-unstable" ]]; then
 fi
 
 for setting in \
-    'CONFIG_VIDEO_QCOM_IRIS=m' \
-    'CONFIG_VIDEO_QCOM_CAMSS=m' \
-    'CONFIG_I2C_QCOM_CCI=m' \
+	'CONFIG_VIDEO_QCOM_IRIS=m' \
+	'CONFIG_VIDEO_QCOM_CAMSS=m' \
+	'CONFIG_I2C_QCOM_CCI=y' \
+	'CONFIG_SM_CAMCC_8150=y' \
+	'CONFIG_DMABUF_HEAPS_SYSTEM=y' \
+	'CONFIG_DMABUF_HEAPS_CMA=y' \
     'CONFIG_VIDEO_CN3927=m' \
     'CONFIG_VIDEO_OV13B10=m' \
     'CONFIG_VIDEO_OV8856=m' \
@@ -114,10 +117,14 @@ grep -Fq 'if (!core->res->min_fw)' \
 grep -A50 -F 'static int camss_subdev_notifier_bound' \
     "$work/linux-$version/drivers/media/platform/qcom/camss/camss.c" \
     | grep -Fq 'v4l2_device_register_subdev_nodes'
+grep -Fq '.compatible = "ovti,ov13b10"' \
+    "$work/linux-$version/drivers/media/i2c/ov13b10.c"
+grep -Fq 'MODULE_DEVICE_TABLE(of, ov13b10_of_match);' \
+    "$work/linux-$version/drivers/media/i2c/ov13b10.c"
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 81 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 82 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"
