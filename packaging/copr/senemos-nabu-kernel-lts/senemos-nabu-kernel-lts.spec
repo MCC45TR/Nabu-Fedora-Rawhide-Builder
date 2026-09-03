@@ -4,7 +4,7 @@
 %global uname_r %{version}-nabu-senemos-lts
 
 Name:           senemos-nabu-kernel-lts
-Version:        6.18.48
+Version:        6.18.49
 Release:        %{nabu_build_stamp}.lts%{?dist}
 Summary:        Patch-layered Linux 6.18.y LTS SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
