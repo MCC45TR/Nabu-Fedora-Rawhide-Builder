@@ -1,0 +1,231 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+diagnostic_mode=0
+uki_family=
+while [[ ${1:-} == --* ]]; do
+    case "$1" in
+        --verbose)
+            diagnostic_mode=1
+            shift
+            ;;
+        --family)
+            [[ $# -ge 2 ]] || { printf 'Missing value for --family.\n' >&2; exit 2; }
+            uki_family=$2
+            shift 2
+            ;;
+        *)
+            printf 'usage: nabu-regenerate-uki [--verbose] [--family SENEMOS_FAMILY] [KERNEL_VERSION]\n' >&2
+            exit 2
+            ;;
+    esac
+done
+kver="${1:-$(uname -r)}"
+[[ $# -le 1 ]] || { printf 'usage: nabu-regenerate-uki [--verbose] [--family SENEMOS_FAMILY] [KERNEL_VERSION]\n' >&2; exit 2; }
+config=/etc/kernel/nabu-uki.conf
+[[ -r "$config" ]] && source "$config"
+policy=/usr/lib/senemos-nabu/boot-policy.conf
+[[ -r "$policy" ]] || { printf 'Packaged Nabu boot policy is missing: %s\n' "$policy" >&2; exit 1; }
+source "$policy"
+
+verbose_marker_dir="${NABU_VERBOSE_MARKER_DIR:-/usr/lib/senemos-nabu/verbose-uki.d}"
+if [[ -e "$verbose_marker_dir/$kver" ]]; then
+    diagnostic_mode=1
+fi
+
+vendor_dir="${EFI_VENDOR_DIR:-/boot/efi/EFI/fedora}"
+loader_dir="${NABU_LOADER_DIR:-/boot/efi/loader/entries}"
+dtb_relative="${NABU_DTB_RELATIVE:-dtb/qcom/sm8150-xiaomi-nabu.dtb}"
+kernel="/boot/vmlinuz-${kver}"
+dtb="/usr/lib/modules/${kver}/${dtb_relative}"
+work_dir=""
+kernel_major="${kver%%.*}"
+version_marker_dir="${NABU_VERSION_MARKER_DIR:-/usr/lib/senemos-nabu/uki-version.d}"
+identity_tool="${NABU_KERNEL_IDENTITY_TOOL:-/usr/libexec/senemos-nabu/kernel-build-identity}"
+build_version=""
+kernel_build_stamp=""
+if kernel_build_stamp=$("$identity_tool" --field=stamp "$kver" 2>/dev/null); then
+    build_version=$kernel_build_stamp
+else
+    kernel_build_stamp=""
+fi
+if [[ -r "$version_marker_dir/$kver" ]]; then
+    read -r marker_build_version <"$version_marker_dir/$kver"
+    if [[ -n $kernel_build_stamp && $marker_build_version != "$kernel_build_stamp" ]]; then
+        printf 'Kernel build stamp and RPM marker disagree for %s: %s != %s\n' \
+            "$kver" "$kernel_build_stamp" "$marker_build_version" >&2
+        exit 1
+    fi
+    build_version=$marker_build_version
+elif [[ $kver == 6.*-nabu-senemos-v* ]]; then
+    build_version="$(sed -nE 's/.*-(v[0-9]+([.][0-9]+){3})(-|$).*/\1/p' <<<"$kver" | head -n1)"
+fi
+[[ $build_version =~ ^[0-9]{10}$ || $build_version =~ ^v[0-9]+([.][0-9]+){3}$ ]] || {
+    printf 'Invalid or missing SENEMOS build identity for %s: %s\n' \
+        "$kver" "${build_version:-<missing>}" >&2
+    exit 1
+}
+[[ $kernel_major =~ ^[0-9]+$ && -n "$build_version" ]] || {
+    printf 'Unsupported SENEMOS kernel identity for EFI branding: %s\n' "$kver" >&2
+    exit 1
+}
+[[ -n $uki_family ]] || uki_family="SENEMOS${kernel_major}"
+[[ $uki_family =~ ^SENEMOS[0-9]+(LTS|U)?$ ]] || {
+    printf 'Invalid managed SENEMOS UKI family: %s\n' "$uki_family" >&2
+    exit 2
+}
+uki_name="${uki_family}-${build_version}.efi"
+uki="${vendor_dir}/${uki_name}"
+uki_tmp="${vendor_dir}/.${uki_name}.tmp.$$"
+legacy_uki="/boot/efi/EFI/fedora/fedora-${kver}.efi"
+family_entry="${loader_dir}/senemos-${uki_family}.conf"
+canonical_entry="${loader_dir}/senemos.conf"
+remoteproc_firmware=(
+    usr/lib/firmware/qcom/sm8150/xiaomi/nabu/slpi_nb.mbn
+    usr/lib/firmware/qcom/sm8150/xiaomi/nabu/cdsp.mbn
+    usr/lib/firmware/qcom/sm8150/xiaomi/nabu/adsp.mbn
+    usr/lib/firmware/qcom/sm8150/xiaomi/nabu/modem.mbn
+)
+dracut_args=(--force --kver "$kver")
+compatible_path="${NABU_COMPATIBLE_PATH:-/sys/firmware/devicetree/base/compatible}"
+
+# A generic initramfs remains the portable default for offline image builds.
+# On real Nabu hardware, use the detected hardware graph so unrelated firmware
+# and modules cannot make the UKI larger than the device's 320 MiB ESP.  The
+# mandatory Nabu firmware checks below still fail closed after sanitization.
+if [[ -r "$compatible_path" ]] && grep -aq 'xiaomi,nabu' "$compatible_path"; then
+    dracut_args+=(--hostonly)
+    printf 'Using hardware-scoped Nabu initramfs generation.\n'
+fi
+
+cleanup() {
+    rm -f "$uki_tmp"
+    [[ -z "$work_dir" ]] || rm -rf -- "$work_dir"
+}
+trap cleanup EXIT
+
+backup_uki() {
+    local source="$1"
+    local backup_dir
+
+    [[ -s "$source" ]] || return 0
+    backup_dir="/var/lib/nabu-boot-backup/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    install -d -m0700 "$backup_dir"
+    install -m0600 "$source" "$backup_dir/"
+    sha256sum "$backup_dir/${source##*/}" >"$backup_dir/SHA256SUMS"
+}
+
+same_managed_family() {
+    local name=$1
+    [[ $name =~ ^${uki_family}-([0-9]{10}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]
+}
+
+if ! findmnt --mountpoint /boot/efi >/dev/null 2>&1; then
+    printf 'Warning: ESP is not mounted at /boot/efi; deferred Nabu UKI generation.\n' >&2
+    printf 'Run after mounting the ESP: nabu-regenerate-uki %q\n' "$kver" >&2
+    exit 0
+fi
+
+for command in cpio depmod dracut lsinitrd ukify zstd; do
+    command -v "$command" >/dev/null 2>&1 || {
+        printf 'Required command is missing: %s\n' "$command" >&2
+        exit 1
+    }
+done
+
+[[ -s "$kernel" ]] || { printf 'Kernel image is missing: %s\n' "$kernel" >&2; exit 1; }
+[[ -s "$dtb" ]] || { printf 'Nabu DTB is missing: %s\n' "$dtb" >&2; exit 1; }
+
+install -d -m0755 "$vendor_dir"
+work_dir="$(mktemp -d /var/tmp/nabu-uki.XXXXXXXX)"
+initrd="${work_dir}/initramfs-${kver}.img"
+staged_uki="${work_dir}/${uki_name}"
+depmod -a "$kver"
+dracut "${dracut_args[@]}" "$initrd"
+/usr/libexec/senemos-nabu/sanitize-initramfs \
+    "$initrd" "${work_dir}/initramfs-root" "${work_dir}/initramfs-contents.txt"
+
+for firmware in "${remoteproc_firmware[@]}"; do
+    if ! lsinitrd "$initrd" | grep -F "$firmware" >/dev/null; then
+        printf 'Nabu firmware is missing from initramfs: /%s\n' "$firmware" >&2
+        exit 1
+    fi
+done
+
+kernel_cmdline="$NABU_KERNEL_CMDLINE"
+if (( diagnostic_mode )); then
+    read -r -a cmdline_words <<<"$kernel_cmdline"
+    diagnostic_cmdline=()
+    for word in "${cmdline_words[@]}"; do
+        case "$word" in
+            quiet|splash|plymouth.enable=*|systemd.show_status=*|systemd.log_level=*|rd.udev.log_level=*)
+                ;;
+            *)
+                diagnostic_cmdline+=("$word")
+                ;;
+        esac
+    done
+    diagnostic_cmdline+=(
+        plymouth.enable=0
+        systemd.show_status=yes
+        systemd.log_level=info
+        rd.udev.log_level=info
+        no_console_suspend
+        ignore_loglevel
+        log_buf_len=8M
+    )
+    kernel_cmdline="${diagnostic_cmdline[*]}"
+    printf 'Building a verbose diagnostic UKI for %s.\n' "$kver"
+fi
+
+ukify build --uname="$kver" --linux="$kernel" --initrd="$initrd" \
+    --devicetree="$dtb" --cmdline="$kernel_cmdline" --output="$staged_uki"
+[[ -s "$staged_uki" ]] || { printf 'Generated UKI is empty: %s\n' "$staged_uki" >&2; exit 1; }
+
+required_bytes="$(( $(stat -c %s "$staged_uki") + 8 * 1024 * 1024 ))"
+available_bytes="$(df --output=avail -B1 /boot/efi | tail -n1 | tr -d ' ')"
+if (( available_bytes < required_bytes )); then
+    for old_uki in "$vendor_dir"/*.efi; do
+        [[ -e $old_uki ]] || continue
+        old_name=${old_uki##*/}
+        [[ $old_uki == "$uki" ]] && continue
+        same_managed_family "$old_name" || continue
+        backup_uki "$old_uki"
+        rm -f -- "$old_uki"
+        available_bytes="$(df --output=avail -B1 /boot/efi | tail -n1 | tr -d ' ')"
+        (( available_bytes >= required_bytes )) && break
+    done
+fi
+if (( available_bytes < required_bytes )) && [[ -s "$uki" ]]; then
+    backup_uki "$uki"
+    rm -f -- "$uki"
+    available_bytes="$(df --output=avail -B1 /boot/efi | tail -n1 | tr -d ' ')"
+fi
+if (( available_bytes < required_bytes )); then
+    printf 'ESP space is insufficient: need %s bytes, have %s bytes\n' "$required_bytes" "$available_bytes" >&2
+    exit 1
+fi
+
+install -m0644 "$staged_uki" "$uki_tmp"
+mv -f "$uki_tmp" "$uki"
+rm -f "$legacy_uki"
+
+# Keep one manifest per managed family plus a compatibility manifest for the
+# requested default. Other families and user-installed EFI payloads survive.
+install -d -m0755 "$loader_dir"
+entry_tmp=$(mktemp "$loader_dir/.senemos-${uki_family}.conf.XXXXXX")
+printf 'title Fedora Rawhide (%s %s)\nefi /EFI/fedora/%s\n' \
+    "$uki_family" "$build_version" "$uki_name" >"$entry_tmp"
+chmod 0644 "$entry_tmp"
+mv -f "$entry_tmp" "$family_entry"
+entry_tmp=$(mktemp "$loader_dir/.senemos.conf.XXXXXX")
+printf 'title Fedora Rawhide (%s %s)\nefi /EFI/fedora/%s\n' \
+    "$uki_family" "$build_version" "$uki_name" >"$entry_tmp"
+chmod 0644 "$entry_tmp"
+mv -f "$entry_tmp" "$canonical_entry"
+if [[ -x /usr/bin/nabu-configure-boot-manager ]]; then
+    /usr/bin/nabu-configure-boot-manager --sync-only --uki "$uki_name" || \
+        printf 'Warning: selected Nabu boot-manager configuration could not be synchronized.\n' >&2
+fi
+sync
+printf 'Generated latest %s UKI: %s\n' "$uki_family" "$uki"

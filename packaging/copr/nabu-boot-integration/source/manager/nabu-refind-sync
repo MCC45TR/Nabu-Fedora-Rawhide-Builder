@@ -1,0 +1,15 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+pending=/var/lib/nabu-boot-maintenance/refind-sync.pending
+[[ -e $pending ]] || exit 0
+[[ -e /usr/lib/nabu-boot/managers/refind.selected ]] || {
+    rm -f -- "$pending"
+    exit 0
+}
+findmnt --mountpoint /boot/efi >/dev/null 2>&1 || {
+    printf 'ESP is not mounted; keeping the rEFInd synchronization request.\n' >&2
+    exit 1
+}
+/usr/bin/nabu-refind update
+rm -f -- "$pending"

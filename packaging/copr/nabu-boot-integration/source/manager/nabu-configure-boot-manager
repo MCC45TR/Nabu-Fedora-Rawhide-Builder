@@ -1,0 +1,310 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+esp=/boot/efi
+requested=
+sync_only=0
+requested_uki=
+root_prefix=${NABU_BOOT_ROOT:-}
+lock_file=${NABU_BOOT_LOCK_FILE:-/run/nabu-package-management.lock}
+refind_theme_id=refind-theme-regular-nabu-2x-v1
+refind_timeout=3
+if [[ -r $root_prefix/etc/nabu/boot.conf ]]; then
+    configured_timeout=$(sed -nE 's/^refind_timeout=([0-9]|10)$/\1/p' "$root_prefix/etc/nabu/boot.conf" | tail -n1)
+    [[ -z $configured_timeout ]] || refind_timeout=$configured_timeout
+fi
+
+copy_tree_fat_safe() {
+    local source=$1 destination=$2 relative
+    install -d -m0755 "$destination"
+    while IFS= read -r -d '' relative; do
+        install -d -m0755 "$destination/${relative#./}"
+    done < <(cd "$source" && find . -mindepth 1 -type d -print0)
+    while IFS= read -r -d '' relative; do
+        install -Dm0644 "$source/${relative#./}" "$destination/${relative#./}"
+    done < <(cd "$source" && find . -type f -print0)
+}
+
+tree_manifest() {
+    local directory=$1
+    (cd "$directory" && find . -type f -print0 | sort -z | xargs -0r sha256sum)
+}
+
+managed_uki_family() {
+    local name=$1
+    if [[ $name =~ ^(SENEMOS[0-9]+(LTS|U)?)-([0-9]{10}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    return 1
+}
+
+managed_uki_identity() {
+    local name=$1
+    if [[ $name =~ ^SENEMOS[0-9]+(LTS|U)?-([0-9]{10}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[2]}"
+        return 0
+    fi
+    return 1
+}
+
+candidate_is_newer() {
+    local candidate=$1 current=$2 candidate_id current_id newest
+    candidate_id=$(managed_uki_identity "$candidate")
+    current_id=$(managed_uki_identity "$current")
+    if [[ $candidate_id =~ ^[0-9]{10}$ && ! $current_id =~ ^[0-9]{10}$ ]]; then
+        return 0
+    fi
+    if [[ ! $candidate_id =~ ^[0-9]{10}$ && $current_id =~ ^[0-9]{10}$ ]]; then
+        return 1
+    fi
+    newest=$(printf '%s\n%s\n' "$current_id" "$candidate_id" | sort -V | tail -n1)
+    [[ $newest == "$candidate_id" && $candidate_id != "$current_id" ]]
+}
+
+title_for_uki() {
+    local name=$1 family identity
+    family=$(managed_uki_family "$name") || {
+        printf 'Fedora Rawhide Nabu (SENEMOS)'
+        return
+    }
+    identity=$(managed_uki_identity "$name")
+    printf 'Fedora Rawhide (%s %s)' "$family" "$identity"
+}
+
+migrate_legacy_efi_layout() {
+    local migration_backup legacy_file destination manifest_dir
+
+    [[ -d $legacy_linux_dir ]] || {
+        install -d -m0755 "$linux_dir"
+        return 0
+    }
+
+    # Record the exact pre-migration state outside the ESP. The UKIs themselves
+    # are renamed on the same FAT filesystem, so their bytes are not copied or
+    # rewritten and the known-good fallback does not consume another 118 MiB.
+    manifest_dir="$root_prefix/var/lib/nabu-boot-backup/efi-layout-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    install -d -m0700 "$manifest_dir"
+    find "$legacy_linux_dir" -maxdepth 1 -type f -print0 | sort -z | \
+        xargs -0r sha256sum >"$manifest_dir/SHA256SUMS"
+    [[ ! -s $esp/EFI/android/Reboot2Android.efi ]] || \
+        sha256sum "$esp/EFI/android/Reboot2Android.efi" >>"$manifest_dir/SHA256SUMS"
+    [[ ! -s $esp/EFI/BOOT/refind.conf ]] || \
+        install -m0600 "$esp/EFI/BOOT/refind.conf" "$manifest_dir/refind.conf.before"
+
+    if [[ ! -e $linux_dir ]]; then
+        mv "$legacy_linux_dir" "$linux_dir"
+    else
+        install -d -m0755 "$linux_dir"
+        while IFS= read -r -d '' legacy_file; do
+            destination="$linux_dir/${legacy_file##*/}"
+            if [[ -e $destination ]]; then
+                cmp "$legacy_file" "$destination" || {
+                    printf 'Refusing to overwrite a different EFI payload: %s\n' "$destination" >&2
+                    return 1
+                }
+                rm -f -- "$legacy_file"
+            else
+                mv "$legacy_file" "$destination"
+            fi
+        done < <(find "$legacy_linux_dir" -maxdepth 1 -type f -print0)
+    fi
+
+    while read -r expected path; do
+        [[ $path == "$legacy_linux_dir/"* ]] && path="$linux_dir/${path##*/}"
+        [[ -s $path ]] && [[ $(sha256sum "$path" | cut -d' ' -f1) == "$expected" ]] || {
+            printf 'EFI migration verification failed for %s\n' "$path" >&2
+            return 1
+        }
+    done <"$manifest_dir/SHA256SUMS"
+}
+
+while (($#)); do
+    case "$1" in
+        --esp) [[ $# -ge 2 ]] || exit 2; esp=$2; shift 2 ;;
+        --sync-only) sync_only=1; shift ;;
+        --uki) [[ $# -ge 2 ]] || exit 2; requested_uki=$2; shift 2 ;;
+        systemd-boot|refind|limine) requested=$1; shift ;;
+        *) printf 'Unknown argument: %s\n' "$1" >&2; exit 2 ;;
+    esac
+done
+
+linux_dir=$esp/EFI/fedora
+legacy_linux_dir=$esp/EFI/SENEMOS
+
+[[ $EUID -eq 0 || -n $root_prefix ]] || { echo 'Run as root.' >&2; exit 1; }
+install -d -m0755 "${lock_file%/*}"
+exec 9>"$lock_file"
+flock 9
+findmnt --mountpoint "$esp" >/dev/null 2>&1 || {
+    printf 'ESP is not mounted at %s; configuration deferred.\n' "$esp" >&2
+    exit 0
+}
+
+markers=("$root_prefix"/usr/lib/nabu-boot/managers/*.selected)
+[[ ${markers[0]} != "$root_prefix/usr/lib/nabu-boot/managers/*.selected" ]] || {
+    echo 'No Nabu boot-manager package is selected.' >&2
+    exit 1
+}
+[[ ${#markers[@]} -eq 1 ]] || { echo 'Ambiguous Nabu boot-manager selection.' >&2; exit 1; }
+selected=${markers[0]##*/}
+selected=${selected%.selected}
+[[ -z $requested || $requested == "$selected" ]] || {
+    printf 'Selected package is %s, not %s.\n' "$selected" "$requested" >&2
+    exit 1
+}
+
+migrate_legacy_efi_layout
+
+requested_family=
+if [[ -n $requested_uki ]]; then
+    [[ $requested_uki == "${requested_uki##*/}" ]] && requested_family=$(managed_uki_family "$requested_uki") || {
+        echo 'Requested UKI is not a managed SENEMOS family filename.' >&2
+        exit 2
+    }
+    [[ -s "$linux_dir/$requested_uki" ]] || {
+        printf 'Requested UKI is missing: %s\n' "$requested_uki" >&2
+        exit 1
+    }
+fi
+
+declare -A family_uki=()
+for uki_file in "$linux_dir"/*.efi; do
+    [[ -e $uki_file ]] || continue
+    name=${uki_file##*/}
+    family=$(managed_uki_family "$name") || continue
+    current=${family_uki[$family]:-}
+    if [[ -z $current ]] || candidate_is_newer "$name" "$current"; then
+        family_uki[$family]=$name
+    fi
+done
+[[ -z $requested_uki ]] || family_uki[$requested_family]=$requested_uki
+(( ${#family_uki[@]} > 0 )) || { echo 'No managed SENEMOS Nabu UKI is available.' >&2; exit 1; }
+
+default_uki=$requested_uki
+if [[ -z $default_uki && -r $esp/loader/entries/senemos.conf ]]; then
+    previous=$(sed -nE 's@^efi[[:space:]]+/EFI/(fedora|SENEMOS)/([^/]+)@\2@p' "$esp/loader/entries/senemos.conf" | head -n1)
+    previous_family=$(managed_uki_family "$previous" 2>/dev/null || :)
+    [[ -z $previous_family ]] || default_uki=${family_uki[$previous_family]:-}
+fi
+if [[ -z $default_uki ]]; then
+    mapfile -t ordered_families < <(printf '%s\n' "${!family_uki[@]}" | sort -V)
+    default_uki=${family_uki[${ordered_families[0]}]}
+fi
+default_title=$(title_for_uki "$default_uki")
+default_path=/EFI/fedora/$default_uki
+mapfile -t ordered_families < <(printf '%s\n' "${!family_uki[@]}" | sort -V)
+
+android_entry=
+[[ ! -s $esp/EFI/android/Reboot2Android.efi ]] || android_entry=/EFI/android/Reboot2Android.efi
+android_digest=
+[[ -z $android_entry ]] || android_digest=$(sha256sum "$esp$android_entry" | cut -d' ' -f1)
+
+case "$selected" in
+    systemd-boot)
+        command -v bootctl >/dev/null || { echo 'bootctl is missing.' >&2; exit 1; }
+        [[ $sync_only -eq 1 ]] || bootctl --esp-path="$esp" install
+        install -d -m0755 "$esp/loader/entries"
+        install -Dm0644 "$root_prefix/usr/share/nabu/bootloader/systemd-boot/loader.conf" "$esp/loader/loader.conf"
+        for family in "${ordered_families[@]}"; do
+            name=${family_uki[$family]}
+            temporary=$(mktemp "$esp/loader/entries/.senemos-${family}.conf.XXXXXX")
+            printf 'title %s\nefi /EFI/fedora/%s\n' "$(title_for_uki "$name")" "$name" >"$temporary"
+            chmod 0644 "$temporary"
+            mv -f "$temporary" "$esp/loader/entries/senemos-${family}.conf"
+        done
+        temporary=$(mktemp "$esp/loader/entries/.senemos.conf.XXXXXX")
+        printf 'title %s\nefi %s\n' "$default_title" "$default_path" >"$temporary"
+        chmod 0644 "$temporary"
+        mv -f "$temporary" "$esp/loader/entries/senemos.conf"
+        if [[ -n $android_entry ]]; then
+            install -Dm0644 "$root_prefix/usr/share/nabu/bootloader/systemd-boot/android.conf" "$esp/loader/entries/android.conf"
+        fi
+        bootctl --esp-path="$esp" set-default senemos.conf >/dev/null 2>&1 || :
+        ;;
+    refind)
+        refind_efi=$root_prefix/usr/share/nabu/bootloader/refind/refind_aa64.efi
+        refind_theme=$root_prefix/usr/share/nabu/bootloader/refind/refind-theme-regular
+        refind_drivers=$root_prefix/usr/share/nabu/bootloader/refind/drivers_aa64
+        [[ -s $refind_efi && -s $refind_theme/theme.conf && -s $refind_drivers/GopRotate_aa64.efi ]] || {
+            echo 'Packaged rEFInd payload is incomplete.' >&2; exit 1;
+        }
+        refind_root=$esp/EFI/BOOT
+        install -d -m0755 "$refind_root/themes" "$refind_root/drivers"
+        staged_theme=$(mktemp -d "$refind_root/themes/.${refind_theme_id}.XXXXXX")
+        copy_tree_fat_safe "$refind_theme" "$staged_theme"
+        diff -u <(tree_manifest "$refind_theme") <(tree_manifest "$staged_theme")
+        sed -i "s@themes/refind-theme-regular/@themes/${refind_theme_id}/@g" "$staged_theme/theme.conf"
+        grep -Fqx "icons_dir themes/${refind_theme_id}/icons/256-96" "$staged_theme/theme.conf"
+        grep -Fqx "font themes/${refind_theme_id}/fonts/source-code-pro-extralight-28.png" "$staged_theme/theme.conf"
+        final_theme=$refind_root/themes/$refind_theme_id
+        if [[ -e $final_theme ]]; then
+            copy_tree_fat_safe "$staged_theme" "$final_theme"
+            diff -u <(tree_manifest "$staged_theme") <(tree_manifest "$final_theme")
+            rm -rf -- "$staged_theme"
+        else
+            mv "$staged_theme" "$final_theme"
+        fi
+        temporary=$(mktemp "$refind_root/drivers/.GopRotate_aa64.efi.XXXXXX")
+        install -m0644 "$refind_drivers/GopRotate_aa64.efi" "$temporary"
+        cmp "$temporary" "$refind_drivers/GopRotate_aa64.efi"
+        mv -f "$temporary" "$refind_root/drivers/GopRotate_aa64.efi"
+        temporary=$(mktemp "$refind_root/.refind.conf.XXXXXX")
+        {
+            printf 'timeout %s\n' "$refind_timeout"
+            # rEFInd discovers every EFI application installed under the
+            # standard Fedora and Android vendor directories. EFI/BOOT is the
+            # running rEFInd instance and the legacy SENEMOS directory is
+            # excluded explicitly to prevent self/transition duplicates.
+            echo 'scanfor internal'
+            echo 'also_scan_dirs EFI/fedora,EFI/android'
+            echo 'dont_scan_dirs EFI/BOOT,EFI/SENEMOS'
+            # UKIs from independent SENEMOS families deliberately share the
+            # Fedora vendor directory.  rEFInd folds same-directory Linux
+            # loaders into one icon by default, hiding the exact fallback and
+            # candidate inventory from users and from physical HIL.
+            echo 'fold_linux_kernels false'
+            echo 'scan_driver_dirs drivers'
+            echo 'rotation 3'
+            printf 'include themes/%s/theme.conf\n' "$refind_theme_id"
+            [[ ! -r $refind_root/refind-local.conf ]] || echo 'include refind-local.conf'
+            printf 'default_selection "%s"\n' "$default_uki"
+        } >"$temporary"
+        chmod 0644 "$temporary"
+        mv -f "$temporary" "$refind_root/refind.conf"
+        temporary=$(mktemp "$refind_root/.BOOTAA64.EFI.XXXXXX")
+        install -m0644 "$refind_efi" "$temporary"
+        cmp "$temporary" "$refind_efi"
+        mv -f "$temporary" "$refind_root/BOOTAA64.EFI"
+        ;;
+    limine)
+        limine_efi=$root_prefix/usr/share/nabu/bootloader/limine/BOOTAA64.EFI
+        [[ -s $limine_efi ]] || { echo 'Packaged Limine payload is missing.' >&2; exit 1; }
+        install -Dm0644 "$limine_efi" "$esp/EFI/limine/BOOTAA64.EFI"
+        temporary=$(mktemp "$esp/.limine.conf.XXXXXX")
+        {
+            echo 'timeout: 3'
+            for family in "${ordered_families[@]}"; do
+                name=${family_uki[$family]}
+                printf '/%s\n    protocol: efi_chainload\n    path: boot():/EFI/fedora/%s\n' "$(title_for_uki "$name")" "$name"
+            done
+            [[ -z $android_entry ]] || printf '/Reboot to Android\n    protocol: efi_chainload\n    path: boot():%s\n' "$android_entry"
+        } >"$temporary"
+        chmod 0644 "$temporary"
+        mv -f "$temporary" "$esp/limine.conf"
+        install -Dm0644 "$limine_efi" "$esp/EFI/BOOT/BOOTAA64.EFI"
+        ;;
+esac
+
+[[ -z $android_digest ]] || [[ $(sha256sum "$esp$android_entry" | cut -d' ' -f1) == "$android_digest" ]]
+# Retain exactly the selected latest member of each managed family. Files that
+# do not match the strict SENEMOS family contract are user-owned and untouched.
+for old_uki in "$linux_dir"/*.efi; do
+    [[ -e $old_uki ]] || continue
+    old_name=${old_uki##*/}
+    old_family=$(managed_uki_family "$old_name") || continue
+    [[ ${family_uki[$old_family]} == "$old_name" ]] || rm -f -- "$old_uki"
+done
+sync
+printf 'Configured %s with %s managed UKI families; default: %s.\n' \
+    "$selected" "${#family_uki[@]}" "$default_path"

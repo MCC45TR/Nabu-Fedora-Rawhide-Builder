@@ -1,0 +1,76 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+esp=${NABU_REFIND_ESP:-/boot/efi}
+packaged=/usr/share/nabu/bootloader/refind
+efi=$esp/EFI/BOOT/BOOTAA64.EFI
+driver=$esp/EFI/BOOT/drivers/GopRotate_aa64.efi
+config=$esp/EFI/BOOT/refind.conf
+theme=$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/theme.conf
+
+usage() {
+    printf 'usage: nabu-refind {install|update|status|version}\n' >&2
+    exit 2
+}
+
+packaged_version() {
+    if [[ -r $packaged/VERSION ]]; then
+        read -r version <"$packaged/VERSION"
+        printf '%s\n' "$version"
+    else
+        printf 'unknown\n'
+    fi
+}
+
+status() {
+    local failed=0 packaged_hash esp_hash
+
+    printf 'rEFInd upstream version: %s\n' "$(packaged_version)"
+    rpm -q nabu-boot-refind 2>/dev/null || failed=1
+    [[ -e /usr/lib/nabu-boot/managers/refind.selected ]] || {
+        printf 'selection: not selected\n'
+        failed=1
+    }
+    if findmnt --mountpoint "$esp" >/dev/null 2>&1; then
+        printf 'ESP: %s (mounted)\n' "$esp"
+    else
+        printf 'ESP: %s (not mounted)\n' "$esp"
+        return 1
+    fi
+    for required in "$efi" "$driver" "$config" "$theme"; do
+        if [[ -s $required ]]; then
+            printf 'present: %s\n' "$required"
+        else
+            printf 'missing: %s\n' "$required"
+            failed=1
+        fi
+    done
+    if [[ -s $packaged/refind_aa64.efi && -s $efi ]]; then
+        packaged_hash=$(sha256sum "$packaged/refind_aa64.efi" | cut -d' ' -f1)
+        esp_hash=$(sha256sum "$efi" | cut -d' ' -f1)
+        if [[ $packaged_hash == "$esp_hash" ]]; then
+            printf 'EFI payload: current (%s)\n' "$esp_hash"
+        else
+            printf 'EFI payload: update required (packaged %s, ESP %s)\n' \
+                "$packaged_hash" "$esp_hash"
+            failed=1
+        fi
+    fi
+    return "$failed"
+}
+
+case ${1:-} in
+    install|update)
+        [[ $EUID -eq 0 ]] || { echo 'Run as root.' >&2; exit 1; }
+        exec /usr/bin/nabu-configure-boot-manager refind --sync-only
+        ;;
+    status)
+        status
+        ;;
+    version)
+        packaged_version
+        ;;
+    *)
+        usage
+        ;;
+esac
