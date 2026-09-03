@@ -4,7 +4,7 @@
 %global uname_r %{version}-nabu-senemos-mainline-unstable
 
 Name:           senemos-nabu-kernel-mainline-unstable
-Version:        7.2.2
+Version:        7.2.3
 Release:        %{nabu_build_stamp}.unstable%{?dist}
 Summary:        Patch-layered Linux 7.2.y SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
