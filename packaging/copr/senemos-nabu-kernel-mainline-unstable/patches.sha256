@@ -88,3 +88,4 @@ df613799124f9f215dad2e607cd50112082d9440fed1d438dc81c58ca8c74ae0  0083-ASoC-qcom
 fa2c3022bd429af210fa6be6adc719f64251ac592f8a5c17387c7918eebd3344  0088-Bluetooth-restore-Fedora-RFCOMM-and-BNEP-protocols.patch
 efb69354e327d510b36d9f7293d70571aecf84957e8489255956ec3ace801c3f  0089-drm-msm-Recover-HW-before-retire-hung-submit.patch
 61d1344790ff8ad63d93c4a27350fe121aff97c9762a968f323f12b084f61686  0090-drm-msm-remove-objects-from-evict-list-after-pinning.patch
+e2156ab033ad038ce37b9c111ffc10c88b7924f88c9f67967d82118d89450ad1  0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch

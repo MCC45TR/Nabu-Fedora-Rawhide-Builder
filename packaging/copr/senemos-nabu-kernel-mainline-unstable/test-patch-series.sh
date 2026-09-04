@@ -23,7 +23,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 91
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 92
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -161,10 +161,22 @@ test "$recover_line" -lt "$retire_line"
 grep -A18 -F 'msm_gem_vm_bo_validate' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_gem_vma.c" \
     | grep -Fq 'drm_gpuvm_bo_evict(vm_bo, false);'
+grep -Fq 'smp_load_acquire(&ctx->vm)' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_drv.c"
+grep -Fq 'smp_store_release(&ctx->vm, vm)' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_drv.c"
+resv_line=$(grep -n -F 'obj->resv = r_obj->resv;' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_gem.c" | cut -d: -f1)
+gem_init_line=$(grep -n -F 'ret = drm_gem_object_init(dev, obj, size);' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_gem.c" | cut -d: -f1)
+bookkeeping_line=$(grep -n -F 'ret = msm_gem_init_bookkeeping(obj);' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_gem.c" | head -n1 | cut -d: -f1)
+test "$resv_line" -lt "$gem_init_line"
+test "$gem_init_line" -lt "$bookkeeping_line"
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 90 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 91 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"
