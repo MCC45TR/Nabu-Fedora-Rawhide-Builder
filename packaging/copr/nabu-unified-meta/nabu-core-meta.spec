@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        50%{?dist}
+Release:        51%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -427,6 +427,8 @@ if [ -x /usr/bin/systemctl ]; then
     # existing systems gain locale following on their next boot without
     # launching DNF recursively inside this RPM transaction.
     /usr/bin/systemctl enable nabu-locale-packages.path nabu-locale-packages.timer >/dev/null 2>&1 || :
+    /usr/bin/systemctl reset-failed nabu-locale-packages.path nabu-locale-packages.service >/dev/null 2>&1 || :
+    /usr/bin/systemctl restart nabu-locale-packages.path nabu-locale-packages.timer >/dev/null 2>&1 || :
     /usr/bin/systemctl reset-failed nabu-kernel-maintenance.service >/dev/null 2>&1 || :
 fi
 /usr/libexec/senemos-nabu/nabu-prepare-selinux-labels || printf 'Warning: Nabu SELinux labels are not ready.\n' >&2
@@ -453,6 +455,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-51
+- Recover systems that briefly received the level-triggered locale watcher by
+  clearing its start limit and activating the corrected edge-based units.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-50
 - Watch setup completion as an edge instead of a permanently true path state,
   preventing a locale-service start-limit loop after first boot.
