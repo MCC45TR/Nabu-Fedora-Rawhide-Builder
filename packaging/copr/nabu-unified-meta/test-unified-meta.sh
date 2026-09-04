@@ -100,7 +100,6 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     grep -Fq 'Requires:       kdeplasma-addons' "$kde_spec" || fail "missing Kameleon provider in $kde_spec"
     grep -Fq 'Requires:       firewalld' "$kde_spec" || fail "missing firewalld runtime in $kde_spec"
     grep -Fq 'Requires:       udisks2' "$kde_spec" || fail "missing UDisks2 storage service in $kde_spec"
-    grep -Fq 'Requires:       ksystemstats-nabu >= 6.7.4-2.nabu2' "$kde_spec" || fail "MSM GPU telemetry package missing in $kde_spec"
     grep -Fq 'firewall-offline-cmd --add-service=kdeconnect' "$kde_spec" || fail "KDE Connect firewall policy missing in $kde_spec"
     grep -Fq '%firewalld_reload' "$kde_spec" || fail "firewalld reload missing in $kde_spec"
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"

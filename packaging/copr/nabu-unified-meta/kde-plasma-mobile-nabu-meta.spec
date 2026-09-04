@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        3.0.0
-Release:        13%{?dist}
+Release:        14%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -66,7 +66,6 @@ Requires:       openssh-server
 Requires:       plasma-discover
 Requires:       plasma-discover-notifier
 Requires:       plasma-discover-packagekit
-Requires:       ksystemstats-nabu >= 6.7.4-2.nabu2
 Requires:       PackageKit
 Requires:       qmlkonsole
 Requires:       dolphin
@@ -236,9 +235,9 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-13
-- Install the MSM/Adreno-aware KSystemStats provider for GPU usage and
-  frequency telemetry without requiring a DNF vendor override.
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-14
+- Keep Fedora KDE packages unmodified; remove the temporary KSystemStats replacement.
+- Retain the deadline-based File Search maintenance and asynchronous cache reads.
 
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-12
 - Read local MFile Finder caches through one asynchronous runner instead of
