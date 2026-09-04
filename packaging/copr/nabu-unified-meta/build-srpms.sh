@@ -44,6 +44,7 @@ install -m0755 "$source_dir/nabu-gnome-mobile-sync" \
     "$source_dir/test-gnome-mobile-repo-sync.sh" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/80-nabu-kernel-retention.conf" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/90-nabu-offline-uki-finalize.conf" "$top_dir/SOURCES/"
+install -m0644 "$source_dir/20-nabu-packagekit-qos.conf" "$top_dir/SOURCES/"
 install -m0644 "$source_dir"/vendor/*.{c,gz,zst} "$top_dir/SOURCES/"
 install -m0644 "$source_dir/vendor/nabu-pen-autopair" "$source_dir/vendor/82-nabu-pen-autopair.rules" "$source_dir/vendor/nabu-pen-autopair@.service" "$top_dir/SOURCES/"
 

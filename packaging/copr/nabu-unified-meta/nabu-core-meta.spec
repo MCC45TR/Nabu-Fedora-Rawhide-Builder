@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        46%{?dist}
+Release:        47%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -29,6 +29,7 @@ Source18:       test-kernel-maintenance-family.sh
 Source19:       nabu-kernel-offline-finalize
 Source20:       90-nabu-offline-uki-finalize.conf
 Source21:       test-offline-kernel-finalize.sh
+Source22:       20-nabu-packagekit-qos.conf
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  meson
@@ -199,6 +200,7 @@ install -Dm0644 %{SOURCE14} %{buildroot}%{_udevrulesdir}/82-nabu-pen-autopair.ru
 install -Dm0644 %{SOURCE15} %{buildroot}%{_unitdir}/nabu-pen-autopair@.service
 install -Dm0644 %{SOURCE17} %{buildroot}%{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
 install -Dm0644 %{SOURCE20} %{buildroot}%{_unitdir}/dnf5-offline-transaction.service.d/90-nabu-offline-uki-finalize.conf
+install -Dm0644 %{SOURCE22} %{buildroot}%{_unitdir}/packagekit.service.d/20-nabu-packagekit-qos.conf
 install -d %{buildroot}%{_sysconfdir}/systemd/system
 ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.timer
 
@@ -256,6 +258,9 @@ bash %{SOURCE18}
 bash %{SOURCE21}
 bash -n %{SOURCE19}
 grep -Fqx 'ExecStartPost=/usr/libexec/nabu-kernel-offline-finalize' %{SOURCE20}
+grep -Fqx 'CPUWeight=20' %{SOURCE22}
+grep -Fqx 'IOWeight=20' %{SOURCE22}
+grep -Fqx 'Nice=5' %{SOURCE22}
 bash -n system-integration/runtime/nabu-pmic-rtc-sync
 bash -n system-integration/runtime/nabu-slpi-suspend
 bash -n system-integration/runtime/nabu-sensor-session-gate
@@ -307,6 +312,8 @@ fi
 %{_unitdir}/nabu-kernel-maintenance.path
 %dir %{_unitdir}/dnf5-offline-transaction.service.d
 %{_unitdir}/dnf5-offline-transaction.service.d/90-nabu-offline-uki-finalize.conf
+%dir %{_unitdir}/packagekit.service.d
+%{_unitdir}/packagekit.service.d/20-nabu-packagekit-qos.conf
 %{_presetdir}/90-nabu-kernel-maintenance.preset
 %license system-integration/licenses/*
 %doc system-integration/FIRMWARE-PROVENANCE.md flashlight-integration/API.md
@@ -418,6 +425,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-47
+- Give interactive desktop work priority over background PackageKit CPU and
+  I/O activity without disabling Discover or offline updates.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-46
 - Stop globally disabling Freedreno UBWC; it did not prevent the observed GPU
   resets and unnecessarily increased graphics memory and bandwidth pressure.
