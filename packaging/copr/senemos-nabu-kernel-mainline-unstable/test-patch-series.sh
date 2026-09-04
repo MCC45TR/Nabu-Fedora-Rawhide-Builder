@@ -25,7 +25,9 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 94
+patch_count=$(find "$root/patches" -maxdepth 1 -type f -name '*.patch' | wc -l)
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" \
+    -eq "$((patch_count + 1))"
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -176,6 +178,13 @@ grep -A30 -F 'static void a6xx_set_pagetable' \
 grep -A36 -F 'static void a6xx_set_pagetable' \
     "$work/linux-$version/drivers/gpu/drm/msm/adreno/a6xx_gpu.c" \
     | grep -Fq 'CP_EVENT_WRITE_0_EVENT(PC_CCU_INVALIDATE_COLOR)'
+# Trigger STOP must not invalidate the active ASM setup state. Otherwise the
+# next capture prepare reopens stream 1 without closing it and ADSP_EALREADY
+# loops at PipeWire retry frequency.
+q6asm_dai="$work/linux-$version/sound/soc/qcom/qdsp6/q6asm-dai.c"
+test "$(grep -c 'prtd->state = Q6ASM_STREAM_STOPPED;' "$q6asm_dai")" -eq 1
+grep -A8 -F 'init_completion(&prtd->eos_done);' "$q6asm_dai" \
+    | grep -Fq 'complete_all(&prtd->eos_done);'
 resv_line=$(grep -n -F 'obj->resv = r_obj->resv;' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_gem.c" | cut -d: -f1)
 gem_init_line=$(grep -n -F 'ret = drm_gem_object_init(dev, obj, size);' \
@@ -189,5 +198,5 @@ test "$gem_init_line" -lt "$bookkeeping_line"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 93 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
-    "$version" "$module_count"
+printf 'PASS: %s checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+    "$patch_count" "$version" "$module_count"

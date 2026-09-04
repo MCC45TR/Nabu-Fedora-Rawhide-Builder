@@ -111,6 +111,7 @@ Patch0091:      0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch
 Patch0092:      0092-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch
 Patch0093:      0093-senemos-enable-multigenerational-LRU.patch
 Patch0094:      0094-drm-msm-align-A640-private-VMAs-to-64K.patch
+Patch0095:      0095-ASoC-qcom-keep-q6asm-setup-state-through-trigger-stop.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
