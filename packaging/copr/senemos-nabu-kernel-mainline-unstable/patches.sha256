@@ -91,3 +91,4 @@ efb69354e327d510b36d9f7293d70571aecf84957e8489255956ec3ace801c3f  0089-drm-msm-R
 e2156ab033ad038ce37b9c111ffc10c88b7924f88c9f67967d82118d89450ad1  0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch
 56493770022d047d887bda4accba1d2c6be315df1c1c37d7f5a2fd56403f7391  0092-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch
 8e955bf82bae171d6474bef76b18e9b9a977f3b0a875a44a004a67ed3c1329f6  0093-senemos-enable-multigenerational-LRU.patch
+687a51a7b4efef99b1962dd08e91cb46cf617c5eb74ddaa23667bb75b036072a  0094-drm-msm-align-A640-private-VMAs-to-64K.patch

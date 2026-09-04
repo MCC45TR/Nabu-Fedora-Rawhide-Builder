@@ -110,6 +110,7 @@ Patch0090:      0090-drm-msm-remove-objects-from-evict-list-after-pinning.patch
 Patch0091:      0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch
 Patch0092:      0092-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch
 Patch0093:      0093-senemos-enable-multigenerational-LRU.patch
+Patch0094:      0094-drm-msm-align-A640-private-VMAs-to-64K.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -335,6 +336,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Align A640 kernel-managed GPU VMAs to 64K after a decoded CCU resolve fault
+  showed hardware access to the aligned page below a 4K-aligned UBWC buffer.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Backport the complete upstream DRM/MSM context VM synchronization series.
 - Publish GEM objects only after reservation and VM bookkeeping are valid.
