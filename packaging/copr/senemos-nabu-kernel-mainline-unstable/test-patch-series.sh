@@ -28,7 +28,8 @@ git -C "$work/linux-$version" config user.email 'mcc45tr@gmail.com'
 git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
-git -C "$work/linux-$version" am "$root"/patches/*.patch
+# Match RPM %%autosetup -S git_am, including its reject-mode context rules.
+git -C "$work/linux-$version" am --reject -q "$root"/patches/*.patch
 patch_count=$(find "$root/patches" -maxdepth 1 -type f -name '*.patch' | wc -l)
 test "$(git -C "$work/linux-$version" rev-list --count HEAD)" \
     -eq "$((patch_count + 1))"

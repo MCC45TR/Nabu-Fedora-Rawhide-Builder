@@ -11,9 +11,13 @@ diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.
 index f04bc5d28ef4..c8f794b9e382 100644
 --- a/senemos/configs/nabu-minimal.config
 +++ b/senemos/configs/nabu-minimal.config
-@@ -100,2 +100,5 @@ CONFIG_BT_BNEP=m
+@@ -106,6 +106,9 @@ CONFIG_BT_RFCOMM_TTY=y
+ CONFIG_BT_BNEP=m
  CONFIG_BT_BNEP_MC_FILTER=y
  CONFIG_BT_BNEP_PROTO_FILTER=y
 +CONFIG_HID_SUPPORT=y
 +CONFIG_HID=y
 +CONFIG_UHID=y
+ 
+ # Fedora firewalld uses the nftables backend. Keep the compact, known-good
+ # 6.17 ruleset surface so filtering, rejection and NAT work after pruning.
