@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -19,10 +19,9 @@ BuildRequires:  lcms2
 BuildRequires:  python3
 BuildRequires:  systemd-rpm-macros
 Requires:       nabu-core-meta >= 3.0.0-34
-# Locale is a hard release contract, never a weak recommendation.
+# Plasma and setup translations are a hard release contract. Fedora language
+# packs are selected later from the locale chosen in Plasma Setup.
 Requires:       glibc-all-langpacks
-Requires:       langpacks-tr
-Requires:       hunspell-tr
 Requires:       bash
 Requires:       color-filesystem
 Requires:       coreutils
@@ -116,7 +115,8 @@ Obsoletes:      nabu-flashlight-integration-plasma < %{legacy_meta_max}
 %description
 The only KDE Plasma desktop manifest for Nabu. It contains the formerly
 optimal application set, stock Fedora/KDE session packages, Nabu integration,
-login branding and mandatory Turkish/English-capable locale payloads. No KDE
+login branding and complete Plasma translation payloads. Fedora language and
+spell-checking packages follow the locale selected in Plasma Setup. No KDE
 or Fedora package is forked, replaced or obsoleted.
 
 %prep
@@ -227,6 +227,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-9
+- Stop forcing Turkish packages on global installations; use the locale chosen
+  in Plasma Setup through the shared CORE language-pack installer.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-8
 - Install KDE Plasma Addons so PowerDevil can load its Kameleon module.
 - Include the current Fedora Turkish language and spell-checking payloads.

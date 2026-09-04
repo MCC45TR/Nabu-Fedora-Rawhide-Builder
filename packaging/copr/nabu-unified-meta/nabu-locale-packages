@@ -1,0 +1,60 @@
+#!/usr/bin/bash
+set -u
+
+locale_file=${NABU_LOCALE_FILE:-/etc/locale.conf}
+setup_marker=${NABU_SETUP_MARKER:-/etc/plasma-setup-done}
+state_dir=${NABU_LOCALE_STATE_DIR:-/var/lib/senemos-nabu}
+dnf5_bin=${NABU_DNF5:-/usr/bin/dnf5}
+lock_file=${NABU_LOCALE_LOCK:-/run/nabu-locale-packages.lock}
+
+# Plasma Setup owns the language choice.  Never guess before it has completed.
+[ -e "$setup_marker" ] || exit 0
+[ -r "$locale_file" ] || exit 0
+[ -x "$dnf5_bin" ] || exit 0
+[ ! -e /system-update ] || exit 0
+
+locale_value=$(/usr/bin/sed -n \
+    's/^[[:space:]]*LANG[[:space:]]*=[[:space:]]*//p' "$locale_file" | \
+    /usr/bin/tail -n 1)
+locale_value=${locale_value#\"}
+locale_value=${locale_value%\"}
+locale_value=${locale_value%%.*}
+locale_value=${locale_value%%@*}
+
+case "$locale_value" in
+    ''|*[!A-Za-z0-9_-]*) exit 0 ;;
+esac
+
+language=${locale_value%%_*}
+case "$language" in
+    C|POSIX|'') exit 0 ;;
+esac
+
+/usr/bin/mkdir -p "$state_dir"
+stamp="$state_dir/locale-packages.stamp"
+if [ -r "$stamp" ] && [ "$(/usr/bin/cat "$stamp")" = "$locale_value" ]; then
+    exit 0
+fi
+
+# Prefer the regional Fedora langpack when one exists, then its base language.
+# Fedora's weak dependencies pull the matching spell checker when available.
+package=
+for candidate in "langpacks-$locale_value" "langpacks-$language"; do
+    if "$dnf5_bin" -q repoquery --available --qf '%{name}' "$candidate" 2>/dev/null | \
+            /usr/bin/grep -Fxq "$candidate"; then
+        package=$candidate
+        break
+    fi
+done
+
+if [ -z "$package" ]; then
+    printf 'No Fedora language pack is available for locale %s.\n' "$locale_value" >&2
+    exit 0
+fi
+
+if ! /usr/bin/rpm -q "$package" >/dev/null 2>&1; then
+    /usr/bin/flock -n "$lock_file" \
+        "$dnf5_bin" -y install "$package" || exit 0
+fi
+
+printf '%s\n' "$locale_value" >"$stamp"

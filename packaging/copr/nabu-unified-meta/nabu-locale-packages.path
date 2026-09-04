@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch the locale selected by initial setup
+
+[Path]
+PathChanged=/etc/locale.conf
+PathExists=/etc/plasma-setup-done
+Unit=nabu-locale-packages.service
+
+[Install]
+WantedBy=multi-user.target

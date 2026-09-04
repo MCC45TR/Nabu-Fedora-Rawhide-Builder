@@ -1,0 +1,11 @@
+[Unit]
+Description=Retry Fedora language support installation
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=6h
+Persistent=true
+Unit=nabu-locale-packages.service
+
+[Install]
+WantedBy=timers.target

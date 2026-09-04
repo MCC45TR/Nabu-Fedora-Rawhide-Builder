@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        47%{?dist}
+Release:        48%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -30,6 +30,12 @@ Source19:       nabu-kernel-offline-finalize
 Source20:       90-nabu-offline-uki-finalize.conf
 Source21:       test-offline-kernel-finalize.sh
 Source22:       20-nabu-packagekit-qos.conf
+Source23:       nabu-locale-packages
+Source24:       nabu-locale-packages.service
+Source25:       nabu-locale-packages.path
+Source26:       nabu-locale-packages.timer
+Source27:       91-nabu-locale-packages.preset
+Source28:       test-locale-packages.sh
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  meson
@@ -172,6 +178,8 @@ cp -p %{SOURCE12} nabu-ssc-probe.c
 %build
 bash -n %{SOURCE2}
 bash -n %{SOURCE4}
+bash -n %{SOURCE23}
+bash %{SOURCE28}
 %{__cc} %{build_cflags} %{build_ldflags} -o nabu-flashlight flashlight-integration/src/nabu-flashlight.c
 %{__cc} %{build_cflags} %{build_ldflags} -o nabu-usb-role flashlight-integration/src/nabu-usb-role.c
 %{__cxx} -std=c++17 %{build_cxxflags} $(pkg-config --cflags Qt6Core Qt6DBus) \
@@ -201,6 +209,11 @@ install -Dm0644 %{SOURCE15} %{buildroot}%{_unitdir}/nabu-pen-autopair@.service
 install -Dm0644 %{SOURCE17} %{buildroot}%{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
 install -Dm0644 %{SOURCE20} %{buildroot}%{_unitdir}/dnf5-offline-transaction.service.d/90-nabu-offline-uki-finalize.conf
 install -Dm0644 %{SOURCE22} %{buildroot}%{_unitdir}/packagekit.service.d/20-nabu-packagekit-qos.conf
+install -Dm0755 %{SOURCE23} %{buildroot}%{_libexecdir}/senemos-nabu/nabu-locale-packages
+install -Dm0644 %{SOURCE24} %{buildroot}%{_unitdir}/nabu-locale-packages.service
+install -Dm0644 %{SOURCE25} %{buildroot}%{_unitdir}/nabu-locale-packages.path
+install -Dm0644 %{SOURCE26} %{buildroot}%{_unitdir}/nabu-locale-packages.timer
+install -Dm0644 %{SOURCE27} %{buildroot}%{_presetdir}/91-nabu-locale-packages.preset
 install -d %{buildroot}%{_sysconfdir}/systemd/system
 ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.timer
 
@@ -261,6 +274,11 @@ grep -Fqx 'ExecStartPost=/usr/libexec/nabu-kernel-offline-finalize' %{SOURCE20}
 grep -Fqx 'CPUWeight=20' %{SOURCE22}
 grep -Fqx 'IOWeight=20' %{SOURCE22}
 grep -Fqx 'Nice=5' %{SOURCE22}
+bash -n %{SOURCE23}
+bash %{SOURCE28}
+grep -Fqx 'PathExists=/etc/plasma-setup-done' %{SOURCE25}
+grep -Fqx 'OnUnitInactiveSec=6h' %{SOURCE26}
+! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' kde-plasma-nabu-meta.spec kde-plasma-mobile-nabu-meta.spec
 bash -n system-integration/runtime/nabu-pmic-rtc-sync
 bash -n system-integration/runtime/nabu-slpi-suspend
 bash -n system-integration/runtime/nabu-sensor-session-gate
@@ -314,6 +332,11 @@ fi
 %{_unitdir}/dnf5-offline-transaction.service.d/90-nabu-offline-uki-finalize.conf
 %dir %{_unitdir}/packagekit.service.d
 %{_unitdir}/packagekit.service.d/20-nabu-packagekit-qos.conf
+%{_libexecdir}/senemos-nabu/nabu-locale-packages
+%{_unitdir}/nabu-locale-packages.service
+%{_unitdir}/nabu-locale-packages.path
+%{_unitdir}/nabu-locale-packages.timer
+%{_presetdir}/91-nabu-locale-packages.preset
 %{_presetdir}/90-nabu-kernel-maintenance.preset
 %license system-integration/licenses/*
 %doc system-integration/FIRMWARE-PROVENANCE.md flashlight-integration/API.md
@@ -390,7 +413,7 @@ fi
 %{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
 
 %post
-%systemd_post nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
+%systemd_post nabu-kernel-maintenance.timer nabu-kernel-maintenance.path nabu-locale-packages.path nabu-locale-packages.timer ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
@@ -416,15 +439,19 @@ if [ -x /usr/bin/systemctl ]; then
 fi
 
 %preun
-%systemd_preun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
+%systemd_preun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path nabu-locale-packages.path nabu-locale-packages.timer ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
 
 %postun
-%systemd_postun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
+%systemd_postun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path nabu-locale-packages.path nabu-locale-packages.timer ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-48
+- Install Fedora language support from the locale selected in initial setup
+  instead of imposing any maintainer language on global installations.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-47
 - Give interactive desktop work priority over background PackageKit CPU and
   I/O activity without disabling Discover or offline updates.
