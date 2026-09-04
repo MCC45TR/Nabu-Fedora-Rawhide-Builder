@@ -17,7 +17,7 @@ sudo dnf install --allowerasing nabu-plasma-optimal-meta
 
 Minimal profiles add only the session's software store and terminal. Optimal
 profiles add the selected daily-use application set. GNOME Mobile currently
-uses stock Fedora GNOME because Fedora 43 through Rawhide do not ship a
+uses stock Fedora GNOME because Fedora 44 through Rawhide do not ship a
 separate GNOME Shell Mobile session package; it contains no downstream shell
 patches.
 

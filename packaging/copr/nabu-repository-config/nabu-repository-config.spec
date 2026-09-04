@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           nabu-repository-config
 Version:        1.1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Signed COPR repository definition for Nabu Linux
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -14,7 +14,8 @@ Provides:       nabu-repository-config-api = 1
 Installs the single signed Nabu Linux COPR definition and selects the matching
 Fedora release automatically. Desktop, branch and migration policy live in
 independent source packages so repository updates cannot force unrelated
-desktop replacement transactions.
+desktop replacement transactions. Supported build targets are Fedora 44,
+Fedora 45 and Rawhide on AArch64.
 
 %prep
 %build
@@ -27,6 +28,9 @@ install -Dm0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/dnf/repos.override.d/90-na
 %config(noreplace) %{_sysconfdir}/dnf/repos.override.d/90-nabu-disable-cisco-openh264.repo
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 1.1.0-2
+- Retire the Fedora 43 build target; retain Fedora 44, Fedora 45 and Rawhide.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
 - Adopt the independent control-plane version policy.
 - Export a stable repository configuration API capability.
