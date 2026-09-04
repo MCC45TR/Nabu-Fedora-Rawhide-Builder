@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -62,6 +62,7 @@ Requires:       plasma-discover-offline-updates
 Requires:       PackageKit
 Requires:       konsole
 Requires:       dolphin
+Requires:       udisks2
 Requires:       kde-connect
 Requires:       ark
 Requires:       gwenview
@@ -235,6 +236,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-11
+- Install UDisks2 so Plasma and Solid can enumerate storage devices without
+  repeatedly waiting for a missing D-Bus service during session startup.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-10
 - Allow KDE Connect in firewalld's default zone so LAN discovery and pairing
   work after installation without weakening unrelated firewall policy.

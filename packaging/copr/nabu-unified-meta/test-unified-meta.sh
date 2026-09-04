@@ -52,7 +52,7 @@ grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge u
 grep -Fq '%{_prefix}/lib/modules-load.d/nabu-cct-iio.conf' "$core" || fail "CCT module policy not packaged"
 grep -Fq 'Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)' "$core" || fail "two-family kernel OR requirement"
 grep -Fq 'Recommends:     senemos-nabu-kernel-alpha' "$core" || fail "alpha recommendation"
-grep -Fq 'Recommends:     senemos-fastfetch-config >= 1.1.0-1' "$core" || fail "optional Fastfetch configuration recommendation"
+grep -Fq 'Recommends:     senemos-fastfetch-config >= 1.2.0-1' "$core" || fail "optional Fastfetch configuration recommendation"
 ! grep -Eq '^Requires:[[:space:]]+senemos-fastfetch-config([[:space:]]|$)' "$core" || fail "Fastfetch configuration became mandatory"
 ! grep -Fq '%{_sysconfdir}/xdg/fastfetch/config.jsonc' "$core" || fail "CORE still owns the optional Fastfetch configuration"
 fastfetch_spec="$root/../nabu-core-meta/senemos-fastfetch-config/senemos-fastfetch-config.spec"
@@ -99,6 +99,7 @@ done
 for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-meta.spec"; do
     grep -Fq 'Requires:       kdeplasma-addons' "$kde_spec" || fail "missing Kameleon provider in $kde_spec"
     grep -Fq 'Requires:       firewalld' "$kde_spec" || fail "missing firewalld runtime in $kde_spec"
+    grep -Fq 'Requires:       udisks2' "$kde_spec" || fail "missing UDisks2 storage service in $kde_spec"
     grep -Fq 'firewall-offline-cmd --add-service=kdeconnect' "$kde_spec" || fail "KDE Connect firewall policy missing in $kde_spec"
     grep -Fq '%firewalld_reload' "$kde_spec" || fail "firewalld reload missing in $kde_spec"
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
