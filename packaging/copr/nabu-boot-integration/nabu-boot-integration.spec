@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        33.test%{?dist}
+Release:        34.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -110,6 +110,7 @@ grep -Fq 'log_buf_len=8M' payload/usr/bin/nabu-regenerate-uki
 grep -Fq '/usr/lib/senemos-nabu/verbose-uki.d' payload/usr/bin/nabu-regenerate-uki
 grep -Fq '/usr/lib/senemos-nabu/uki-version.d' payload/usr/bin/nabu-regenerate-uki
 grep -Fq 'build_version =~ ^[0-9]{10}$' payload/usr/bin/nabu-regenerate-uki
+grep -Fqx 'compress="zstd -15 -q -T2"' payload/usr/lib/dracut/dracut.conf.d/91-nabu-responsive-compression.conf
 bash tests/test-kernel-build-identity.sh
 grep -Fq 'managed_uki_family' manager/nabu-configure-boot-manager
 grep -Fq 'SENEMOS[0-9]+(LTS|U)?' manager/nabu-configure-boot-manager
@@ -219,6 +220,7 @@ fi
 %{_prefix}/lib/senemos-nabu/
 %{_libexecdir}/senemos-nabu/
 %{_prefix}/lib/dracut/modules.d/95nabu-dtb/
+%{_prefix}/lib/dracut/dracut.conf.d/91-nabu-responsive-compression.conf
 %{_prefix}/lib/kernel/install.d/95-nabu-uki.install
 %dir %{_prefix}/lib/nabu-boot
 %dir %{_prefix}/lib/nabu-boot/managers
@@ -248,6 +250,10 @@ fi
 %{_datadir}/nabu/bootloader/limine/
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-34.test
+- Limit UKI zstd compression to two workers so post-update maintenance does
+  not monopolize all Nabu CPU cores or cause interactive latency.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-33.test
 - Generate explicit rEFInd entries for one newest UKI per managed family.
 - Hide legacy image aliases from automatic discovery and retain Android.
