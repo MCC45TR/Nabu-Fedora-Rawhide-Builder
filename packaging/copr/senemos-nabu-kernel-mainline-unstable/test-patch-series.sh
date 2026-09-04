@@ -23,7 +23,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 92
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 93
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -165,6 +165,12 @@ grep -Fq 'smp_load_acquire(&ctx->vm)' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_drv.c"
 grep -Fq 'smp_store_release(&ctx->vm, vm)' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_drv.c"
+grep -A30 -F 'static void a6xx_set_pagetable' \
+    "$work/linux-$version/drivers/gpu/drm/msm/adreno/a6xx_gpu.c" \
+    | grep -Fq 'CP_EVENT_WRITE_0_EVENT(PC_CCU_INVALIDATE_DEPTH)'
+grep -A36 -F 'static void a6xx_set_pagetable' \
+    "$work/linux-$version/drivers/gpu/drm/msm/adreno/a6xx_gpu.c" \
+    | grep -Fq 'CP_EVENT_WRITE_0_EVENT(PC_CCU_INVALIDATE_COLOR)'
 resv_line=$(grep -n -F 'obj->resv = r_obj->resv;' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_gem.c" | cut -d: -f1)
 gem_init_line=$(grep -n -F 'ret = drm_gem_object_init(dev, obj, size);' \
@@ -178,5 +184,5 @@ test "$gem_init_line" -lt "$bookkeeping_line"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 91 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 92 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"

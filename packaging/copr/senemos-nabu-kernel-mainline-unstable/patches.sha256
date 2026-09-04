@@ -89,3 +89,4 @@ fa2c3022bd429af210fa6be6adc719f64251ac592f8a5c17387c7918eebd3344  0088-Bluetooth
 efb69354e327d510b36d9f7293d70571aecf84957e8489255956ec3ace801c3f  0089-drm-msm-Recover-HW-before-retire-hung-submit.patch
 61d1344790ff8ad63d93c4a27350fe121aff97c9762a968f323f12b084f61686  0090-drm-msm-remove-objects-from-evict-list-after-pinning.patch
 e2156ab033ad038ce37b9c111ffc10c88b7924f88c9f67967d82118d89450ad1  0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch
+56493770022d047d887bda4accba1d2c6be315df1c1c37d7f5a2fd56403f7391  0092-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch

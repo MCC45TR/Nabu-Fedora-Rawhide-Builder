@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 4 Sep 2026 20:35:00 +0300
+Subject: [PATCH] drm/msm/a6xx: drain CCU before TTBR0 switch
+
+The A6xx render backend can still have asynchronous work touching color or
+depth cache state when the command processor reaches the next context's
+page-table update.  If TTBR0 is switched first, those accesses are translated
+through the new context and can fault on addresses owned by the old context.
+
+Wait for the old context to become idle, invalidate its CCU state while its
+page table is still active, and wait for that operation to complete before
+programming the new TTBR0.  Keep the existing A7xx-and-newer timestamp and
+context-reset sequence unchanged.
+
+This addresses repeated A640 source=CCU translation faults observed during
+KWin context changes on SM8150.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gpu.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+index 8b3bb2fd433b..4dd0d21394f3 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+@@ -241,6 +241,28 @@ static void a6xx_set_pagetable(struct a6xx_gpu *a6xx_gpu,
+ 	if (msm_iommu_pagetable_params(to_msm_vm(vm)->mmu, &ttbr, &asid))
+ 		return;
+ 
++	/*
++	 * A6xx can still have asynchronous render-backend work touching the CCU
++	 * when CP reaches the next context's page-table update.  Switching TTBR0
++	 * first makes those accesses run against the new context and turns stale
++	 * color/depth cache lines into translation faults.  Drain the pipeline and
++	 * discard the old context's CCU state while its page table is still active.
++	 * A7xx and newer use the timestamp/context-reset sequence below instead.
++	 */
++	if (adreno_gpu->info->family < ADRENO_7XX_GEN1) {
++		OUT_PKT7(ring, CP_WAIT_FOR_IDLE, 0);
++
++		OUT_PKT7(ring, CP_EVENT_WRITE, 1);
++		OUT_RING(ring,
++			 CP_EVENT_WRITE_0_EVENT(PC_CCU_INVALIDATE_DEPTH));
++
++		OUT_PKT7(ring, CP_EVENT_WRITE, 1);
++		OUT_RING(ring,
++			 CP_EVENT_WRITE_0_EVENT(PC_CCU_INVALIDATE_COLOR));
++
++		OUT_PKT7(ring, CP_WAIT_FOR_IDLE, 0);
++	}
++
+ 	if (adreno_gpu->info->family >= ADRENO_7XX_GEN1) {
+ 		/* Wait for previous submit to complete before continuing: */
+ 		OUT_PKT7(ring, CP_WAIT_TIMESTAMP, 4);
+-- 
+2.51.0
+
