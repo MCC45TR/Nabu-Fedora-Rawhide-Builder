@@ -2,7 +2,7 @@
 
 Name:           nabu-repository-config
 Version:        1.0.0
-Release:        14.test%{?dist}
+Release:        15.test%{?dist}
 Summary:        COPR repository definition and profiles for Nabu Linux
 License:        MIT AND GPL-2.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ BuildRequires:  systemd-rpm-macros
 %description
 Installs the signed Nabu Linux COPR definition and selects the matching Fedora
 release automatically. The repository publishes the Nabu hardware stack and
-desktop profiles for Fedora 43, 44, 45 and Rawhide on AArch64; Fedora remains
+desktop profiles for Fedora 44, 45 and Rawhide on AArch64; Fedora remains
 the source for general-purpose distribution dependencies.
 
 %package -n nabu-meta
@@ -286,6 +286,9 @@ fi
 %files -n nabu-kde-plasma-mobile-optimal
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-15.test
+- Retire Fedora 43 and retain Fedora 44, Fedora 45 and Rawhide AArch64.
+
 * Sun Aug 23 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-14.test
 - Keep Fedora's plasma-desktop package as the plasmashell provider required by
   plasma-workspace; the Plasma Login Manager mount namespace still exposes
