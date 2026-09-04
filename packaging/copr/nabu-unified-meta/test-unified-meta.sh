@@ -91,6 +91,9 @@ for spec in "$root"/*-nabu-meta.spec; do
 done
 
 for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-meta.spec"; do
+    grep -Fq 'Requires:       kdeplasma-addons' "$kde_spec" || fail "missing Kameleon provider in $kde_spec"
+    grep -Fq 'Requires:       langpacks-tr' "$kde_spec" || fail "missing Turkish language pack in $kde_spec"
+    grep -Fq 'Requires:       hunspell-tr' "$kde_spec" || fail "missing Turkish spell checker in $kde_spec"
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
 done
 for gnome_spec in "$root/gnome-nabu-meta.spec" "$root/gnome-mobile-nabu-meta.spec"; do

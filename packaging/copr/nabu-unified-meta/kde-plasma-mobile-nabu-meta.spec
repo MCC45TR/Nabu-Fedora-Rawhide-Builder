@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        3.0.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -23,6 +23,8 @@ BuildRequires:  python3
 BuildRequires:  systemd-rpm-macros
 Requires:       nabu-core-meta >= 3.0.0-34
 Requires:       glibc-all-langpacks
+Requires:       langpacks-tr
+Requires:       hunspell-tr
 Requires:       bash
 Requires:       color-filesystem
 Requires:       coreutils
@@ -37,6 +39,7 @@ Requires:       tar
 Requires:       wireplumber
 Requires:       plasma-workspace
 Requires:       plasma-mobile
+Requires:       kdeplasma-addons
 Requires:       plasma-mobile-sounds
 Requires:       plasma-login-manager
 Requires:       kde-settings-plasmalogin
@@ -226,6 +229,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-6
+- Install KDE Plasma Addons so PowerDevil can load its Kameleon module.
+- Include the current Fedora Turkish language and spell-checking payloads.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-5
 - Read KWin's output transform directly instead of spawning kscreen-doctor
   every second, and reduce idle PipeWire graph scans.
