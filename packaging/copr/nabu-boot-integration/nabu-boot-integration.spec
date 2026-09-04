@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        34.test%{?dist}
+Release:        35.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -111,6 +111,7 @@ grep -Fq '/usr/lib/senemos-nabu/verbose-uki.d' payload/usr/bin/nabu-regenerate-u
 grep -Fq '/usr/lib/senemos-nabu/uki-version.d' payload/usr/bin/nabu-regenerate-uki
 grep -Fq 'build_version =~ ^[0-9]{10}$' payload/usr/bin/nabu-regenerate-uki
 grep -Fqx 'compress="zstd -15 -q -T2"' payload/usr/lib/dracut/dracut.conf.d/91-nabu-responsive-compression.conf
+grep -Fq 'zstd -T2 -15 -q -o "$normalized"' payload/usr/libexec/senemos-nabu/sanitize-initramfs
 bash tests/test-kernel-build-identity.sh
 grep -Fq 'managed_uki_family' manager/nabu-configure-boot-manager
 grep -Fq 'SENEMOS[0-9]+(LTS|U)?' manager/nabu-configure-boot-manager
@@ -250,6 +251,9 @@ fi
 %{_datadir}/nabu/bootloader/limine/
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-35.test
+- Apply the same bounded zstd policy while normalizing the generated initramfs.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-34.test
 - Limit UKI zstd compression to two workers so post-update maintenance does
   not monopolize all Nabu CPU cores or cause interactive latency.

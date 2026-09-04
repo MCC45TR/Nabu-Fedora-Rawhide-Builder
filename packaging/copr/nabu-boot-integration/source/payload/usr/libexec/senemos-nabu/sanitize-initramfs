@@ -16,7 +16,7 @@ install -d -m0700 "$work_root"
     # a setuid mount binary would drop PID 1's root privilege before /sysroot.
     find . -xdev -perm /6000 -exec chmod a-s -- {} +
     find . -print0 | cpio --null --quiet -o -H newc --owner=0:0 | \
-        zstd -T0 -19 -q -o "$normalized"
+        zstd -T2 -15 -q -o "$normalized"
 )
 [[ -s "$normalized" ]] || { printf 'Normalized initramfs is empty\n' >&2; exit 65; }
 mv -f "$normalized" "$archive"
