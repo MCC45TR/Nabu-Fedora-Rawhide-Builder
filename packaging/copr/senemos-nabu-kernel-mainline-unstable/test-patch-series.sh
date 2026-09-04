@@ -4,6 +4,8 @@ set -Eeuo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 ! grep -Eq '^Provides:[[:space:]]+kernel-uname-r' \
     "$root/senemos-nabu-kernel-mainline-unstable.spec"
+grep -Fq 'KALLSYMS_EXTRA_PASS=1' \
+    "$root/senemos-nabu-kernel-mainline-unstable.spec"
 version=$(sed -nE 's/^Version:[[:space:]]+([^[:space:]]+).*/\1/p' \
     "$root/senemos-nabu-kernel-mainline-unstable.spec")
 work=$(mktemp -d)

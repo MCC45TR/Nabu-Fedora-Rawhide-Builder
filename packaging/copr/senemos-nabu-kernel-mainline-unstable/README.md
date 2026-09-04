@@ -50,6 +50,8 @@ being translated through the next process page table on Adreno 640.
 The compact kernel profile also enables mainline MGLRU by default, retaining
 Fedora-compatible PSI and zram while improving reclaim behavior on the 6 GiB
 tablet without a userspace sysctl override.
+Kernel linking uses an extra kallsyms pass so parallel COPR builds remain
+deterministic across the supported Fedora AArch64 chroots.
 
 ## COPR build profile
 

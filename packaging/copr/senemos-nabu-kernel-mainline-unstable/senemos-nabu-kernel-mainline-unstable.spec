@@ -168,7 +168,7 @@ make ARCH=arm64 LLVM=1 olddefconfig
 make -s ARCH=arm64 LLVM=1 syncconfig
 rm -f include/config/kernel.release
 test "$(make -s ARCH=arm64 LLVM=1 kernelrelease)" = '%{uname_r}'
-make ARCH=arm64 LLVM=1 %{?_smp_mflags} Image \
+make ARCH=arm64 LLVM=1 KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
     qcom/sm8150-xiaomi-nabu-iris-camera.dtb modules
 
 %install
