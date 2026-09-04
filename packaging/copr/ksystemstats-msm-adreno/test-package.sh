@@ -15,5 +15,6 @@ if grep -Fq '/sys/kernel/debug' "$patch"; then
 fi
 
 bash -n "$root/build-srpm.sh"
+grep -Fq '.PHONY: srpm' "$root/Makefile"
 rpmspec -P "$root/ksystemstats.spec" >/dev/null
 echo 'PASS: ksystemstats MSM/Adreno package invariants'
