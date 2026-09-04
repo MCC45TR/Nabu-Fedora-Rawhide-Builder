@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        52%{?dist}
+Release:        53%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -461,6 +461,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-53
+- Move PackageKit background metadata work to idle I/O scheduling and nice 10
+  so Discover startup does not compete with the first Plasma frames.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-52
 - Mask the obsolete forced CS35L41 module list so UKI early boot no longer
   reports a false snd-seq/systemd-modules-load failure.
