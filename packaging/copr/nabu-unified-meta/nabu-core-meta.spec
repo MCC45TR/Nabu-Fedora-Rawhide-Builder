@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        51%{?dist}
+Release:        52%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -220,6 +220,10 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.tim
 cp -a system-integration/payload/etc system-integration/payload/usr %{buildroot}/
 install -d -m0755 %{buildroot}%{_sysconfdir}/modules-load.d
 ln -s /dev/null %{buildroot}%{_sysconfdir}/modules-load.d/scsi_dh.conf
+# The old image recipe forced this codec from the UKI initrd before the full
+# ALSA module set was available.  Device modalias loading after switch-root is
+# sufficient, so mask the obsolete image-era list for existing installations.
+ln -s /dev/null %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
 install -Dm0755 system-integration/runtime/nabu-pmic-rtc-sync %{buildroot}%{_libexecdir}/senemos-nabu/nabu-pmic-rtc-sync
 install -Dm0755 system-integration/runtime/nabu-slpi-suspend %{buildroot}%{_libexecdir}/senemos-nabu/nabu-slpi-suspend
 install -Dm0755 system-integration/runtime/nabu-sensor-session-gate %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-session-gate
@@ -301,6 +305,7 @@ bash -n system-integration/runtime/senemos-nabu-status
 udevadm verify %{buildroot}%{_udevrulesdir}/99-libinput-calibration-matrix.rules
 test ! -e %{buildroot}%{_udevrulesdir}/81-nabu-sensor-orientation.rules
 test ! -e %{buildroot}%{_libexecdir}/nabu-import-mount-matrix
+test "$(readlink %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf)" = /dev/null
 ! grep -Eq '(^|,)senemos-nabu-kernel-mainline-unstable(,|$)' %{SOURCE17}
 meson test -C sar-build --print-errorlogs
 bash -n sar-service/tools/nabu-cct-iio-setup
@@ -344,6 +349,7 @@ fi
 %config(noreplace) %{_sysconfdir}/dracut.conf.d/99-nabu-generic.conf
 %config(noreplace) %{_sysconfdir}/systemd/zram-generator.conf
 %config(noreplace) %{_sysconfdir}/modules-load.d/scsi_dh.conf
+%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
 %config(noreplace) %{_sysconfdir}/pulse/daemon.conf.d/89-xiaomi_nabu.conf
 %config(noreplace) %{_sysconfdir}/pulse/default.pa.d/nabu.pa
 %config(noreplace) %{_sysconfdir}/xdg/fastfetch/config.jsonc
@@ -455,6 +461,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-52
+- Mask the obsolete forced CS35L41 module list so UKI early boot no longer
+  reports a false snd-seq/systemd-modules-load failure.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-51
 - Recover systems that briefly received the level-triggered locale watcher by
   clearing its start limit and activating the corrected edge-based units.

@@ -101,6 +101,8 @@ done
 grep -Fq 'systemctl enable nabu-locale-packages.path nabu-locale-packages.timer' "$root/nabu-core-meta.spec" || fail "locale units not enabled on upgrades"
 grep -Fq 'systemctl reset-failed nabu-locale-packages.path nabu-locale-packages.service' "$root/nabu-core-meta.spec" || fail "failed locale watcher not recovered"
 grep -Fq 'systemctl restart nabu-locale-packages.path nabu-locale-packages.timer' "$root/nabu-core-meta.spec" || fail "corrected locale watcher not activated"
+grep -Fq 'modules-load.d/nabu-audio-codecs.conf' "$root/nabu-core-meta.spec" || fail "obsolete early audio module list not masked"
+grep -Fq 'readlink %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf' "$root/nabu-core-meta.spec" || fail "audio module mask package gate missing"
 for gnome_spec in "$root/gnome-nabu-meta.spec" "$root/gnome-mobile-nabu-meta.spec"; do
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$gnome_spec" || fail "GNOME SAR tile gate missing in $gnome_spec"
     grep -Fq "grep -Fq 'show-hold-awake'" "$gnome_spec" || fail "GNOME SAR preference gate missing in $gnome_spec"
