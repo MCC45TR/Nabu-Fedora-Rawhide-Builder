@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        53%{?dist}
+Release:        54%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -277,7 +277,8 @@ bash -n %{SOURCE19}
 grep -Fqx 'ExecStartPost=/usr/libexec/nabu-kernel-offline-finalize' %{SOURCE20}
 grep -Fqx 'CPUWeight=20' %{SOURCE22}
 grep -Fqx 'IOWeight=20' %{SOURCE22}
-grep -Fqx 'Nice=5' %{SOURCE22}
+grep -Fqx 'Nice=10' %{SOURCE22}
+grep -Fqx 'IOSchedulingClass=idle' %{SOURCE22}
 bash -n %{SOURCE23}
 bash %{SOURCE28}
 grep -Fqx 'PathChanged=/etc/plasma-setup-done' %{SOURCE25}
@@ -461,6 +462,9 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-54
+- Align the RPM build gate with the PackageKit idle I/O policy.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-53
 - Move PackageKit background metadata work to idle I/O scheduling and nice 10
   so Discover startup does not compete with the first Plasma frames.
