@@ -8,10 +8,12 @@ requested_uki=
 root_prefix=${NABU_BOOT_ROOT:-}
 lock_file=${NABU_BOOT_LOCK_FILE:-/run/nabu-package-management.lock}
 refind_theme_id=refind-theme-regular-nabu-2x-v1
-refind_timeout=3
+refind_timeout=5
 if [[ -r $root_prefix/etc/nabu/boot.conf ]]; then
     configured_timeout=$(sed -nE 's/^refind_timeout=([0-9]|10)$/\1/p' "$root_prefix/etc/nabu/boot.conf" | tail -n1)
-    [[ -z $configured_timeout ]] || refind_timeout=$configured_timeout
+    # Keep the recovery menu reachable on touch hardware. Older images wrote a
+    # one-second value here, which is too short to choose Android or fallback.
+    [[ -z $configured_timeout || $configured_timeout -lt 5 ]] || refind_timeout=$configured_timeout
 fi
 
 copy_tree_fat_safe() {
@@ -252,23 +254,27 @@ case "$selected" in
         temporary=$(mktemp "$refind_root/.refind.conf.XXXXXX")
         {
             printf 'timeout %s\n' "$refind_timeout"
-            # rEFInd discovers every EFI application installed under the
-            # standard Fedora and Android vendor directories. EFI/BOOT is the
-            # running rEFInd instance and the legacy SENEMOS directory is
-            # excluded explicitly to prevent self/transition duplicates.
-            echo 'scanfor internal'
-            echo 'also_scan_dirs EFI/fedora,EFI/android'
-            echo 'dont_scan_dirs EFI/BOOT,EFI/SENEMOS'
-            # UKIs from independent SENEMOS families deliberately share the
-            # Fedora vendor directory.  rEFInd folds same-directory Linux
-            # loaders into one icon by default, hiding the exact fallback and
-            # candidate inventory from users and from physical HIL.
-            echo 'fold_linux_kernels false'
+            # Only generated entries are visible. Automatic discovery would
+            # expose stale UKIs and image-construction aliases as duplicates.
+            echo 'scanfor manual'
             echo 'scan_driver_dirs drivers'
             echo 'rotation 3'
             printf 'include themes/%s/theme.conf\n' "$refind_theme_id"
             [[ ! -r $refind_root/refind-local.conf ]] || echo 'include refind-local.conf'
             printf 'default_selection "%s"\n' "$default_uki"
+            for family in "${ordered_families[@]}"; do
+                name=${family_uki[$family]}
+                printf 'menuentry "%s" {\n' "$(title_for_uki "$name")"
+                printf '    icon /EFI/BOOT/themes/%s/icons/256-96/os_fedora.png\n' "$refind_theme_id"
+                printf '    loader /EFI/fedora/%s\n' "$name"
+                echo '}'
+            done
+            if [[ -n $android_entry ]]; then
+                echo 'menuentry "Reboot to Android" {'
+                printf '    icon /EFI/BOOT/themes/%s/icons/256-96/os_android.png\n' "$refind_theme_id"
+                printf '    loader %s\n' "$android_entry"
+                echo '}'
+            fi
         } >"$temporary"
         chmod 0644 "$temporary"
         mv -f "$temporary" "$refind_root/refind.conf"
@@ -304,6 +310,14 @@ for old_uki in "$linux_dir"/*.efi; do
     old_name=${old_uki##*/}
     old_family=$(managed_uki_family "$old_name") || continue
     [[ ${family_uki[$old_family]} == "$old_name" ]] || rm -f -- "$old_uki"
+done
+# Remove stale manager-owned loader manifests after the selected family set is
+# committed. The compatibility senemos.conf and Android manifest are retained.
+for old_entry in "$esp"/loader/entries/senemos-SENEMOS*.conf; do
+    [[ -e $old_entry ]] || continue
+    old_family=${old_entry##*/senemos-}
+    old_family=${old_family%.conf}
+    [[ -n ${family_uki[$old_family]:-} ]] || rm -f -- "$old_entry"
 done
 sync
 printf 'Configured %s with %s managed UKI families; default: %s.\n' \

@@ -213,86 +213,86 @@ fi
 %config(noreplace) %{_sysconfdir}/xdg/powerdevilrc
 
 %changelog
-* Sun Aug 23 2026 SENEMOS Project <senemos@localhost> - 1.4.0.1-6.test
+* Sun Aug 23 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-6.test
 - Keep the reusable Nabu KDE configuration independent of a particular
   display manager so Plasma Mobile can use Plasma Login Manager without
   pulling SDDM or the Plasma Desktop session.
 - Record physically stable automatic rotation and ambient-light brightness
   behavior with the standard SensorProxy, KWin and PowerDevil path.
 
-* Sat Aug 22 2026 SENEMOS Project <senemos@localhost> - 1.4.0.1-4.test
+* Sat Aug 22 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-4.test
 - Require Fedora's stock KWin and reject downstream KWin builds.
 - Keep the seeded output state empty and leave rotation, brightness, scale,
   and refresh selection to standard desktop and DRM interfaces.
 
-* Sat Aug 22 2026 SENEMOS Project <senemos@localhost> - 1.4.0.1-3.test
+* Sat Aug 22 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-3.test
 - Treat an available but unclaimed SensorProxy accelerometer as a valid
   headless or display-manager state; retain physical tilt validation for an
   active desktop claim.
 
-* Sat Aug 22 2026 SENEMOS Project <senemos@localhost> - 1.4.0.1-2.test
+* Sat Aug 22 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-2.test
 - Select the installed kernel provider that owns the currently booted image.
 - Resolve Nabu hardware RPMs through their generic capabilities.
 - Report live SLPI, FastRPC, SensorProxy ALS-in-lux, accelerometer, and mount
   matrix state without desktop-specific helper scripts.
 
-* Sat Aug 22 2026 SENEMOS Project <senemos@localhost> - 1.4.0.1-1.test
+* Sat Aug 22 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-1.test
 - Preserve SLPI client restore markers across interrupted resume attempts.
 - Validate the running Nabu kernel through its exact RPM capability instead of
   a stale hard-coded release string.
 - Begin the v1.4.0.1 sequential release naming scheme.
 
-* Fri Aug 21 2026 SENEMOS Project <senemos@localhost> - 1.0.0-13.test
+* Fri Aug 21 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-13.test
 - Add user-selectable native, FHD-class, and HD-class logical display profiles.
 - Keep the fixed-timing 2560 by 1600 panel mode unchanged to avoid unsafe
   non-native DSI timings and preserve the panel's native 16:10 aspect ratio.
 
-* Fri Aug 21 2026 SENEMOS Project <senemos@localhost> - 1.0.0-12.test
+* Fri Aug 21 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-12.test
 - Stop seeding a complete KWin output state so KWin can calculate 185 percent
   automatically from the kernel-provided 148 by 236 mm panel dimensions.
 - Delegate the initial rotation and ambient-brightness policies to the narrow
   SENEMOS KWin tablet-default patch; preserve subsequent user choices.
 - Remove the superseded one-time fixed-scale migration.
 
-* Fri Aug 21 2026 SENEMOS Project <senemos@localhost> - 1.0.0-11.test
+* Fri Aug 21 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-11.test
 - Remove the obsolete scsi_dh.conf initramfs request.
 - Add a one-time 200 percent scale migration for existing test installations.
 - Never override scale again after the migration marker is written.
 
-* Fri Aug 21 2026 SENEMOS Project <senemos@localhost> - 1.0.0-10.test
+* Fri Aug 21 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-10.test
 - Seed a 200 percent KWin scale for the first Nabu Plasma session.
 - Keep scale user-configurable after the initial profile is created.
 
-* Fri Aug 21 2026 SENEMOS Project <senemos@localhost> - 1.0.0-9.test
+* Fri Aug 21 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-9.test
 - Keep the runtime dependency compatible with future SENEMOS Nabu kernels.
 - Stop loading absent SCSI device-handler modules during early boot.
 - Retain native KWin Always rotation and automatic-brightness XDG defaults.
 
-* Fri Aug 21 2026 SENEMOS Project <senemos@localhost> - 1.0.0-8.test
+* Fri Aug 21 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-8.test
 - Remove duplicate SDDM and session-time kscreen orientation scripts.
 - Trust the kernel panel rotation property and KWin automatic rotation.
 - Remove the scripted DPMS bounce from the suspend resume path.
 
-* Thu Aug 20 2026 SENEMOS Project <senemos@localhost> - 1.0.0-7.test
+* Thu Aug 20 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-7.test
 - Keep the generic sensor runtime free of KDE/kscreen dependencies; package
   the observed KWin panel recovery only in the KDE profile.
 
-* Thu Aug 20 2026 SENEMOS Project <senemos@localhost> - 1.0.0-6.test
+* Thu Aug 20 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-6.test
 - Use kernel SLPI auto-start instead of a boot-order shell helper.
 - Seed KWin auto-rotation and automatic brightness through XDG defaults.
 - Seed the safe lid policy through KConfig defaults instead of an autostart script.
 
-* Thu Aug 20 2026 SENEMOS Project <senemos@localhost> - 1.0.0-5.test
+* Thu Aug 20 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-5.test
 - Keep the live persist mount outside the RPM file payload during FOTA updates
 
-* Thu Aug 20 2026 SENEMOS Project <senemos@localhost> - 1.0.0-4.test
+* Thu Aug 20 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-4.test
 - Start SLPI before the libssc sensor stack and expose the SDSP device reliably
 - Mount the Android sensor calibration partition read-only before SLPI startup
 - Disable the invalid ADSP SensorPD daemon on Nabu
 
-* Sat Aug 15 2026 SENEMOS Project <senemos@localhost> - 1.0.0-3.test
+* Sat Aug 15 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-3.test
 - Start the Qualcomm sensor daemons and SensorProxy deterministically after FOTA
 - Pull the complete Plasma Setup language restoration package
 
-* Sat Aug 15 2026 SENEMOS Project <senemos@localhost> - 1.0.0-1
+* Sat Aug 15 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-1
 - Initial COPR-ready Rawhide package set for Nabu KDE fixes

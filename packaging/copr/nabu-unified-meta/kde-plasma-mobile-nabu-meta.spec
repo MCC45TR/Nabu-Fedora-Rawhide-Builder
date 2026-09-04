@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        3.0.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -150,6 +150,7 @@ install -Dm0644 flashlight/plasma-update/org.senemos.nabu.flashlight.js %{buildr
 python3 -m py_compile kde-integration/kde/nabu-audio-orientation kde-integration/kde/senemos-nabu-display-profile kde-integration/kde/senemos-nabu-color-profile
 python3 kde-integration/kde/senemos-nabu-color-profile catalog
 python3 -m unittest -v kde-integration/tests/test_color_profile.py
+python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
 bash -n kde-integration/kde/senemos-nabu-color-settings
 desktop-file-validate kde-integration/kde/org.senemos.nabu.colorprofiles.desktop
 python3 -c 'import json, pathlib; root=pathlib.Path("widgets"); expected={"com.mcc45tr.filesearch","com.mcc45tr.mweather","com.mcc45tr.analogclock"}; assert {json.loads((root/x/"metadata.json").read_text())["KPlugin"]["Id"] for x in expected} == expected'
@@ -225,6 +226,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-5
+- Read KWin's output transform directly instead of spawning kscreen-doctor
+  every second, and reduce idle PipeWire graph scans.
+
 * Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-4
 - Add grip-aware keep-awake state and control to the existing Plasma Mobile widget.
 - Keep the control disabled until real ADUX1050 calibration is available.

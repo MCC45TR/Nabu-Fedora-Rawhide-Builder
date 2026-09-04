@@ -86,11 +86,10 @@ printf '%s\n' "$3" >"$TEST_ESP/EFI/fedora/$family-$stamp.efi"
 EOF
 cat >"$fakebin/configure" <<'EOF'
 #!/usr/bin/bash
-[[ -s $TEST_ESP/EFI/fedora/SENEMOS6-2608301000.efi ]]
+[[ -s $TEST_ESP/EFI/fedora/SENEMOS6-2608311409.efi ]]
+[[ -s $TEST_ESP/EFI/fedora/SENEMOS7-2608301100.efi ]]
 [[ -s $TEST_ESP/EFI/fedora/SENEMOS7U-2608301200.efi ]]
-[[ ! -e $TEST_ESP/EFI/fedora/SENEMOS616-2608311409.efi ]]
-[[ ! -e $TEST_ESP/EFI/fedora/SENEMOS7-2608301100.efi ]]
-[[ ! -e $TEST_ESP/EFI/fedora/SENEMOS6LTS-2608300900.efi ]]
+[[ -s $TEST_ESP/EFI/fedora/SENEMOS6LTS-2608300900.efi ]]
 printf 'configure %s\n' "$*" >>"$TEST_LOG"
 EOF
 chmod +x "$fakebin"/*
@@ -112,13 +111,15 @@ run_maintenance() {
 }
 
 run_maintenance
-[[ $(grep -c '^regenerate ' "$log") -eq 2 ]]
-grep -Fxq 'regenerate SENEMOS6 6.17.0-senemos-2608301000' "$log"
+[[ $(grep -c '^regenerate ' "$log") -eq 4 ]]
+grep -Fxq 'regenerate SENEMOS6 6.16.0-nabu-senemos-stable-2608311409' "$log"
+grep -Fxq 'regenerate SENEMOS7 7.2.0-nabu-senemos-mainline-alpha' "$log"
 grep -Fxq 'regenerate SENEMOS7U 7.2.2-nabu-senemos-mainline-unstable' "$log"
-! grep -Eq 'SENEMOS616|SENEMOS7 |SENEMOS6LTS' "$log"
+grep -Fxq 'regenerate SENEMOS6LTS 6.18.48-nabu-senemos-lts' "$log"
+! grep -Eq 'SENEMOS616' "$log"
 tail -n1 "$log" | grep -Fxq 'configure --sync-only --uki SENEMOS7U-2608301200.efi'
 
 run_maintenance
-[[ $(grep -c '^regenerate ' "$log") -eq 2 ]]
+[[ $(grep -c '^regenerate ' "$log") -eq 4 ]]
 [[ $(grep -c '^configure ' "$log") -eq 2 ]]
-printf 'PASS: two-family EFI maintenance and idempotence\n'
+printf 'PASS: four-family EFI maintenance and idempotence\n'

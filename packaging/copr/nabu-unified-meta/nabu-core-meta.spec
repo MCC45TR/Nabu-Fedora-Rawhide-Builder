@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        43%{?dist}
+Release:        46%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -418,6 +418,18 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-46
+- Stop globally disabling Freedreno UBWC; it did not prevent the observed GPU
+  resets and unnecessarily increased graphics memory and bandwidth pressure.
+
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-45
+- Disable UBWC for Freedreno GL clients on Nabu to avoid the observed Adreno
+  640 CCU translation faults and repeated Plasma graphics resets.
+
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-44
+- Converge stable, alpha, mainline, unstable and LTS kernel packages into four
+  managed EFI families with exactly one newest UKI retained per family.
+
 * Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-43
 - Use the native TCS3701 cct_front protocol for colour temperature instead of
   interpreting the cct_front_strm ambient-light payload as Kelvin.
