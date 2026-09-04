@@ -10,6 +10,10 @@ version=$(sed -nE 's/^Version:[[:space:]]+([^[:space:]]+).*/\1/p' \
     "$root/senemos-nabu-kernel-mainline-unstable.spec")
 work=$(mktemp -d)
 cleanup() {
+	if [[ ${KEEP_TEST_WORK:-0} == 1 ]]; then
+		printf 'Preserved test worktree: %s\n' "$work" >&2
+		return
+	fi
     find "$work" -depth -delete 2>/dev/null || :
 }
 trap cleanup EXIT
@@ -93,6 +97,7 @@ for setting in \
     'CONFIG_BT_BNEP=m' \
     'CONFIG_BT_BNEP_MC_FILTER=y' \
     'CONFIG_BT_BNEP_PROTO_FILTER=y' \
+    'CONFIG_UHID=y' \
     'CONFIG_SCSI_UFS_QCOM=y' \
     'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \
     'CONFIG_ATH10K_SNOC=m' \
@@ -104,7 +109,11 @@ for setting in \
     'CONFIG_DEFAULT_SECURITY_SELINUX=y' \
     'CONFIG_QCOM_SSC_CCT=m' \
     'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"'; do
-    grep -Fxq "$setting" "$config_dir/.config"
+    if ! grep -Fxq "$setting" "$config_dir/.config"; then
+        printf 'ERROR: final Nabu config is missing required setting: %s\n' \
+            "$setting" >&2
+        exit 1
+    fi
 done
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
 grep -Fxq '# CONFIG_RPMB is not set' "$config_dir/.config"

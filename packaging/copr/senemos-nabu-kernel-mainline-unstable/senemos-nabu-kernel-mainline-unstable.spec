@@ -112,6 +112,7 @@ Patch0092:      0092-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch
 Patch0093:      0093-senemos-enable-multigenerational-LRU.patch
 Patch0094:      0094-drm-msm-align-A640-private-VMAs-to-64K.patch
 Patch0095:      0095-ASoC-qcom-keep-q6asm-setup-state-through-trigger-stop.patch
+Patch0096:      0096-HID-enable-UHID-for-Bluetooth-LE-input-devices.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -259,6 +260,7 @@ grep -Fxq 'CONFIG_SND_SEQUENCER=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_INTERCONNECT_QCOM_OSM_L3=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_BT_RFCOMM=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_BT_BNEP=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_UHID=y' %{buildroot}/boot/config-%{uname_r}
 recover_line=$(grep -n -F 'gpu->funcs->recover(gpu);' \
     drivers/gpu/drm/msm/msm_gpu.c | cut -d: -f1)
 retire_line=$(grep -n -F 'retire_submits(gpu);' \
@@ -337,6 +339,9 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Enable UHID so BlueZ can expose Bluetooth LE HID/HOGP mice and keyboards.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Align A640 kernel-managed GPU VMAs to 64K after a decoded CCU resolve fault
   showed hardware access to the aligned page below a 4K-aligned UBWC buffer.

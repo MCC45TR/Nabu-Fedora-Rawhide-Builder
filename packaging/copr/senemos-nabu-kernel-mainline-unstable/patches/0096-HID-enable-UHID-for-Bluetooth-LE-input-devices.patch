@@ -1,0 +1,19 @@
+From 9a4ed531a3280e46ddb3b4aa39a359d0da8174dc Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 01:28:41 +0300
+Subject: [PATCH] HID: enable UHID for Bluetooth LE input devices
+
+---
+ senemos/configs/nabu-minimal.config | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index f04bc5d28ef4..c8f794b9e382 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -100,2 +100,5 @@ CONFIG_BT_BNEP=m
+ CONFIG_BT_BNEP_MC_FILTER=y
+ CONFIG_BT_BNEP_PROTO_FILTER=y
++CONFIG_HID_SUPPORT=y
++CONFIG_HID=y
++CONFIG_UHID=y
