@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        3.0.0
-Release:        14%{?dist}
+Release:        15%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -16,6 +16,7 @@ Source6:        nabu-kde-widgets-debug-1.0.1.tar.zst
 Source7:        nabu-flashlight-integration-1.0.0.tar.gz
 Source8:        80-nabu-plasma-login-theme.conf
 Source9:        nabu-plasma-login.svg
+Source10:       90-nabu-powerdevil.conf
 BuildArch:      noarch
 BuildRequires:  desktop-file-utils
 BuildRequires:  firewalld-filesystem
@@ -147,6 +148,7 @@ install -d %{buildroot}%{_datadir}/plasma/plasmoids
 cp -a widgets/com.mcc45tr.filesearch widgets/com.mcc45tr.mweather widgets/com.mcc45tr.analogclock %{buildroot}%{_datadir}/plasma/plasmoids/
 install -Dm0644 %{SOURCE8} %{buildroot}%{_prefix}/lib/plasmalogin/plasmalogin.conf.d/80-nabu-plasma-login-theme.conf
 install -Dm0644 %{SOURCE9} %{buildroot}%{_datadir}/backgrounds/nabu/nabu-plasma-login.svg
+install -Dm0644 %{SOURCE10} %{buildroot}%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf
 install -d %{buildroot}%{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight
 cp -a flashlight/plasma/. %{buildroot}%{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight/
 install -Dm0644 flashlight/plasma-update/org.senemos.nabu.flashlight.js %{buildroot}%{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
@@ -201,6 +203,7 @@ grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 %{_datadir}/plasma/plasmoids/com.mcc45tr.mweather/
 %{_datadir}/plasma/plasmoids/com.mcc45tr.analogclock/
 %{_datadir}/backgrounds/nabu/nabu-plasma-login.svg
+%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf
 %{_prefix}/lib/plasmalogin/plasmalogin.conf.d/80-nabu-plasma-login-theme.conf
 %{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight/
 %{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
@@ -235,6 +238,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-15
+- Skip PowerDevil ddcutil probing on Nabu's internal DSI panel, which has no
+  DRM DDC connector, while retaining Fedora's unmodified PowerDevil package.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-14
 - Keep Fedora KDE packages unmodified; remove the temporary KSystemStats replacement.
 - Retain the deadline-based File Search maintenance and asynchronous cache reads.

@@ -104,7 +104,9 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     grep -Fq '%firewalld_reload' "$kde_spec" || fail "firewalld reload missing in $kde_spec"
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
+    grep -Fq '%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf' "$kde_spec" || fail "Nabu DSI PowerDevil policy missing in $kde_spec"
 done
+grep -Fxq 'POWERDEVIL_NO_DDCUTIL=1' "$root/90-nabu-powerdevil.conf" || fail "PowerDevil DDC probe is not disabled for Nabu DSI"
 
 widget_archive="$root/vendor/nabu-kde-widgets-debug-1.0.1.tar.zst"
 weather_service=$(tar --zstd -xOf "$widget_archive" \

@@ -45,6 +45,7 @@ install -m0755 "$source_dir/nabu-gnome-mobile-sync" \
 install -m0644 "$source_dir/80-nabu-kernel-retention.conf" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/90-nabu-offline-uki-finalize.conf" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/20-nabu-packagekit-qos.conf" "$top_dir/SOURCES/"
+install -m0644 "$source_dir/90-nabu-powerdevil.conf" "$top_dir/SOURCES/"
 install -m0755 "$source_dir/nabu-locale-packages" \
     "$source_dir/test-locale-packages.sh" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/nabu-locale-packages.service" \
