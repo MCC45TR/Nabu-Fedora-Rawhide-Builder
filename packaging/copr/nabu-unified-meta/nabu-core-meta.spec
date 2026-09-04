@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        48%{?dist}
+Release:        49%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -422,6 +422,10 @@ fi
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl enable --now nabu-kernel-maintenance.timer >/dev/null 2>&1 || :
     /usr/bin/systemctl enable --now nabu-kernel-maintenance.path >/dev/null 2>&1 || :
+    # Presets cover clean installs; explicitly enable without starting here so
+    # existing systems gain locale following on their next boot without
+    # launching DNF recursively inside this RPM transaction.
+    /usr/bin/systemctl enable nabu-locale-packages.path nabu-locale-packages.timer >/dev/null 2>&1 || :
     /usr/bin/systemctl reset-failed nabu-kernel-maintenance.service >/dev/null 2>&1 || :
 fi
 /usr/libexec/senemos-nabu/nabu-prepare-selinux-labels || printf 'Warning: Nabu SELinux labels are not ready.\n' >&2
@@ -448,6 +452,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-49
+- Enable locale selection units for existing installations on package upgrade,
+  while deferring their first package transaction until the next boot.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-48
 - Install Fedora language support from the locale selected in initial setup
   instead of imposing any maintainer language on global installations.

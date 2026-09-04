@@ -95,6 +95,7 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
 done
+grep -Fq 'systemctl enable nabu-locale-packages.path nabu-locale-packages.timer' "$root/nabu-core-meta.spec" || fail "locale units not enabled on upgrades"
 for gnome_spec in "$root/gnome-nabu-meta.spec" "$root/gnome-mobile-nabu-meta.spec"; do
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$gnome_spec" || fail "GNOME SAR tile gate missing in $gnome_spec"
     grep -Fq "grep -Fq 'show-hold-awake'" "$gnome_spec" || fail "GNOME SAR preference gate missing in $gnome_spec"
