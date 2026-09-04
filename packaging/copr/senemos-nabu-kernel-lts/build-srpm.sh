@@ -18,7 +18,15 @@ install -m0644 "$root/upstream.sha256" "$root/patches.sha256" \
 install -m0644 "$root"/patches/*.patch "$top/SOURCES/"
 (cd "$top/SOURCES" && sha256sum -c upstream.sha256 && sha256sum -c patches.sha256)
 
-stamp=${NABU_BUILD_STAMP:-$(TZ=Europe/Istanbul date +%y%m%d%H%M)}
+if [[ -n ${NABU_BUILD_STAMP:-} ]]; then
+    stamp=$NABU_BUILD_STAMP
+elif [[ $(TZ=Europe/Istanbul date +%z) == +0300 ]]; then
+    stamp=$(TZ=Europe/Istanbul date +%y%m%d%H%M)
+else
+    # Minimal COPR source-builder images may not ship zoneinfo. Turkey uses a
+    # fixed UTC+03 offset; keep release EVRs monotonic across local midnight.
+    stamp=$(date -u --date='+3 hours' +%y%m%d%H%M)
+fi
 [[ $stamp =~ ^[0-9]{10}$ ]]
 printf '%s\n' "$stamp" > "$top/SOURCES/nabu-build-stamp"
 install -m0644 "$spec" "$top/SPECS/"
