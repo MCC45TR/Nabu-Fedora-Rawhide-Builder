@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        3.0.0
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,6 +18,7 @@ Source8:        80-nabu-plasma-login-theme.conf
 Source9:        nabu-plasma-login.svg
 BuildArch:      noarch
 BuildRequires:  desktop-file-utils
+BuildRequires:  firewalld-filesystem
 BuildRequires:  lcms2
 BuildRequires:  python3
 BuildRequires:  systemd-rpm-macros
@@ -28,6 +29,7 @@ Requires:       color-filesystem
 Requires:       coreutils
 Requires:       curl
 Requires:       filesystem
+Requires:       firewalld
 Requires:       gzip
 Requires:       kdialog
 Requires:       lcms2
@@ -212,6 +214,10 @@ if [ -x /usr/bin/systemctl ]; then
 fi
 %posttrans
 %{_libexecdir}/senemos-nabu/nabu-restore-kde-locales || :
+if [ -x /usr/bin/firewall-offline-cmd ]; then
+    /usr/bin/firewall-offline-cmd --add-service=kdeconnect >/dev/null 2>&1 || :
+fi
+%firewalld_reload
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable sshd.service >/dev/null 2>&1 || :
@@ -228,6 +234,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-8
+- Allow KDE Connect in firewalld's default zone so LAN discovery and pairing
+  work after installation without weakening unrelated firewall policy.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-7
 - Stop forcing Turkish packages on global installations; use the locale chosen
   in initial setup through the shared CORE language-pack installer.

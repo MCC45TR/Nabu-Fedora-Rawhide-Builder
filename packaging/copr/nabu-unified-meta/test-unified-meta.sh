@@ -92,6 +92,9 @@ done
 
 for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-meta.spec"; do
     grep -Fq 'Requires:       kdeplasma-addons' "$kde_spec" || fail "missing Kameleon provider in $kde_spec"
+    grep -Fq 'Requires:       firewalld' "$kde_spec" || fail "missing firewalld runtime in $kde_spec"
+    grep -Fq 'firewall-offline-cmd --add-service=kdeconnect' "$kde_spec" || fail "KDE Connect firewall policy missing in $kde_spec"
+    grep -Fq '%firewalld_reload' "$kde_spec" || fail "firewalld reload missing in $kde_spec"
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
 done
