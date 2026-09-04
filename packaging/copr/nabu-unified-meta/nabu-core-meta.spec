@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        49%{?dist}
+Release:        50%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -276,7 +276,8 @@ grep -Fqx 'IOWeight=20' %{SOURCE22}
 grep -Fqx 'Nice=5' %{SOURCE22}
 bash -n %{SOURCE23}
 bash %{SOURCE28}
-grep -Fqx 'PathExists=/etc/plasma-setup-done' %{SOURCE25}
+grep -Fqx 'PathChanged=/etc/plasma-setup-done' %{SOURCE25}
+! grep -Fqx 'PathExists=/etc/plasma-setup-done' %{SOURCE25}
 grep -Fqx 'OnUnitInactiveSec=6h' %{SOURCE26}
 ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' kde-plasma-nabu-meta.spec kde-plasma-mobile-nabu-meta.spec
 bash -n system-integration/runtime/nabu-pmic-rtc-sync
@@ -452,6 +453,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-50
+- Watch setup completion as an edge instead of a permanently true path state,
+  preventing a locale-service start-limit loop after first boot.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-49
 - Enable locale selection units for existing installations on package upgrade,
   while deferring their first package transaction until the next boot.
