@@ -93,4 +93,4 @@ e2156ab033ad038ce37b9c111ffc10c88b7924f88c9f67967d82118d89450ad1  0091-drm-msm-b
 8e955bf82bae171d6474bef76b18e9b9a977f3b0a875a44a004a67ed3c1329f6  0093-senemos-enable-multigenerational-LRU.patch
 687a51a7b4efef99b1962dd08e91cb46cf617c5eb74ddaa23667bb75b036072a  0094-drm-msm-align-A640-private-VMAs-to-64K.patch
 ec10b156f287c4699d67747af6939f3aed2f885bf2fa90332807aae40a32cd4c  0095-ASoC-qcom-keep-q6asm-setup-state-through-trigger-stop.patch
-e5221e9a4b968f0151dbe007e56ad1f216720ee8d307a48b8decae8509b045bc  0096-HID-enable-UHID-for-Bluetooth-LE-input-devices.patch
+e01581d6440b1f7b779033e1ec08d094f038c5153ab6ed84c5b3f9ddd4eef364  0096-HID-enable-UHID-for-Bluetooth-LE-input-devices.patch
