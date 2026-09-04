@@ -100,6 +100,7 @@ Patch0081:      0081-iio-light-invalidate-stale-SSC-color-temperature.patch
 Patch0082:      0082-media-qcom-stabilize-Nabu-camera-enumeration.patch
 Patch0083:      0083-ASoC-qcom-restore-Nabu-TDM-framing-and-CAMSS-DMA-wi.patch
 Patch0084:      0084-media-qcom-initialize-SM8150-CSI-PHY-lane-registers.patch
+Patch0085:      0085-senemos-keep-SM8150-video-clock-built-in.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -217,6 +218,7 @@ grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' %{buildroot}/boot/config-%{unam
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_I2C_QCOM_CCI=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SM_CAMCC_8150=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_SM_VIDEOCC_8150=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_DMABUF_HEAPS_SYSTEM=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_DMABUF_HEAPS_CMA=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_CN3927=m' %{buildroot}/boot/config-%{uname_r}
@@ -295,6 +297,7 @@ fi
 
 %changelog
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Keep the SM8150 video clock controller built in for Iris and camera probe.
 - Restore Nabu's proven Quaternary TDM framing so speaker PCM writes reach ADSP.
 - Preserve full CAMSS DMA addresses until each VFE backend programs hardware.
 - Program the SM8150 CSI PHY lane table so Nabu cameras can deliver frames.

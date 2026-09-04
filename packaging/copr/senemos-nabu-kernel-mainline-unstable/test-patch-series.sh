@@ -7,7 +7,10 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 version=$(sed -nE 's/^Version:[[:space:]]+([^[:space:]]+).*/\1/p' \
     "$root/senemos-nabu-kernel-mainline-unstable.spec")
 work=$(mktemp -d)
-trap 'rm -rf -- "$work"' EXIT
+cleanup() {
+    find "$work" -depth -delete 2>/dev/null || :
+}
+trap cleanup EXIT
 
 curl -L --fail --retry 3 --output "$work/linux-$version.tar.xz" \
     "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-$version.tar.xz"
@@ -20,7 +23,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 85
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 86
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -62,6 +65,7 @@ for setting in \
 	'CONFIG_VIDEO_QCOM_CAMSS=m' \
 	'CONFIG_I2C_QCOM_CCI=y' \
 	'CONFIG_SM_CAMCC_8150=y' \
+	'CONFIG_SM_VIDEOCC_8150=y' \
 	'CONFIG_DMABUF_HEAPS_SYSTEM=y' \
 	'CONFIG_DMABUF_HEAPS_CMA=y' \
     'CONFIG_VIDEO_CN3927=m' \
@@ -146,5 +150,5 @@ grep -Fq 'fdev->miscdev.groups = fastrpc_sensor_groups;' \
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 84 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 85 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"
