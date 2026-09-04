@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "نظام التشغيل",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "مدة التشغيل",
+            "format": "{?days}{days} ي {?}{hours} س {minutes} د"
+        },
+        {
+            "type": "command",
+            "key": "تاريخ التثبيت",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "النواة"
+        },
+        {
+            "type": "loadavg",
+            "key": "متوسط الحمل"
+        },
+        {
+            "type": "wm",
+            "key": "مدير النوافذ"
+        },
+        {
+            "type": "DE",
+            "key": "بيئة سطح المكتب"
+        },
+        {
+            "type": "shell",
+            "key": "الصدفة"
+        },
+        {
+            "type": "processes",
+            "key": "العمليات"
+        },
+        {
+            "type": "terminal",
+            "key": "الطرفية",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "الحزم المثبتة"
+        },
+        {
+            "type": "cpu",
+            "key": "المعالج",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "الرسوميات {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "الذاكرة"
+        },
+        {
+            "type": "disk",
+            "key": "التخزين {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "عنوان الشبكة",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}

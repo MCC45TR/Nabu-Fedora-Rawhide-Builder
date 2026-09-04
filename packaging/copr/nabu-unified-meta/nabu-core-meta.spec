@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        54%{?dist}
+Release:        57%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ Source7:        90-nabu-kernel-maintenance.preset
 Source8:        kernel.conf
 Source9:        nabu-system-integration-2.0.0.tar.zst
 Source10:       nabu-flashlight-integration-1.0.0.tar.gz
-Source11:       nabu-sar-service-0.2.0.tar.zst
+Source11:       nabu-sar-service-0.2.1.tar.zst
 Source12:       nabu-ssc-probe.c
 Source13:       nabu-pen-autopair
 Source14:       82-nabu-pen-autopair.rules
@@ -52,6 +52,7 @@ BuildRequires:  systemd-udev
 # packages may remain installed but do not consume the constrained Nabu ESP.
 Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)
 Recommends:     senemos-nabu-kernel-alpha
+Recommends:     senemos-fastfetch-config >= 1.1.0-1
 
 # Hardware, boot, firmware and service payloads remain independently built
 # where architecture, ABI, licensing or physical validation lifecycles differ.
@@ -254,7 +255,6 @@ install -Dm0644 system-integration/runtime/80-nabu-disable-efi-rtc-wakeup.rules 
 install -Dm0644 system-integration/runtime/81-nabu-suspend-wake.rules %{buildroot}%{_udevrulesdir}/81-nabu-suspend-wake.rules
 install -Dm0644 system-integration/runtime/90-nabu-unneeded-storage.conf %{buildroot}%{_prefix}/lib/dracut/dracut.conf.d/90-nabu-unneeded-storage.conf
 install -Dm0644 system-integration/runtime/90-nabu-mcc45tr.hwdb %{buildroot}%{_udevhwdbdir}/90-nabu-mcc45tr.hwdb
-install -Dm0644 system-integration/runtime/fastfetch-config.jsonc %{buildroot}%{_sysconfdir}/xdg/fastfetch/config.jsonc
 install -Dm0644 system-integration/sm8150.conf %{buildroot}%{_datadir}/alsa/ucm2/conf.d/sm8150/sm8150.conf
 install -Dm0644 system-integration/HiFi.conf %{buildroot}%{_datadir}/alsa/ucm2/Xiaomi/nabu/HiFi.conf
 install -Dm0644 system-integration/89-xiaomi_nabu.conf %{buildroot}%{_sysconfdir}/pulse/daemon.conf.d/89-xiaomi_nabu.conf
@@ -353,7 +353,6 @@ fi
 %{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
 %config(noreplace) %{_sysconfdir}/pulse/daemon.conf.d/89-xiaomi_nabu.conf
 %config(noreplace) %{_sysconfdir}/pulse/default.pa.d/nabu.pa
-%config(noreplace) %{_sysconfdir}/xdg/fastfetch/config.jsonc
 %config(noreplace) %{_sysconfdir}/NetworkManager/conf.d/20-nabu-wifi-wowlan.conf
 %config(noreplace) %{_sysconfdir}/nabu-sar.conf
 %{_prefix}/lib/modprobe.d/80-nabu-audio.conf
@@ -462,6 +461,20 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-57
+- Keep ADUX1050 as an unmapped three-channel SAR/grip stream by default.
+- Remove uncalibrated CH0/CH2 selection and synthetic grip thresholds.
+- Require an explicit valid calibration before grip classification can run.
+
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-56
+- Transfer the system Fastfetch configuration to the optional
+  senemos-fastfetch-config package so uninstall removes it cleanly.
+- Recommend the ownership-aware locale package at version 1.1.0 or newer.
+
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-55
+- Recommend the optional SENEMOS locale-aware Fastfetch configuration so
+  normal image and device transactions install it without a hard dependency.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-54
 - Align the RPM build gate with the PackageKit idle I/O policy.
 

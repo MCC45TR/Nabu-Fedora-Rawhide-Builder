@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "Sistema operativo",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "Tempo di attività",
+            "format": "{?days}{days} g {?}{hours} h {minutes} min"
+        },
+        {
+            "type": "command",
+            "key": "Data di installazione",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "Kernel"
+        },
+        {
+            "type": "loadavg",
+            "key": "Carico medio"
+        },
+        {
+            "type": "wm",
+            "key": "Gestore delle finestre"
+        },
+        {
+            "type": "DE",
+            "key": "Ambiente desktop"
+        },
+        {
+            "type": "shell",
+            "key": "Shell"
+        },
+        {
+            "type": "processes",
+            "key": "Processi"
+        },
+        {
+            "type": "terminal",
+            "key": "Terminale",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "Pacchetti installati"
+        },
+        {
+            "type": "cpu",
+            "key": "Processore",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "Grafica {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "Memoria"
+        },
+        {
+            "type": "disk",
+            "key": "Archiviazione {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "Indirizzo di rete",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}

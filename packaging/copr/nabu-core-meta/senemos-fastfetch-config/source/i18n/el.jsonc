@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "Λειτουργικό σύστημα",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "Χρόνος λειτουργίας",
+            "format": "{?days}{days} ημ. {?}{hours} ώρ. {minutes} λεπ."
+        },
+        {
+            "type": "command",
+            "key": "Ημερομηνία εγκατάστασης",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "Πυρήνας"
+        },
+        {
+            "type": "loadavg",
+            "key": "Μέσο φορτίο"
+        },
+        {
+            "type": "wm",
+            "key": "Διαχειριστής παραθύρων"
+        },
+        {
+            "type": "DE",
+            "key": "Περιβάλλον επιφάνειας εργασίας"
+        },
+        {
+            "type": "shell",
+            "key": "Κέλυφος"
+        },
+        {
+            "type": "processes",
+            "key": "Διεργασίες"
+        },
+        {
+            "type": "terminal",
+            "key": "Τερματικό",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "Εγκατεστημένα πακέτα"
+        },
+        {
+            "type": "cpu",
+            "key": "Επεξεργαστής",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "Γραφικά {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "Μνήμη"
+        },
+        {
+            "type": "disk",
+            "key": "Αποθήκευση {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "Διεύθυνση δικτύου",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}

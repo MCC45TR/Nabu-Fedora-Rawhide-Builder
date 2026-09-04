@@ -34,7 +34,7 @@ done
 while IFS= read -r copr_spec; do
     source_name=$(sed -nE 's/^Name:[[:space:]]+([^[:space:]]+).*/\1/p' "$copr_spec" | head -n 1)
     [[ -n $source_name ]] || fail "source package name missing in $copr_spec"
-    [[ $source_name == *nabu* ]] || fail \
+    [[ $source_name == *nabu* || $source_name == senemos-fastfetch-config ]] || fail \
         "default Fedora package fork is forbidden in Nabu COPR: $source_name ($copr_spec)"
 done < <(find "$root/.." \
     -path '*/.rpmbuild*' -prune -o \
@@ -46,12 +46,18 @@ core="$root/nabu-core-meta.spec"
 ! sed '/^%changelog/,$d' "$core" | grep -Fq '%systemd_postun_with_restart' || fail "CORE upgrade marks hardware services for a live restart"
 grep -Fqx 'RefuseManualStop=yes' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/systemd/system/ath10k-shutdown.service" || fail "ath10k shutdown helper can be restarted by RPM transactions"
 grep -Fqx 'softdep snd_soc_sm8150 pre: snd_soc_wcd934x' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/modprobe.d/80-nabu-audio.conf" || fail "WCD934x codec is not ordered before the SM8150 sound card"
-grep -Fq 'Source11:       nabu-sar-service-0.2.0.tar.zst' "$core" || fail "SAR 0.2 source missing"
+grep -Fq 'Source11:       nabu-sar-service-0.2.1.tar.zst' "$core" || fail "SAR 0.2.1 source missing"
 grep -Fq '%{_libexecdir}/nabu-sar-control' "$core" || fail "SAR control helper not packaged"
 grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge unit not packaged"
 grep -Fq '%{_prefix}/lib/modules-load.d/nabu-cct-iio.conf' "$core" || fail "CCT module policy not packaged"
 grep -Fq 'Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)' "$core" || fail "two-family kernel OR requirement"
 grep -Fq 'Recommends:     senemos-nabu-kernel-alpha' "$core" || fail "alpha recommendation"
+grep -Fq 'Recommends:     senemos-fastfetch-config >= 1.1.0-1' "$core" || fail "optional Fastfetch configuration recommendation"
+! grep -Eq '^Requires:[[:space:]]+senemos-fastfetch-config([[:space:]]|$)' "$core" || fail "Fastfetch configuration became mandatory"
+! grep -Fq '%{_sysconfdir}/xdg/fastfetch/config.jsonc' "$core" || fail "CORE still owns the optional Fastfetch configuration"
+fastfetch_spec="$root/../nabu-core-meta/senemos-fastfetch-config/senemos-fastfetch-config.spec"
+grep -Fq '%{_sysconfdir}/xdg/fastfetch/config.jsonc' "$fastfetch_spec" || fail "optional package does not own the system Fastfetch configuration"
+grep -Fq 'Conflicts:      nabu-core-meta < 3.0.0-56' "$fastfetch_spec" || fail "Fastfetch ownership migration is not transaction-safe"
 grep -Fq 'nabu-kernel-maintenance-api = 5' "$core" || fail "maintenance API"
 ! grep -Eq 'dnf5.*upgrade|loader/entries/fallback' "$root/nabu-kernel-maintenance" || fail "legacy update/fallback maintenance remains"
 grep -Fq 'pending.d' "$root/nabu-kernel-maintenance" || fail "per-family pending queue missing"
@@ -119,14 +125,25 @@ for retired in nabu-system-integration nabu-kde-integration nabu-kde-config nabu
 done
 
 (cd "$root/vendor" && sha256sum -c SHA256SUMS >/dev/null) || fail "vendored source checksum"
-tar --zstd -xOf "$root/vendor/nabu-sar-service-0.2.0.tar.zst" \
-    nabu-sar-service-0.2.0/src/nabu-cct-iio-bridge.c \
+sar_archive="$root/vendor/nabu-sar-service-0.2.1.tar.zst"
+sar_prefix="nabu-sar-service-0.2.1"
+tar --zstd -xOf "$sar_archive" \
+    "$sar_prefix/src/nabu-cct-iio-bridge.c" \
     | grep -Fq '#define CCT_INVALID_WARNING_USEC (30 * G_USEC_PER_SEC)' \
     || fail "TCS3701 invalid-sample warning throttle missing"
-tar --zstd -xOf "$root/vendor/nabu-sar-service-0.2.0.tar.zst" \
-    nabu-sar-service-0.2.0/src/nabu-cct-iio-bridge.c \
+tar --zstd -xOf "$sar_archive" \
+    "$sar_prefix/src/nabu-cct-iio-bridge.c" \
     | grep -Fq 'SSC_SENSOR_DATA_TYPE, "cct_front"' \
     || fail "TCS3701 native CCT endpoint missing"
+sar_config=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/data/nabu-sar.conf")
+grep -Fxq 'Enabled=false' <<<"$sar_config" || fail "SAR mapping is enabled before calibration"
+grep -Fxq 'ChannelMask=0' <<<"$sar_config" || fail "uncalibrated SAR channel mapping remains"
+grep -Fxq 'HeldThreshold=0' <<<"$sar_config" || fail "uncalibrated SAR held threshold remains"
+grep -Fxq 'ReleasedThreshold=0' <<<"$sar_config" || fail "uncalibrated SAR released threshold remains"
+sar_service=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/src/nabu-sar-service.c")
+grep -Fq 'service->classifier.channel_mask = 0;' <<<"$sar_service" \
+    || fail "SAR classifier embeds an uncalibrated channel selection"
+! grep -Fq 'ProximityNear' <<<"$sar_service" || fail "SAR leaked into screen proximity API"
 grep -Fq 'BuildRequires:  libssc-nabu-devel >= 0.4.4-6.nabu5.test' "$core" \
     || fail "typed TCS3701 libssc build dependency missing"
 

@@ -1,0 +1,31 @@
+.TH SENEMOS-FASTFETCH 1 "September 2026" "senemos-fastfetch-config 1.1.0" "User Commands"
+.SH NAME
+senemos-fastfetch \- display system information using the SENEMOS locale configuration
+.SH SYNOPSIS
+.B senemos-fastfetch
+.RI [ fastfetch-options ]
+.SH DESCRIPTION
+.B senemos-fastfetch
+selects a translated Fastfetch configuration from the current message locale
+and executes Fastfetch with all supplied command-line options.
+.PP
+Interactive system shells define fastfetch as a function that invokes this
+launcher. Direct execution of /usr/bin/fastfetch remains available.
+.PP
+Regional locale names map to their base language. Unsupported locales and the
+C and POSIX locales fall back to English.
+.SH ENVIRONMENT
+.TP
+.B FASTFETCH_LOCALE
+Overrides locale selection. For example, tr_TR selects Turkish and zh_CN
+selects Chinese.
+.TP
+.B LC_ALL, LC_MESSAGES, LANGUAGE, LANG
+Standard locale variables, consulted in this order when FASTFETCH_LOCALE is
+not set.
+.SH FILES
+.TP
+.I /usr/share/senemos-fastfetch-config/i18n/
+Translated Fastfetch configuration files.
+.SH SEE ALSO
+.BR fastfetch (1)

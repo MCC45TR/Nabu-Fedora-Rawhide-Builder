@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "운영 체제",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "가동 시간",
+            "format": "{?days}{days} 일 {?}{hours} 시간 {minutes} 분"
+        },
+        {
+            "type": "command",
+            "key": "설치 날짜",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "커널"
+        },
+        {
+            "type": "loadavg",
+            "key": "평균 부하"
+        },
+        {
+            "type": "wm",
+            "key": "창 관리자"
+        },
+        {
+            "type": "DE",
+            "key": "데스크톱 환경"
+        },
+        {
+            "type": "shell",
+            "key": "셸"
+        },
+        {
+            "type": "processes",
+            "key": "프로세스"
+        },
+        {
+            "type": "terminal",
+            "key": "터미널",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "설치된 패키지"
+        },
+        {
+            "type": "cpu",
+            "key": "프로세서",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "그래픽 {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "메모리"
+        },
+        {
+            "type": "disk",
+            "key": "저장 공간 {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "네트워크 주소",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}

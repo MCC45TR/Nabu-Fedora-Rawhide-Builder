@@ -1,0 +1,127 @@
+#!/usr/bin/python3
+"""Emit locale-aware dynamic values used by SENEMOS Fastfetch configs."""
+
+from __future__ import annotations
+
+import glob
+import os
+import subprocess
+import sys
+import time
+
+
+TEXT = {
+    "ar": (("سنة", "شهر", "يوم", "ساعة", "دقيقة", "ثانية"), "منذ", {"Charging": "قيد الشحن", "Discharging": "قيد التفريغ", "Full": "ممتلئة", "Not charging": "لا تشحن", "Unknown": "غير معروفة"}),
+    "az": (("İl", "Ay", "Gün", "Saat", "Dəqiqə", "Saniyə"), "əvvəl", {"Charging": "Doldurulur", "Discharging": "Boşalır", "Full": "Dolu", "Not charging": "Doldurulmur", "Unknown": "Naməlum"}),
+    "bn": (("বছর", "মাস", "দিন", "ঘণ্টা", "মিনিট", "সেকেন্ড"), "আগে", {"Charging": "চার্জ হচ্ছে", "Discharging": "ডিসচার্জ হচ্ছে", "Full": "পূর্ণ", "Not charging": "চার্জ হচ্ছে না", "Unknown": "অজানা"}),
+    "cs": (("Rok", "Měsíc", "Den", "Hodina", "Minuta", "Sekunda"), "před", {"Charging": "Nabíjení", "Discharging": "Vybíjení", "Full": "Plná", "Not charging": "Nenabíjí se", "Unknown": "Neznámý"}),
+    "de": (("Jahr", "Monat", "Tag", "Stunde", "Minute", "Sekunde"), "vor", {"Charging": "Wird geladen", "Discharging": "Wird entladen", "Full": "Voll", "Not charging": "Wird nicht geladen", "Unknown": "Unbekannt"}),
+    "el": (("Έτος", "Μήνας", "Ημέρα", "Ώρα", "Λεπτό", "Δευτερόλεπτο"), "πριν", {"Charging": "Φόρτιση", "Discharging": "Αποφόρτιση", "Full": "Πλήρης", "Not charging": "Δεν φορτίζεται", "Unknown": "Άγνωστη"}),
+    "en": (("Year", "Month", "Day", "Hour", "Minute", "Second"), "ago", {"Charging": "Charging", "Discharging": "Discharging", "Full": "Full", "Not charging": "Not Charging", "Unknown": "Unknown"}),
+    "es": (("Año", "Mes", "Día", "Hora", "Minuto", "Segundo"), "hace", {"Charging": "Cargando", "Discharging": "Descargando", "Full": "Completa", "Not charging": "Sin cargar", "Unknown": "Desconocido"}),
+    "fa": (("سال", "ماه", "روز", "ساعت", "دقیقه", "ثانیه"), "پیش", {"Charging": "در حال شارژ", "Discharging": "در حال تخلیه", "Full": "پر", "Not charging": "شارژ نمی‌شود", "Unknown": "نامشخص"}),
+    "fi": (("Vuosi", "Kuukausi", "Päivä", "Tunti", "Minuutti", "Sekunti"), "sitten", {"Charging": "Latautuu", "Discharging": "Purkautuu", "Full": "Täysi", "Not charging": "Ei lataudu", "Unknown": "Tuntematon"}),
+    "fr": (("An", "Mois", "Jour", "Heure", "Minute", "Seconde"), "il y a", {"Charging": "En charge", "Discharging": "En décharge", "Full": "Pleine", "Not charging": "Pas en charge", "Unknown": "Inconnu"}),
+    "hi": (("वर्ष", "महीना", "दिन", "घंटा", "मिनट", "सेकंड"), "पहले", {"Charging": "चार्ज हो रही है", "Discharging": "डिस्चार्ज हो रही है", "Full": "पूर्ण", "Not charging": "चार्ज नहीं हो रही", "Unknown": "अज्ञात"}),
+    "hy": (("Տարի", "Ամիս", "Օր", "Ժամ", "Րոպե", "Վայրկյան"), "առաջ", {"Charging": "Լիցքավորվում է", "Discharging": "Լիցքաթափվում է", "Full": "Լիքն է", "Not charging": "Չի լիցքավորվում", "Unknown": "Անհայտ"}),
+    "id": (("Tahun", "Bulan", "Hari", "Jam", "Menit", "Detik"), "yang lalu", {"Charging": "Mengisi daya", "Discharging": "Menggunakan baterai", "Full": "Penuh", "Not charging": "Tidak mengisi daya", "Unknown": "Tidak diketahui"}),
+    "it": (("Anno", "Mese", "Giorno", "Ora", "Minuto", "Secondo"), "fa", {"Charging": "In carica", "Discharging": "In scarica", "Full": "Carica", "Not charging": "Non in carica", "Unknown": "Sconosciuto"}),
+    "ja": (("年", "か月", "日", "時間", "分", "秒"), "前", {"Charging": "充電中", "Discharging": "放電中", "Full": "充電完了", "Not charging": "充電していません", "Unknown": "不明"}),
+    "ko": (("년", "개월", "일", "시간", "분", "초"), "전", {"Charging": "충전 중", "Discharging": "방전 중", "Full": "충전 완료", "Not charging": "충전하지 않음", "Unknown": "알 수 없음"}),
+    "nl": (("Jaar", "Maand", "Dag", "Uur", "Minuut", "Seconde"), "geleden", {"Charging": "Wordt opgeladen", "Discharging": "Wordt ontladen", "Full": "Vol", "Not charging": "Wordt niet opgeladen", "Unknown": "Onbekend"}),
+    "pl": (("Rok", "Miesiąc", "Dzień", "Godzina", "Minuta", "Sekunda"), "temu", {"Charging": "Ładowanie", "Discharging": "Rozładowywanie", "Full": "Pełna", "Not charging": "Nie ładuje", "Unknown": "Nieznany"}),
+    "pt": (("Ano", "Mês", "Dia", "Hora", "Minuto", "Segundo"), "atrás", {"Charging": "A carregar", "Discharging": "A descarregar", "Full": "Cheia", "Not charging": "Não está a carregar", "Unknown": "Desconhecido"}),
+    "ro": (("An", "Lună", "Zi", "Oră", "Minut", "Secundă"), "în urmă", {"Charging": "Se încarcă", "Discharging": "Se descarcă", "Full": "Plină", "Not charging": "Nu se încarcă", "Unknown": "Necunoscut"}),
+    "ru": (("Год", "Месяц", "День", "Час", "Минута", "Секунда"), "назад", {"Charging": "Заряжается", "Discharging": "Разряжается", "Full": "Заряжена", "Not charging": "Не заряжается", "Unknown": "Неизвестно"}),
+    "sv": (("År", "Månad", "Dag", "Timme", "Minut", "Sekund"), "sedan", {"Charging": "Laddar", "Discharging": "Urladdar", "Full": "Full", "Not charging": "Laddar inte", "Unknown": "Okänd"}),
+    "tr": (("Yıl", "Ay", "Gün", "Saat", "Dakika", "Saniye"), "önce", {"Charging": "Şarj Oluyor", "Discharging": "Pilden Kullanılıyor", "Full": "Dolu", "Not charging": "Şarj Olmuyor", "Unknown": "Bilinmiyor"}),
+    "uk": (("Рік", "Місяць", "День", "Година", "Хвилина", "Секунда"), "тому", {"Charging": "Заряджається", "Discharging": "Розряджається", "Full": "Заряджена", "Not charging": "Не заряджається", "Unknown": "Невідомо"}),
+    "ur": (("سال", "مہینہ", "دن", "گھنٹہ", "منٹ", "سیکنڈ"), "پہلے", {"Charging": "چارج ہو رہی ہے", "Discharging": "ڈسچارج ہو رہی ہے", "Full": "مکمل", "Not charging": "چارج نہیں ہو رہی", "Unknown": "نامعلوم"}),
+    "zh": (("年", "个月", "天", "小时", "分钟", "秒"), "前", {"Charging": "正在充电", "Discharging": "正在放电", "Full": "已充满", "Not charging": "未充电", "Unknown": "未知"}),
+}
+
+
+def read_text(path: str) -> str | None:
+    try:
+        return open(path, encoding="utf-8").read().strip()
+    except (OSError, UnicodeError):
+        return None
+
+
+def uptime(language: str) -> str:
+    raw = read_text("/proc/uptime")
+    seconds = max(0, int(float(raw.split()[0]))) if raw else 0
+    divisors = (365 * 86400, 30 * 86400, 86400, 3600, 60, 1)
+    values = []
+    for divisor in divisors:
+        value, seconds = divmod(seconds, divisor)
+        values.append(value)
+    units = TEXT[language][0]
+    first = next((i for i, value in enumerate(values) if value), len(values) - 1)
+    return " ".join(f"{values[i]} {units[i]}" for i in range(first, len(values)))
+
+
+def installation_age(language: str) -> str:
+    try:
+        birth = int(subprocess.check_output(
+            ("stat", "-c", "%W", "/"), text=True, stderr=subprocess.DEVNULL
+        ).strip())
+    except (OSError, subprocess.SubprocessError, ValueError):
+        birth = 0
+    if birth <= 0:
+        try:
+            birth = int(os.stat("/etc/machine-id").st_mtime)
+        except OSError:
+            return "—"
+    days = max(0, int((time.time() - birth) // 86400))
+    day = TEXT[language][0][2]
+    ago = TEXT[language][1]
+    if language in {"es", "fr"}:
+        return f"{ago} {days} {day}"
+    return f"{days} {day} {ago}"
+
+
+def battery(language: str) -> str:
+    candidates = []
+    for base in sorted(glob.glob("/sys/class/power_supply/*")):
+        if (read_text(os.path.join(base, "type")) or "").lower() == "battery":
+            candidates.append(base)
+    if not candidates:
+        return "—"
+    base = candidates[0]
+    capacity = read_text(os.path.join(base, "capacity")) or "—"
+    raw_status = read_text(os.path.join(base, "status")) or "Unknown"
+    statuses = TEXT[language][2]
+    status = statuses.get(raw_status, statuses["Unknown"])
+    temperature = None
+    for name in ("temp", "temperature", "temp_now"):
+        raw = read_text(os.path.join(base, name))
+        if raw is None:
+            continue
+        try:
+            value = float(raw)
+        except ValueError:
+            continue
+        if abs(value) >= 1000:
+            value /= 1000
+        elif abs(value) >= 200:
+            value /= 10
+        temperature = f"{value:.1f}°C"
+        break
+    return f"{capacity}% • {status} • {temperature or '—'}"
+
+
+def main() -> int:
+    if len(sys.argv) != 3 or sys.argv[1] not in {"uptime", "installation-age", "battery"}:
+        print("usage: senemos-fastfetch-value {uptime|installation-age|battery} LANGUAGE", file=sys.stderr)
+        return 2
+    language = sys.argv[2].lower()
+    if language not in TEXT:
+        language = "en"
+    handlers = {"uptime": uptime, "installation-age": installation_age, "battery": battery}
+    print(handlers[sys.argv[1]](language))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

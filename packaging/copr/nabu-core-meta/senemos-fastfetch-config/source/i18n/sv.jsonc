@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "Operativsystem",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "Drifttid",
+            "format": "{?days}{days} d {?}{hours} h {minutes} min"
+        },
+        {
+            "type": "command",
+            "key": "Installationsdatum",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "Kärna"
+        },
+        {
+            "type": "loadavg",
+            "key": "Medelbelastning"
+        },
+        {
+            "type": "wm",
+            "key": "Fönsterhanterare"
+        },
+        {
+            "type": "DE",
+            "key": "Skrivbordsmiljö"
+        },
+        {
+            "type": "shell",
+            "key": "Skal"
+        },
+        {
+            "type": "processes",
+            "key": "Processer"
+        },
+        {
+            "type": "terminal",
+            "key": "Terminal",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "Installerade paket"
+        },
+        {
+            "type": "cpu",
+            "key": "Processor",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "Grafik {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "Minne"
+        },
+        {
+            "type": "disk",
+            "key": "Lagring {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "Nätverksadress",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}
