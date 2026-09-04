@@ -109,6 +109,7 @@ Patch0089:      0089-drm-msm-Recover-HW-before-retire-hung-submit.patch
 Patch0090:      0090-drm-msm-remove-objects-from-evict-list-after-pinning.patch
 Patch0091:      0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch
 Patch0092:      0092-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch
+Patch0093:      0093-senemos-enable-multigenerational-LRU.patch
 
 BuildRequires:  bc
 BuildRequires:  bison

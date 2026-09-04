@@ -47,6 +47,9 @@ keeps another working camera out of the media graph.
 The A6xx context-switch path drains and invalidates the previous context's CCU
 state before replacing TTBR0, preventing stale render-backend accesses from
 being translated through the next process page table on Adreno 640.
+The compact kernel profile also enables mainline MGLRU by default, retaining
+Fedora-compatible PSI and zram while improving reclaim behavior on the 6 GiB
+tablet without a userspace sysctl override.
 
 ## COPR build profile
 

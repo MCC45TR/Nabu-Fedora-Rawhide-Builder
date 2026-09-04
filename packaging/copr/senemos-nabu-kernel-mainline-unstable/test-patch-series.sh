@@ -23,7 +23,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 93
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 94
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -79,6 +79,9 @@ for setting in \
     'CONFIG_ZRAM=m' \
     'CONFIG_ZRAM_DEF_COMP_ZSTD=y' \
     'CONFIG_PSI=y' \
+    'CONFIG_LRU_GEN=y' \
+    'CONFIG_LRU_GEN_ENABLED=y' \
+    'CONFIG_LRU_GEN_WALKS_MMU=y' \
     'CONFIG_SND_SEQUENCER=m' \
     'CONFIG_INTERCONNECT_QCOM_OSM_L3=y' \
     'CONFIG_BT_RFCOMM=m' \
@@ -184,5 +187,5 @@ test "$gem_init_line" -lt "$bookkeeping_line"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 92 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 93 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"
