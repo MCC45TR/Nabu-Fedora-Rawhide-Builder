@@ -14,7 +14,8 @@ if [[ ! -s $top/SOURCES/$archive ]]; then
 fi
 install -m0644 "$root/upstream.sha256" "$root/patches.sha256" \
     "$root/91-nabu-mainline-unstable-omit-early-xhci.conf" \
-    "$root/91-nabu-mainline-unstable-late-xhci.conf" "$top/SOURCES/"
+    "$root/nabu-mainline-unstable-late-xhci.service" \
+    "$root/90-nabu-mainline-unstable.preset" "$top/SOURCES/"
 install -m0644 "$root"/patches/*.patch "$top/SOURCES/"
 (cd "$top/SOURCES" && sha256sum -c upstream.sha256 && sha256sum -c patches.sha256)
 

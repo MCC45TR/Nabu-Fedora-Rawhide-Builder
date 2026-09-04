@@ -1,0 +1,12 @@
+[Unit]
+Description=Load the optional Nabu XHCI host after switch-root
+ConditionPathExists=!/etc/initrd-release
+After=local-fs.target systemd-udevd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/modprobe xhci_plat_hcd
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -83,3 +83,8 @@ cdd9706d5648d8e74bc4b82570285461c3b55e4ade89906c75166dce6f8d0986  0081-iio-light
 df613799124f9f215dad2e607cd50112082d9440fed1d438dc81c58ca8c74ae0  0083-ASoC-qcom-restore-Nabu-TDM-framing-and-CAMSS-DMA-wi.patch
 7ec2cfd3961e963e9a098a4a554cd1a2b62e61228323db1dc7a479914e180955  0084-media-qcom-initialize-SM8150-CSI-PHY-lane-registers.patch
 0360d446bcb0dbcc1f207881f56e66619328b2ff21729c45a38399d421e764bb  0085-senemos-keep-SM8150-video-clock-built-in.patch
+37dea86d53c480b86b0094354f893ddd2d81b3f107a46bb2a1e7280bdfedb82f  0086-senemos-restore-Fedora-PSI-and-ALSA-sequencer.patch
+67429eafb8375fe53dc86e4bc3405e2b3cbe5ff20bed72ac7355f4f2a1a47f25  0087-senemos-retain-SM8150-OSM-L3-interconnect.patch
+fa2c3022bd429af210fa6be6adc719f64251ac592f8a5c17387c7918eebd3344  0088-Bluetooth-restore-Fedora-RFCOMM-and-BNEP-protocols.patch
+efb69354e327d510b36d9f7293d70571aecf84957e8489255956ec3ace801c3f  0089-drm-msm-Recover-HW-before-retire-hung-submit.patch
+61d1344790ff8ad63d93c4a27350fe121aff97c9762a968f323f12b084f61686  0090-drm-msm-remove-objects-from-evict-list-after-pinning.patch

@@ -1,0 +1,36 @@
+From 720ea59ff2fd879002a37c38d8d14ea9fbf10fc1 Mon Sep 17 00:00:00 2001
+From: Anna Maniscalco <anna.maniscalco2000@gmail.com>
+Date: Thu, 23 Jul 2026 12:00:00 +0000
+Subject: [PATCH] drm/msm: remove objects from evict list after pinning them
+
+Once objects are pinned they should not be kept in the evict list as
+that will cause drm_gpuvm_validate to keep iterating a growing list of
+objects needlessly.
+
+Once an object is pinned remove it from the list.
+
+Fixes: 2e6a8a1fe2b2 ("drm/msm: Add VM_BIND ioctl")
+Signed-off-by: Anna Maniscalco <anna.maniscalco2000@gmail.com>
+Patchwork: https://patchwork.freedesktop.org/patch/742166/
+Message-ID: <20260723-evict_list_fix-v2-1-bd0725e56253@gmail.com>
+Signed-off-by: Rob Clark <robin.clark@oss.qualcomm.com>
+---
+ drivers/gpu/drm/msm/msm_gem_vma.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/msm_gem_vma.c b/drivers/gpu/drm/msm/msm_gem_vma.c
+index c4cfe03..7441d4a 100644
+--- a/drivers/gpu/drm/msm/msm_gem_vma.c
++++ b/drivers/gpu/drm/msm/msm_gem_vma.c
+@@ -458,6 +458,8 @@ msm_gem_vm_bo_validate(struct drm_gpuvm_bo *vm_bo, struct drm_exec *exec)
+ 			return ret;
+ 	}
+ 
++	drm_gpuvm_bo_evict(vm_bo, false);
++
+ 	return 0;
+ }
+ 
+-- 
+2.55.0
+

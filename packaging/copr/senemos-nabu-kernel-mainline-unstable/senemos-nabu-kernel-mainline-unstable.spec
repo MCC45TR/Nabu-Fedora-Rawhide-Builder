@@ -14,8 +14,9 @@ Source0:        https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-%{version}.ta
 Source1:        upstream.sha256
 Source2:        patches.sha256
 Source3:        91-nabu-mainline-unstable-omit-early-xhci.conf
-Source4:        91-nabu-mainline-unstable-late-xhci.conf
+Source4:        nabu-mainline-unstable-late-xhci.service
 Source5:        nabu-build-stamp
+Source6:        90-nabu-mainline-unstable.preset
 Patch0001:      0001-arm64-dts-qcom-add-Xiaomi-Pad-5-Nabu.patch
 Patch0002:      0002-drm-panel-nt36523-add-Xiaomi-Nabu-CSOT-panel.patch
 Patch0003:      0003-senemos-add-Fedora-Rawhide-arm64-build-profile.patch
@@ -101,6 +102,11 @@ Patch0082:      0082-media-qcom-stabilize-Nabu-camera-enumeration.patch
 Patch0083:      0083-ASoC-qcom-restore-Nabu-TDM-framing-and-CAMSS-DMA-wi.patch
 Patch0084:      0084-media-qcom-initialize-SM8150-CSI-PHY-lane-registers.patch
 Patch0085:      0085-senemos-keep-SM8150-video-clock-built-in.patch
+Patch0086:      0086-senemos-restore-Fedora-PSI-and-ALSA-sequencer.patch
+Patch0087:      0087-senemos-retain-SM8150-OSM-L3-interconnect.patch
+Patch0088:      0088-Bluetooth-restore-Fedora-RFCOMM-and-BNEP-protocols.patch
+Patch0089:      0089-drm-msm-Recover-HW-before-retire-hung-submit.patch
+Patch0090:      0090-drm-msm-remove-objects-from-evict-list-after-pinning.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -186,7 +192,9 @@ done < <(find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
 install -Dm0644 %{SOURCE3} \
     %{buildroot}%{_prefix}/lib/dracut/dracut.conf.d/91-nabu-mainline-unstable-omit-early-xhci.conf
 install -Dm0644 %{SOURCE4} \
-    %{buildroot}%{_prefix}/lib/modules-load.d/91-nabu-mainline-unstable-late-xhci.conf
+    %{buildroot}%{_unitdir}/nabu-mainline-unstable-late-xhci.service
+install -Dm0644 %{SOURCE6} \
+    %{buildroot}%{_presetdir}/90-nabu-mainline-unstable.preset
 install -d -m0755 %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d
 printf '%%s\n' '%{nabu_build_stamp}' > \
     %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
@@ -209,10 +217,12 @@ find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
     -type f -name '*.ko' -print -quit | grep -q .
 grep -Fxq '%{nabu_build_stamp}' \
     %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
-grep -Fxq 'xhci_plat_hcd' \
-    %{buildroot}%{_prefix}/lib/modules-load.d/91-nabu-mainline-unstable-late-xhci.conf
-grep -Fxq 'cdc_acm' \
-    %{buildroot}%{_prefix}/lib/modules-load.d/91-nabu-mainline-unstable-late-xhci.conf
+grep -Fxq 'ConditionPathExists=!/etc/initrd-release' \
+    %{buildroot}%{_unitdir}/nabu-mainline-unstable-late-xhci.service
+grep -Fxq 'ExecStart=/usr/sbin/modprobe xhci_plat_hcd' \
+    %{buildroot}%{_unitdir}/nabu-mainline-unstable-late-xhci.service
+grep -Fxq 'enable nabu-mainline-unstable-late-xhci.service' \
+    %{buildroot}%{_presetdir}/90-nabu-mainline-unstable.preset
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
@@ -239,6 +249,18 @@ grep -Fxq 'CONFIG_GPIO_SHARED_PROXY=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SECURITY_SELINUX=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_DEFAULT_SECURITY_SELINUX=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_QCOM_SSC_CCT=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_PSI=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_SND_SEQUENCER=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_INTERCONNECT_QCOM_OSM_L3=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_BT_RFCOMM=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_BT_BNEP=m' %{buildroot}/boot/config-%{uname_r}
+recover_line=$(grep -n -F 'gpu->funcs->recover(gpu);' \
+    drivers/gpu/drm/msm/msm_gpu.c | cut -d: -f1)
+retire_line=$(grep -n -F 'retire_submits(gpu);' \
+    drivers/gpu/drm/msm/msm_gpu.c | head -n1 | cut -d: -f1)
+test "$recover_line" -lt "$retire_line"
+grep -A18 -F 'msm_gem_vm_bo_validate' drivers/gpu/drm/msm/msm_gem_vma.c \
+    | grep -Fq 'drm_gpuvm_bo_evict(vm_bo, false);'
 grep -Fxq 'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"' \
     %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ACPI is not set' %{buildroot}/boot/config-%{uname_r}
@@ -271,6 +293,15 @@ for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 qcom-ssc-cct; do
         -type f -name "$module.ko.zst" -print -quit | grep -q .
 done
 
+%post
+%systemd_post nabu-mainline-unstable-late-xhci.service
+marker=/var/lib/nabu-kernel-maintenance/late-xhci-service-migrated
+if [ ! -e "$marker" ]; then
+    /usr/bin/systemctl preset nabu-mainline-unstable-late-xhci.service >/dev/null 2>&1 || :
+    install -d -m0755 /var/lib/nabu-kernel-maintenance
+    : > "$marker"
+fi
+
 %posttrans
 install -d -m0755 /var/lib/nabu-kernel-maintenance/pending.d
 temporary=$(mktemp /var/lib/nabu-kernel-maintenance/pending.d/.mainline-unstable.XXXXXX)
@@ -278,14 +309,19 @@ printf '%%s\n' '%{uname_r}' > "$temporary"
 chmod 0644 "$temporary"
 mv -f "$temporary" /var/lib/nabu-kernel-maintenance/pending.d/mainline-unstable
 
+%preun
+%systemd_preun nabu-mainline-unstable-late-xhci.service
+
 %postun
+%systemd_postun_with_restart nabu-mainline-unstable-late-xhci.service
 if [ "$1" -eq 0 ]; then
     /usr/sbin/depmod -a || :
 fi
 
 %files
 %{_prefix}/lib/dracut/dracut.conf.d/91-nabu-mainline-unstable-omit-early-xhci.conf
-%{_prefix}/lib/modules-load.d/91-nabu-mainline-unstable-late-xhci.conf
+%{_unitdir}/nabu-mainline-unstable-late-xhci.service
+%{_presetdir}/90-nabu-mainline-unstable.preset
 /boot/vmlinuz-%{uname_r}
 /boot/System.map-%{uname_r}
 /boot/config-%{uname_r}
@@ -296,6 +332,22 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Stop repeatedly validating pinned DRM/MSM objects on a growing evict list.
+
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Recover Adreno hardware before retiring hung submits and releasing their BOs.
+
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Restore the RFCOMM and BNEP protocols expected by standard BlueZ profiles.
+
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Restore the OSM L3 interconnect provider required by SM8150 CPU frequency.
+
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Restore Fedora PSI and the ALSA sequencer module removed by Nabu pruning.
+- Load optional XHCI only after switch-root so initrd modules-load stays clean.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Keep the SM8150 video clock controller built in for Iris and camera probe.
 - Restore Nabu's proven Quaternary TDM framing so speaker PCM writes reach ADSP.

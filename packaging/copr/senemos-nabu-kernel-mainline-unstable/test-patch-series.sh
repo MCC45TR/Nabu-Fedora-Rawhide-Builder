@@ -23,7 +23,7 @@ git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 git -C "$work/linux-$version" am "$root"/patches/*.patch
-test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 86
+test "$(git -C "$work/linux-$version" rev-list --count HEAD)" -eq 91
 grep -Fxq 'CONFIG_LOCALVERSION="-nabu-senemos-mainline-unstable"' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
@@ -78,6 +78,14 @@ for setting in \
     'CONFIG_NFT_REJECT_INET=m' \
     'CONFIG_ZRAM=m' \
     'CONFIG_ZRAM_DEF_COMP_ZSTD=y' \
+    'CONFIG_PSI=y' \
+    'CONFIG_SND_SEQUENCER=m' \
+    'CONFIG_INTERCONNECT_QCOM_OSM_L3=y' \
+    'CONFIG_BT_RFCOMM=m' \
+    'CONFIG_BT_RFCOMM_TTY=y' \
+    'CONFIG_BT_BNEP=m' \
+    'CONFIG_BT_BNEP_MC_FILTER=y' \
+    'CONFIG_BT_BNEP_PROTO_FILTER=y' \
     'CONFIG_SCSI_UFS_QCOM=y' \
     'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \
     'CONFIG_ATH10K_SNOC=m' \
@@ -145,10 +153,18 @@ grep -Fq 'static DEVICE_ATTR_RO(mount_matrix);' \
     "$work/linux-$version/drivers/misc/fastrpc.c"
 grep -Fq 'fdev->miscdev.groups = fastrpc_sensor_groups;' \
     "$work/linux-$version/drivers/misc/fastrpc.c"
+recover_line=$(grep -n -F 'gpu->funcs->recover(gpu);' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_gpu.c" | cut -d: -f1)
+retire_line=$(grep -n -F 'retire_submits(gpu);' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_gpu.c" | head -n1 | cut -d: -f1)
+test "$recover_line" -lt "$retire_line"
+grep -A18 -F 'msm_gem_vm_bo_validate' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_gem_vma.c" \
+    | grep -Fq 'drm_gpuvm_bo_evict(vm_bo, false);'
 ! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 
-printf 'PASS: 85 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
+printf 'PASS: 90 checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$version" "$module_count"
