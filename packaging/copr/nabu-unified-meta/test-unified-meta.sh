@@ -34,8 +34,12 @@ done
 while IFS= read -r copr_spec; do
     source_name=$(sed -nE 's/^Name:[[:space:]]+([^[:space:]]+).*/\1/p' "$copr_spec" | head -n 1)
     [[ -n $source_name ]] || fail "source package name missing in $copr_spec"
-    [[ $source_name == *nabu* || $source_name == senemos-fastfetch-config ]] || fail \
-        "default Fedora package fork is forbidden in Nabu COPR: $source_name ($copr_spec)"
+    if [[ $source_name != *nabu* && $source_name != senemos-fastfetch-config ]]; then
+        [[ $source_name == ksystemstats && $copr_spec == */ksystemstats-msm-adreno/ksystemstats.spec ]] || fail \
+            "default Fedora package fork is forbidden in Nabu COPR: $source_name ($copr_spec)"
+        grep -Fq 'Patch0:         0001-gpu-add-Linux-MSM-Adreno-sensors.patch' "$copr_spec" \
+            || fail "ksystemstats exception is not patch-locked"
+    fi
 done < <(find "$root/.." \
     -path '*/.rpmbuild*' -prune -o \
     -path '*/rpmbuild' -prune -o \
@@ -111,6 +115,8 @@ weather_service=$(tar --zstd -xOf "$widget_archive" \
     nabu-kde-widgets-debug-1.0.1/com.mcc45tr.filesearch/contents/ui/components/WeatherService.js)
 config_general=$(tar --zstd -xOf "$widget_archive" \
     nabu-kde-widgets-debug-1.0.1/com.mcc45tr.filesearch/contents/ui/config/ConfigGeneral.qml)
+logic_controller=$(tar --zstd -xOf "$widget_archive" \
+    nabu-kde-widgets-debug-1.0.1/com.mcc45tr.filesearch/contents/ui/components/LogicController.qml)
 grep -Fq 'controller.requests.splice(index, 1)' <<<"$weather_service" \
     || fail "completed weather requests remain retained"
 grep -Fq 'xhr.onreadystatechange = null' <<<"$weather_service" \
@@ -119,6 +125,10 @@ grep -Fq 'property bool cfg_expanding' <<<"$config_general" \
     || fail "Plasma expanding compatibility key is missing"
 grep -Fq 'property int cfg_length' <<<"$config_general" \
     || fail "Plasma length compatibility key is missing"
+grep -Fq 'function backgroundMaintenanceInterval()' <<<"$logic_controller" \
+    || fail "File Search deadline scheduler is missing"
+grep -Fq 'interval: logicRoot.backgroundMaintenanceInterval()' <<<"$logic_controller" \
+    || fail "File Search still uses fixed maintenance polling"
 grep -Fq 'systemctl enable nabu-locale-packages.path nabu-locale-packages.timer' "$root/nabu-core-meta.spec" || fail "locale units not enabled on upgrades"
 grep -Fq 'systemctl reset-failed nabu-locale-packages.path nabu-locale-packages.service' "$root/nabu-core-meta.spec" || fail "failed locale watcher not recovered"
 grep -Fq 'systemctl restart nabu-locale-packages.path nabu-locale-packages.timer' "$root/nabu-core-meta.spec" || fail "corrected locale watcher not activated"
