@@ -105,6 +105,20 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
 done
+
+widget_archive="$root/vendor/nabu-kde-widgets-debug-1.0.1.tar.zst"
+weather_service=$(tar --zstd -xOf "$widget_archive" \
+    nabu-kde-widgets-debug-1.0.1/com.mcc45tr.filesearch/contents/ui/components/WeatherService.js)
+config_general=$(tar --zstd -xOf "$widget_archive" \
+    nabu-kde-widgets-debug-1.0.1/com.mcc45tr.filesearch/contents/ui/config/ConfigGeneral.qml)
+grep -Fq 'controller.requests.splice(index, 1)' <<<"$weather_service" \
+    || fail "completed weather requests remain retained"
+grep -Fq 'xhr.onreadystatechange = null' <<<"$weather_service" \
+    || fail "weather request callback cycle remains retained"
+grep -Fq 'property bool cfg_expanding' <<<"$config_general" \
+    || fail "Plasma expanding compatibility key is missing"
+grep -Fq 'property int cfg_length' <<<"$config_general" \
+    || fail "Plasma length compatibility key is missing"
 grep -Fq 'systemctl enable nabu-locale-packages.path nabu-locale-packages.timer' "$root/nabu-core-meta.spec" || fail "locale units not enabled on upgrades"
 grep -Fq 'systemctl reset-failed nabu-locale-packages.path nabu-locale-packages.service' "$root/nabu-core-meta.spec" || fail "failed locale watcher not recovered"
 grep -Fq 'systemctl restart nabu-locale-packages.path nabu-locale-packages.timer' "$root/nabu-core-meta.spec" || fail "corrected locale watcher not activated"
