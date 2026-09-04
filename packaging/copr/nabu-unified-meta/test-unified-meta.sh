@@ -34,12 +34,8 @@ done
 while IFS= read -r copr_spec; do
     source_name=$(sed -nE 's/^Name:[[:space:]]+([^[:space:]]+).*/\1/p' "$copr_spec" | head -n 1)
     [[ -n $source_name ]] || fail "source package name missing in $copr_spec"
-    if [[ $source_name != *nabu* && $source_name != senemos-fastfetch-config ]]; then
-        [[ $source_name == ksystemstats && $copr_spec == */ksystemstats-msm-adreno/ksystemstats.spec ]] || fail \
-            "default Fedora package fork is forbidden in Nabu COPR: $source_name ($copr_spec)"
-        grep -Fq 'Patch0:         0001-gpu-add-Linux-MSM-Adreno-sensors.patch' "$copr_spec" \
-            || fail "ksystemstats exception is not patch-locked"
-    fi
+    [[ $source_name == *nabu* || $source_name == senemos-fastfetch-config ]] || fail \
+        "default Fedora package fork is forbidden in Nabu COPR: $source_name ($copr_spec)"
 done < <(find "$root/.." \
     -path '*/.rpmbuild*' -prune -o \
     -path '*/rpmbuild' -prune -o \
@@ -104,6 +100,7 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     grep -Fq 'Requires:       kdeplasma-addons' "$kde_spec" || fail "missing Kameleon provider in $kde_spec"
     grep -Fq 'Requires:       firewalld' "$kde_spec" || fail "missing firewalld runtime in $kde_spec"
     grep -Fq 'Requires:       udisks2' "$kde_spec" || fail "missing UDisks2 storage service in $kde_spec"
+    grep -Fq 'Requires:       ksystemstats-nabu >= 6.7.4-2.nabu2' "$kde_spec" || fail "MSM GPU telemetry package missing in $kde_spec"
     grep -Fq 'firewall-offline-cmd --add-service=kdeconnect' "$kde_spec" || fail "KDE Connect firewall policy missing in $kde_spec"
     grep -Fq '%firewalld_reload' "$kde_spec" || fail "firewalld reload missing in $kde_spec"
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"

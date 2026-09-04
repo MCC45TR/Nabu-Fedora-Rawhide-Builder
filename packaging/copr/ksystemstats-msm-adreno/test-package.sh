@@ -18,4 +18,6 @@ bash -n "$root/build-srpm.sh"
 grep -Fq '.PHONY: srpm' "$root/Makefile"
 grep -Fq '$(MAKE) -f Makefile srpm' "$root/../../../.copr/Makefile"
 rpmspec -P "$root/ksystemstats.spec" >/dev/null
+grep -Fq 'Provides:       ksystemstats' "$root/ksystemstats.spec"
+grep -Fq 'Obsoletes:      ksystemstats' "$root/ksystemstats.spec"
 echo 'PASS: ksystemstats MSM/Adreno package invariants'
