@@ -129,6 +129,8 @@ grep -Fq 'function backgroundMaintenanceInterval()' <<<"$logic_controller" \
     || fail "File Search deadline scheduler is missing"
 grep -Fq 'interval: logicRoot.backgroundMaintenanceInterval()' <<<"$logic_controller" \
     || fail "File Search still uses fixed maintenance polling"
+! grep -Fq 'new XMLHttpRequest' <<<"$logic_controller" \
+    || fail "File Search still attempts blocked local XHR cache reads"
 grep -Fq 'systemctl enable nabu-locale-packages.path nabu-locale-packages.timer' "$root/nabu-core-meta.spec" || fail "locale units not enabled on upgrades"
 grep -Fq 'systemctl reset-failed nabu-locale-packages.path nabu-locale-packages.service' "$root/nabu-core-meta.spec" || fail "failed locale watcher not recovered"
 grep -Fq 'systemctl restart nabu-locale-packages.path nabu-locale-packages.timer' "$root/nabu-core-meta.spec" || fail "corrected locale watcher not activated"
