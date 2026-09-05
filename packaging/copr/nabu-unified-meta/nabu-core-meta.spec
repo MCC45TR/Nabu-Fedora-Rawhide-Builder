@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        62%{?dist}
+Release:        63%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -470,6 +470,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-63
+- Quiesce both ADSP and SDSP FastRPC clients around system sleep, then restore
+  them in dependency order to avoid stale DSP handles after resume.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-62
 - Warm SensorProxy with a bounded real accelerometer sample before starting the
   graphical login, avoiding KWin's 25-second first-claim timeout.

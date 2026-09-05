@@ -8,7 +8,8 @@ active_file=${test_root}/active
 log_file=${test_root}/systemctl.log
 mock=${test_root}/systemctl
 
-printf '%s\n' iio-sensor-proxy.service hexagonrpcd-sdsp.service >"${active_file}"
+printf '%s\n' iio-sensor-proxy.service hexagonrpcd-sdsp.service \
+	hexagonrpcd-adsp-rootpd.service >"${active_file}"
 
 cat >"${mock}" <<'EOF'
 #!/usr/bin/bash
@@ -43,9 +44,11 @@ test ! -s "${active_file}"
 grep -Fxq 'stop iio-sensor-proxy.service' "${log_file}"
 grep -Fxq 'reset-failed iio-sensor-proxy.service' "${log_file}"
 grep -Fxq 'stop hexagonrpcd-sdsp.service' "${log_file}"
+grep -Fxq 'stop hexagonrpcd-adsp-rootpd.service' "${log_file}"
 
 NABU_SLPI_STATE_DIR=${state_dir} SYSTEMCTL_BIN=${mock} \
 	runtime/nabu-slpi-suspend resume
 
 grep -Fxq 'start hexagonrpcd-sdsp.service' "${log_file}"
+grep -Fxq 'start hexagonrpcd-adsp-rootpd.service' "${log_file}"
 grep -Fxq 'start iio-sensor-proxy.service' "${log_file}"
