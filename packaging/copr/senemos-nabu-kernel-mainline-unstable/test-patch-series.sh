@@ -194,6 +194,14 @@ grep -Fq 'mod_delayed_work(system_percpu_wq, &keyboard->detect_work,' \
 grep -A18 -F 'static int nabu_keyboard_suspend' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c" \
     | grep -Fq '!device_may_wakeup(dev) || !connected'
+grep -A25 -F 'static int xiaomi_raw_event' \
+    "$work/linux-$version/drivers/hid/hid-xiaomi.c" \
+    | grep -Fq 'xiaomi_nabu_keyboard_report_activity();'
+grep -A12 -F 'static void nabu_keyboard_detect_work' \
+    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c" \
+    | grep -Fq 'nabu_keyboard_publish_state(keyboard, false, false);'
+grep -Fq 'queue_work(system_percpu_wq, &keyboard->activity_work);' \
+    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 test "$(grep -c 'mod_delayed_work(system_percpu_wq, &.*status_changed_work' \
     "$work/linux-$version/drivers/power/supply/ln8000_charger.c")" -eq 4
 grep -Fq 'queue_delayed_work(system_percpu_wq, &info->charge_work,' \

@@ -100,3 +100,4 @@ f615856ed0446c9c5ad5c1c1381b583d448e4f4181fc08c44a4adc9b897d690a  0098-power-sup
 fb55ab0fe2821fc76bd9bcd9bc77763d75a242fd3555b62088b35919abf876d8  0100-drm-msm-preserve-firmware-dual-DSI-handoff-clocks.patch
 1c62c4360cf2fbc6cd199bac64ba6864f6b0f22ebb1c70f3d51bc02c541e074f  0101-Input-nabu-arm-keyboard-wake-only-while-attached.patch
 9d32081cf20eaffa76437407f63cfeb3b66dca4971cf4fc9cf8b14a4ad4116da  0102-HID-enable-hidraw-for-Nabu-pogo-protocol-diagnostics.patch
+d384bf6c177ca1dbb718b3f197f457f40db00d0792b0f458bbd3419f8159e498  0103-Input-derive-Nabu-computer-mode-from-real-pogo-acti.patch
