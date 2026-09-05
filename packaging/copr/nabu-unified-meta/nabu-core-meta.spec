@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        60%{?dist}
+Release:        61%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ Source7:        90-nabu-kernel-maintenance.preset
 Source8:        kernel.conf
 Source9:        nabu-system-integration-2.0.0.tar.zst
 Source10:       nabu-flashlight-integration-1.0.0.tar.gz
-Source11:       nabu-sar-service-0.2.1.tar.zst
+Source11:       nabu-sar-service-0.2.2.tar.zst
 Source12:       nabu-ssc-probe.c
 Source13:       nabu-pen-autopair
 Source14:       82-nabu-pen-autopair.rules
@@ -42,7 +42,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  meson
 BuildRequires:  openssh
 BuildRequires:  pkgconfig(gio-2.0)
-BuildRequires:  libssc-nabu-devel >= 0.4.4-8.nabu7.test
+BuildRequires:  libssc-nabu-devel >= 0.4.4-9.nabu8.test
 BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  pkgconfig(Qt6DBus)
 BuildRequires:  systemd-rpm-macros
@@ -60,8 +60,8 @@ Recommends:     senemos-fastfetch-config >= 1.1.0-1
 Requires:       nabu-boot-integration >= 2.0.0-31.test
 Requires:       nabu-boot-manager
 Requires:       hexagonrpc-nabu
-Requires:       libssc-nabu >= 0.4.4-8.nabu7.test
-Requires:       python3-ssc-nabu >= 0.4.4-8.nabu7.test
+Requires:       libssc-nabu >= 0.4.4-9.nabu8.test
+Requires:       python3-ssc-nabu >= 0.4.4-9.nabu8.test
 Requires:       iio-sensor-proxy-nabu
 Requires:       xiaomi-nabu-firmware
 Requires:       senemos-nabu-plymouth >= 1.0.0-5.test
@@ -457,6 +457,7 @@ if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl reenable nabu-sensor-session-gate.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
     /usr/bin/systemctl disable --now hexagonrpcd-adsp-sensorspd.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable rmtfs.service tqftpserv.service mnt-vendor-persist.mount hexagonrpcd-sdsp.service hexagonrpcd-adsp-rootpd.service iio-sensor-proxy.service nabu-sensor-session-gate.service nabu-sar-service.service nabu-cct-iio-bridge.service >/dev/null 2>&1 || :
+    /usr/bin/systemctl try-restart nabu-cct-iio-bridge.service >/dev/null 2>&1 || :
 fi
 
 %preun
@@ -469,6 +470,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-61
+- Retain the last valid TCS3701 value from its on-change SSC stream.
+- Require the packed standard-event CCT decoder and apply the bridge update live.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-60
 - Require the corrected SSC standard-event decoder before enabling the TCS3701
   colour-temperature bridge.
