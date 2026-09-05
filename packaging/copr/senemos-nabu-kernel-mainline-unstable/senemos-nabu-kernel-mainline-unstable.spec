@@ -126,6 +126,7 @@ Patch0106:      0106-slimbus-qcom-ngd-retry-recovery-after-ADSP-SSR.patch
 Patch0107:      0107-media-iris-honor-VP9-firmware-capture-minimum.patch
 Patch0108:      0108-slimbus-qcom-ngd-use-default-unbound-workqueue.patch
 Patch0109:      0109-ASoC-qcom-drop-unreliable-rendered-EOS-wait.patch
+Patch0110:      0110-input-nabu-sample-pogo-detect-state-instead-of-toggling.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -355,6 +356,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Sample the active-low pogo detect GPIO on both edges instead of toggling a
+  guessed keyboard state that could abort suspend while no cover is attached.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Queue Qualcomm NGD audio recovery on the explicit default unbound workqueue
   instead of the deprecated system workqueue alias.

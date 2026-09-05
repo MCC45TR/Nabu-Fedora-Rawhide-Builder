@@ -194,11 +194,13 @@ grep -Fq 'mod_delayed_work(system_percpu_wq, &keyboard->detect_work,' \
 grep -A18 -F 'static int nabu_keyboard_suspend' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c" \
     | grep -Fq '!device_may_wakeup(dev) || !connected'
-grep -Fq 'IRQF_TRIGGER_RISING | IRQF_ONESHOT' \
-    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
-grep -Fq 'atomic_xchg(&keyboard->pending_edges, 0) & 1' \
-    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 grep -Fq 'keyboard->computer_mode = connected;' \
+    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+grep -Fq 'gpiod_get_value_cansleep(keyboard->detect);' \
+    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+grep -Fq 'IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |' \
+    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+! grep -Fq 'connected = !keyboard->connected;' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 grep -Fq 'static __poll_t iris_poll' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_vidc.c"

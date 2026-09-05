@@ -107,3 +107,4 @@ fb55ab0fe2821fc76bd9bcd9bc77763d75a242fd3555b62088b35919abf876d8  0100-drm-msm-p
 3870fd33e924331c1514eec2e25e2b67b397d37fe55b9a4f5e73c981e4a42d71  0107-media-iris-honor-VP9-firmware-capture-minimum.patch
 2c354f0fb46950f10c1590313da14ed80cc465eb0a17f06eff82b5cf68188221  0108-slimbus-qcom-ngd-use-default-unbound-workqueue.patch
 80b4f71357c5d0d142667acb25c0ed34288554b0f78c105a9c4987f5e888aff6  0109-ASoC-qcom-drop-unreliable-rendered-EOS-wait.patch
+555a4f2ff7a66381ca5302db0118860f324d4f4c76a7ccc56a9dc45d8f28a960  0110-input-nabu-sample-pogo-detect-state-instead-of-toggling.patch
