@@ -189,16 +189,18 @@ grep -A30 -F 'static void a6xx_set_pagetable' \
 grep -A36 -F 'static void a6xx_set_pagetable' \
     "$work/linux-$version/drivers/gpu/drm/msm/adreno/a6xx_gpu.c" \
     | grep -Fq 'CP_EVENT_WRITE_0_EVENT(PC_CCU_INVALIDATE_COLOR)'
-grep -Fq 'mod_delayed_work(system_percpu_wq, &keyboard->detect_work,' \
-    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 grep -A18 -F 'static int nabu_keyboard_suspend' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c" \
     | grep -Fq '!device_may_wakeup(dev) || !connected'
 grep -Fq 'keyboard->computer_mode = connected;' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
-grep -Fq 'gpiod_get_value_cansleep(keyboard->detect);' \
+grep -Fq 'controller IRQ presence inference disabled' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
-grep -Fq 'IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |' \
+grep -Fq 'nabu_keyboard_publish_state(keyboard, false, true);' \
+    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+! grep -Fq 'gpiod_get_value_cansleep(keyboard->detect);' \
+    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+! grep -Fq 'mod_delayed_work(system_percpu_wq, &keyboard->detect_work,' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 ! grep -Fq 'connected = !keyboard->connected;' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"

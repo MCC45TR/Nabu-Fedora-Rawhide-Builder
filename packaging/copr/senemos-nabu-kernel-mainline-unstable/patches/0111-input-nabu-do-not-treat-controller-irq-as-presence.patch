@@ -1,0 +1,118 @@
+From 7c4e09b41566e2c5c947d424739453e0f88e18f7 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 21:04:00 +0300
+Subject: [PATCH] input: nabu: do not treat controller IRQ as presence
+
+GPIO41 is the NanoSic controller interrupt line, not a stable keyboard-cover
+presence signal.  An unattached controller emits an active-low pulse roughly
+every 5.8 seconds, so sampling both edges makes SW_TABLET_MODE oscillate and
+spams userspace with attach/detach notifications.
+
+Keep the controller powered so its HID functions remain available, but leave
+the cover state disconnected until a reliable protocol-level presence event is
+implemented.  The interrupt is retained for diagnostics but no longer mutates
+desktop mode or arms a false wake source.
+---
+ .../misc/xiaomi-nabu-keyboard.c               | 31 +++++--------------
+ 1 file changed, 8 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/input/misc/xiaomi-nabu-keyboard.c b/drivers/input/misc/xiaomi-nabu-keyboard.c
+index 14a4127fb20a..0418be6157ea 100644
+--- a/drivers/input/misc/xiaomi-nabu-keyboard.c
++++ b/drivers/input/misc/xiaomi-nabu-keyboard.c
+@@ -17,7 +17,6 @@ struct nabu_keyboard {
+ 	struct gpio_desc *vdd;
+ 	struct gpio_desc *reset;
+ 	struct gpio_desc *detect;
+-	struct delayed_work detect_work;
+ 	struct mutex lock;
+ 	int irq;
+ 	bool connected;
+@@ -59,28 +58,11 @@ static void nabu_keyboard_publish_state(struct nabu_keyboard *keyboard,
+ 		 computer_mode ? "enabled" : "disabled");
+ }
+ 
+-static void nabu_keyboard_detect_work(struct work_struct *work)
+-{
+-	struct nabu_keyboard *keyboard;
+-	int connected;
+-
+-	keyboard = container_of(to_delayed_work(work), struct nabu_keyboard,
+-				detect_work);
+-	connected = gpiod_get_value_cansleep(keyboard->detect);
+-	if (connected < 0) {
+-		dev_warn_ratelimited(keyboard->dev,
+-				     "failed to sample keyboard detect GPIO: %d\n",
+-				     connected);
+-		return;
+-	}
+-
+-	nabu_keyboard_publish_state(keyboard, connected, false);
+-}
+-
+ static irqreturn_t nabu_keyboard_detect_irq(int irq, void *data)
+ {
+ 	struct nabu_keyboard *keyboard = data;
+ 
++	/* GPIO41 is a controller IRQ, not a physical presence level. */
+ 	/*
+ 	 * Cover transitions while the system is awake are ordinary input
+ 	 * changes, not wake events.  Keeping a wakeup event pending during the
+@@ -88,8 +71,6 @@ static irqreturn_t nabu_keyboard_detect_irq(int irq, void *data)
+ 	 */
+ 	if (READ_ONCE(keyboard->wake_enabled))
+ 		pm_wakeup_event(keyboard->dev, 500);
+-	mod_delayed_work(system_percpu_wq, &keyboard->detect_work,
+-			 msecs_to_jiffies(NABU_KEYBOARD_DEBOUNCE_MS));
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -194,7 +175,6 @@ static int nabu_keyboard_probe(struct platform_device *pdev)
+ 				     "failed to acquire detect GPIO\n");
+ 
+ 	platform_set_drvdata(pdev, keyboard);
+-	INIT_DELAYED_WORK(&keyboard->detect_work, nabu_keyboard_detect_work);
+ 
+ 	/* Power the internal USB controller and release its active-low reset. */
+ 	gpiod_set_value_cansleep(keyboard->vdd, 1);
+@@ -211,18 +191,16 @@ static int nabu_keyboard_probe(struct platform_device *pdev)
+ 
+ 	ret = devm_request_threaded_irq(dev, keyboard->irq, NULL,
+ 					nabu_keyboard_detect_irq,
+-					IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
+-					IRQF_ONESHOT,
++					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+ 					dev_name(dev), keyboard);
+ 	if (ret)
+ 		goto err_power_off;
+ 
+ 	device_init_wakeup(dev,
+ 			   of_property_read_bool(dev->of_node, "wakeup-source"));
+-	ret = gpiod_get_value_cansleep(keyboard->detect);
+-	if (ret < 0)
+-		goto err_power_off;
+-	nabu_keyboard_publish_state(keyboard, ret, true);
++	nabu_keyboard_publish_state(keyboard, false, true);
++	dev_info(dev,
++		 "controller IRQ presence inference disabled; defaulting to tablet mode\n");
+ 
+ 	return 0;
+ 
+@@ -236,7 +214,6 @@ static void nabu_keyboard_remove(struct platform_device *pdev)
+ {
+ 	struct nabu_keyboard *keyboard = platform_get_drvdata(pdev);
+ 
+-	cancel_delayed_work_sync(&keyboard->detect_work);
+ 	nabu_keyboard_publish_state(keyboard, false, true);
+ 	gpiod_set_value_cansleep(keyboard->reset, 1);
+ 	gpiod_set_value_cansleep(keyboard->vdd, 0);
+@@ -250,7 +227,6 @@ static int nabu_keyboard_suspend(struct device *dev)
+ 	bool connected;
+ 	int ret;
+ 
+-	cancel_delayed_work_sync(&keyboard->detect_work);
+ 	mutex_lock(&keyboard->lock);
+ 	connected = keyboard->connected;
+ 	mutex_unlock(&keyboard->lock);
+-- 
+2.55.0

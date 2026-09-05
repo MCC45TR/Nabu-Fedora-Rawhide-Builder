@@ -127,6 +127,7 @@ Patch0107:      0107-media-iris-honor-VP9-firmware-capture-minimum.patch
 Patch0108:      0108-slimbus-qcom-ngd-use-default-unbound-workqueue.patch
 Patch0109:      0109-ASoC-qcom-drop-unreliable-rendered-EOS-wait.patch
 Patch0110:      0110-input-nabu-sample-pogo-detect-state-instead-of-toggling.patch
+Patch0111:      0111-input-nabu-do-not-treat-controller-irq-as-presence.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
