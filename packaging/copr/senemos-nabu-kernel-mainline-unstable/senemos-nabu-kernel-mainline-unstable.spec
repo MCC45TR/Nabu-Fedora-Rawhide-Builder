@@ -136,6 +136,7 @@ Patch0116:      0116-ASoC-wcd934x-do-not-report-normal-port-close-as-xrun.patch
 Patch0117:      0117-media-qcom-iris-use-vb2-buffer-counts-on-vpu5.patch
 Patch0118:      0118-media-qcom-iris-disable-vpu5-power-collapse-at-core-init.patch
 Patch0119:      0119-media-i2c-expose-Nabu-sensor-geometry-and-frame-rate.patch
+Patch0120:      0120-media-connect-Nabu-rear-flash-to-camera.patch
 
 BuildRequires:  bc
 BuildRequires:  bison

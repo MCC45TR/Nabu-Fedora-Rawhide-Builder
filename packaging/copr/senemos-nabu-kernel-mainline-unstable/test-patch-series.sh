@@ -49,6 +49,10 @@ grep -Fq '.enum_frame_interval = ov8856_enum_frame_interval' \
     "$work/linux-$version/drivers/media/i2c/ov8856.c"
 grep -Fq '.get_selection = ov8856_get_selection' \
     "$work/linux-$version/drivers/media/i2c/ov8856.c"
+grep -Fxq 'CONFIG_V4L2_FLASH_LED_CLASS=m' \
+    "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fq 'flash-leds = <&nabu_rear_flash>;' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi"
 test -s "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts"
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
@@ -82,6 +86,7 @@ fi
 for setting in \
 	'CONFIG_VIDEO_QCOM_IRIS=m' \
 	'CONFIG_VIDEO_QCOM_CAMSS=m' \
+	'CONFIG_V4L2_FLASH_LED_CLASS=m' \
 	'CONFIG_I2C_QCOM_CCI=y' \
 	'CONFIG_SM_CAMCC_8150=y' \
 	'CONFIG_SM_VIDEOCC_8150=y' \

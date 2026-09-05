@@ -1,0 +1,65 @@
+From f6872653aa9e2de6c69d986482382956cad48d79 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 00:47:30 +0300
+Subject: [PATCH] media: connect Nabu rear flash to camera
+
+---
+ Documentation/devicetree/bindings/media/i2c/ovti,ov13b10.yaml | 2 ++
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi       | 1 +
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts               | 2 +-
+ senemos/configs/nabu-minimal.config                           | 1 +
+ 4 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/media/i2c/ovti,ov13b10.yaml b/Documentation/devicetree/bindings/media/i2c/ovti,ov13b10.yaml
+index 9b869b7d4..50a0a71a1 100644
+--- a/Documentation/devicetree/bindings/media/i2c/ovti,ov13b10.yaml
++++ b/Documentation/devicetree/bindings/media/i2c/ovti,ov13b10.yaml
+@@ -47,6 +47,8 @@ properties:
+     description: Active-low XSHUTDOWN signal.
+     maxItems: 1
+ 
++  flash-leds: true
++
+   orientation: true
+ 
+   rotation: true
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
+index 970e14094..eef717da6 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
+@@ -455,6 +455,7 @@ ov13b10: camera@10 {
+ 		avdd-supply = <&camera_rear_vana_3p0>;
+ 		dvdd-supply = <&camera_vdig_1p2>;
+ 		lens-focus = <&cn3927>;
++		flash-leds = <&nabu_rear_flash>;
+ 
+ 		orientation = <1>;
+ 		rotation = <270>;
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index c547f69d6..72f5facf5 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -889,7 +889,7 @@ &pm8150b_vbus {
+ &pm8150l_flash {
+ 	status = "okay";
+ 
+-	led-0 {
++	nabu_rear_flash: led-0 {
+ 		function = LED_FUNCTION_FLASH;
+ 		color = <LED_COLOR_ID_WHITE>;
+ 		led-sources = <1>;
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 67834bf61..17e30e136 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -173,6 +173,7 @@ CONFIG_I2C_QCOM_CCI=y
+ CONFIG_SM_CAMCC_8150=y
+ CONFIG_SM_VIDEOCC_8150=y
+ CONFIG_VIDEO_QCOM_CAMSS=m
++CONFIG_V4L2_FLASH_LED_CLASS=m
+ CONFIG_VIDEO_OV13B10=m
+ CONFIG_VIDEO_OV8856=m
+ CONFIG_VIDEO_CN3927=m
+-- 
+2.55.0
+
