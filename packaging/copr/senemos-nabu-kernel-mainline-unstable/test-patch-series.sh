@@ -222,13 +222,14 @@ grep -Fq 'return dev_err_probe(&pdev->dev, -EPROBE_DEFER,' \
     "$work/linux-$version/drivers/gpu/drm/msm/dsi/dsi.c"
 grep -Fq 'alloc_ordered_workqueue("nvt_esd_check_wq", WQ_MEM_RECLAIM);' \
     "$work/linux-$version/drivers/input/touchscreen/nt36523/nt36xxx.c"
-# Trigger STOP must not invalidate the active ASM setup state. Otherwise the
-# next capture prepare reopens stream 1 without closing it and ADSP_EALREADY
-# loops at PipeWire retry frequency.
+# Trigger STOP must preserve the active ASM setup state so the next prepare
+# closes it, but it must not wait for the optional rendered-EOS event. Nabu's
+# ADSP does not reliably emit that event and the extra wait stalls stream close.
 q6asm_dai="$work/linux-$version/sound/soc/qcom/qdsp6/q6asm-dai.c"
 test "$(grep -c 'prtd->state = Q6ASM_STREAM_STOPPED;' "$q6asm_dai")" -eq 1
-grep -A8 -F 'init_completion(&prtd->eos_done);' "$q6asm_dai" \
-    | grep -Fq 'complete_all(&prtd->eos_done);'
+! grep -Fq 'eos_done' "$q6asm_dai"
+grep -A4 -F 'case SNDRV_PCM_TRIGGER_STOP:' "$q6asm_dai" \
+    | grep -Fq 'CMD_EOS'
 resv_line=$(grep -n -F 'obj->resv = r_obj->resv;' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_gem.c" | cut -d: -f1)
 gem_init_line=$(grep -n -F 'ret = drm_gem_object_init(dev, obj, size);' \

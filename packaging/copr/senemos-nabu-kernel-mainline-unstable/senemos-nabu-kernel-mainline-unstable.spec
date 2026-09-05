@@ -125,6 +125,7 @@ Patch0105:      0105-media-iris-decouple-split-capture-and-DPB-counts.patch
 Patch0106:      0106-slimbus-qcom-ngd-retry-recovery-after-ADSP-SSR.patch
 Patch0107:      0107-media-iris-honor-VP9-firmware-capture-minimum.patch
 Patch0108:      0108-slimbus-qcom-ngd-use-default-unbound-workqueue.patch
+Patch0109:      0109-ASoC-qcom-drop-unreliable-rendered-EOS-wait.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
