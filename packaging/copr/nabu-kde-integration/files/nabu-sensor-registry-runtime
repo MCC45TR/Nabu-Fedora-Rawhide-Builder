@@ -1,0 +1,35 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+source_root=${NABU_SENSOR_SOURCE_ROOT:-/usr/lib/firmware/qcom/sm8150/xiaomi/nabu/hexagonfs}
+runtime_root=${NABU_SENSOR_RUNTIME_ROOT:-/run/senemos-nabu-sensors/hexagonfs}
+runtime_user=${NABU_SENSOR_RUNTIME_USER:-fastrpc}
+runtime_group=${NABU_SENSOR_RUNTIME_GROUP:-fastrpc}
+staging_root=${runtime_root}.new
+
+if [[ ! -f ${source_root}/sensors/sns_reg.conf ||
+      ! -d ${source_root}/sensors/registry ]]; then
+	printf 'Nabu sensor registry source is incomplete: %s\n' "$source_root" >&2
+	exit 1
+fi
+
+case "$runtime_root" in
+	/run/senemos-nabu-sensors/hexagonfs|${TMPDIR:-/tmp}/*)
+		;;
+	*)
+		printf 'Refusing unexpected sensor runtime path: %s\n' "$runtime_root" >&2
+		exit 1
+		;;
+esac
+
+install -d -m 0755 "$(dirname -- "$runtime_root")"
+rm -rf -- "$staging_root"
+install -d -m 0750 "$staging_root"
+cp -a -- "$source_root"/. "$staging_root"/
+chown -R -- "$runtime_user:$runtime_group" "$staging_root"
+
+rm -rf -- "$runtime_root"
+mv -- "$staging_root" "$runtime_root"
+
+test -r "$runtime_root/sensors/sns_reg.conf"
+test -w "$runtime_root/sensors/registry"

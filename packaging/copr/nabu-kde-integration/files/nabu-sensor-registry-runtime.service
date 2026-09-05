@@ -1,0 +1,15 @@
+[Unit]
+Description=Prepare a volatile writable Nabu SSC sensor registry
+ConditionPathExists=/dev/fastrpc-sdsp
+ConditionPathIsDirectory=/usr/lib/firmware/qcom/sm8150/xiaomi/nabu/hexagonfs/sensors/registry
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/senemos-nabu/nabu-sensor-registry-runtime
+RuntimeDirectory=senemos-nabu-sensors
+RuntimeDirectoryMode=0755
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/run/senemos-nabu-sensors

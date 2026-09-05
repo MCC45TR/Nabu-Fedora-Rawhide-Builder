@@ -37,6 +37,10 @@ rpm -qp --requires "$meta" | grep -Fx 'kwin >= 6.7.4'
 
 rpm -qpl "$runtime" | grep -Fx '/usr/bin/senemos-nabu-status'
 rpm -qpl "$runtime" | grep -Fx '/usr/lib/systemd/system/nabu-slpi-suspend.service'
+rpm -qpl "$runtime" | grep -Fx '/usr/libexec/senemos-nabu/nabu-sensor-registry-runtime'
+rpm -qpl "$runtime" | grep -Fx '/usr/lib/systemd/system/nabu-sensor-registry-runtime.service'
+rpm -qpl "$runtime" | grep -Fx '/usr/lib/systemd/system/hexagonrpcd-sdsp.service.d/20-nabu-runtime-registry.conf'
+rpm -qpl "$runtime" | grep -Fx '/usr/lib/systemd/system/user@.service.d/90-nabu-compositor-realtime.conf'
 ! rpm -qpl "$runtime" | grep -Fq 'nabu-slpi-start'
 rpm -qpl "$runtime" | grep -Fx '/usr/lib/systemd/system/mnt-vendor-persist.mount'
 ! rpm -qpl "$runtime" | grep -Eq '^/mnt(/|$)'
@@ -58,17 +62,42 @@ grep -Fq 'sensorproxy-als' "$project_dir/files/senemos-nabu-status"
 grep -Fq 'sensorproxy-accel' "$project_dir/files/senemos-nabu-status"
 grep -Fq 'available; currently unclaimed' "$project_dir/files/senemos-nabu-status"
 grep -Fq 'slpi-remoteproc' "$project_dir/files/senemos-nabu-status"
+grep -Fq 'sensor-registry-runtime' "$project_dir/files/senemos-nabu-status"
 grep -Fx 'enable iio-sensor-proxy.service' "$project_dir/files/90-senemos-nabu.preset"
 ! grep -Fq 'nabu-slpi-start.service' "$project_dir/files/90-senemos-nabu.preset"
 grep -Fx 'disable hexagonrpcd-adsp-sensorspd.service' "$project_dir/files/90-senemos-nabu.preset"
 ! grep -Fq 'hexagonrpcd-adsp-sensorspd.service' "$project_dir/files/10-nabu-sensor-stack.conf"
 grep -Fx 'WantedBy=multi-user.target' "$project_dir/files/10-nabu-sensor-stack.conf"
+grep -Fx 'ExecStartPre=/usr/bin/sleep 10' "$project_dir/files/10-nabu-sensor-stack.conf"
+grep -Fx 'Requires=nabu-sensor-registry-runtime.service' "$project_dir/files/20-nabu-runtime-registry.conf"
+grep -Fx 'ExecStart=/usr/bin/hexagonrpcd -f /dev/fastrpc-sdsp -d sdsp -s -R /run/senemos-nabu-sensors/hexagonfs' "$project_dir/files/20-nabu-runtime-registry.conf"
+grep -Fx 'LimitRTPRIO=1' "$project_dir/files/90-nabu-compositor-realtime.conf"
+rpmspec -P "$project_dir/senemos-nabu-kde.spec" | grep -F 'nabu-sensor-registry-runtime.service'
+rpmspec -P "$project_dir/senemos-nabu-kde.spec" | grep -F 'hexagonrpcd-sdsp.service'
 grep -Fx 'LidAction=32' "$project_dir/files/powerdevilrc"
 ! grep -Fq 'nabu-kde-scale-migration.service' "$project_dir/files/90-senemos-nabu-user.preset"
 jq -e 'length == 0' "$project_dir/files/kwinoutputconfig.json" >/dev/null
 python3 -m py_compile \
     "$project_dir/files/nabu-audio-orientation"
 python3 -m py_compile "$project_dir/files/senemos-nabu-display-profile"
+
+bash -n "$project_dir/files/nabu-sensor-registry-runtime"
+registry_mock="$(mktemp -d "${TMPDIR:-/tmp}/senemos-nabu-registry-mock.XXXXXX")"
+install -d "$registry_mock/source/sensors/registry"
+printf 'version=6\n' >"$registry_mock/source/sensors/sns_reg.conf"
+printf '{}\n' >"$registry_mock/source/sensors/registry/factory-calibration"
+NABU_SENSOR_SOURCE_ROOT="$registry_mock/source" \
+NABU_SENSOR_RUNTIME_ROOT="$registry_mock/runtime/hexagonfs" \
+NABU_SENSOR_RUNTIME_USER="$(id -un)" \
+NABU_SENSOR_RUNTIME_GROUP="$(id -gn)" \
+    "$project_dir/files/nabu-sensor-registry-runtime"
+test -w "$registry_mock/runtime/hexagonfs/sensors/registry"
+[[ $(stat -c '%a' "$registry_mock/runtime") == 755 ]]
+grep -Fx '{}' "$registry_mock/runtime/hexagonfs/sensors/registry/factory-calibration"
+test ! -e "$registry_mock/source/sensors/registry/temp.json"
+printf '{}\n' >"$registry_mock/runtime/hexagonfs/sensors/registry/temp.json"
+test -s "$registry_mock/runtime/hexagonfs/sensors/registry/temp.json"
+rm -rf -- "$registry_mock"
 
 (
     slpi_mock_dir="$(mktemp -d "${TMPDIR:-/tmp}/senemos-nabu-slpi-mock.XXXXXX")"
@@ -200,6 +229,10 @@ test -s "$payload_root/etc/xdg/powerdevilrc"
 test ! -e "$payload_root/usr/libexec/senemos-nabu/nabu-kde-scale-migration"
 test ! -e "$payload_root/usr/lib/systemd/user/nabu-kde-scale-migration.service"
 test -s "$payload_root/usr/lib/systemd/system/iio-sensor-proxy.service.d/10-nabu-sensor-stack.conf"
+test -x "$payload_root/usr/libexec/senemos-nabu/nabu-sensor-registry-runtime"
+test -s "$payload_root/usr/lib/systemd/system/nabu-sensor-registry-runtime.service"
+test -s "$payload_root/usr/lib/systemd/system/hexagonrpcd-sdsp.service.d/20-nabu-runtime-registry.conf"
+test -s "$payload_root/usr/lib/systemd/system/user@.service.d/90-nabu-compositor-realtime.conf"
 test ! -e "$payload_root/usr/libexec/senemos-nabu/nabu-slpi-start"
 test ! -e "$payload_root/usr/lib/systemd/system/nabu-slpi-start.service"
 test -s "$payload_root/usr/lib/systemd/system/mnt-vendor-persist.mount"
