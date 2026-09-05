@@ -133,6 +133,8 @@ Patch0113:      0113-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-level.patc
 Patch0114:      0114-media-qcom-iris-get-instance-from-file-in-streamparm.patch
 Patch0115:      0115-media-qcom-iris-use-vpu5-buffer-count-layout.patch
 Patch0116:      0116-ASoC-wcd934x-do-not-report-normal-port-close-as-xrun.patch
+Patch0117:      0117-media-qcom-iris-use-vb2-buffer-counts-on-vpu5.patch
+Patch0118:      0118-media-qcom-iris-disable-vpu5-power-collapse-at-core-init.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
