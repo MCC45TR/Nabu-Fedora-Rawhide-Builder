@@ -115,6 +115,8 @@ Patch0095:      0095-ASoC-qcom-keep-q6asm-setup-state-through-trigger-stop.patch
 Patch0096:      0096-HID-enable-UHID-for-Bluetooth-LE-input-devices.patch
 Patch0097:      0097-Input-nabu-use-explicit-modern-workqueue-modes.patch
 Patch0098:      0098-power-supply-qcom_smbx-use-explicit-per-CPU-workqueu.patch
+Patch0099:      0099-power-supply-ln8000-use-explicit-per-CPU-workqueue.patch
+Patch0100:      0100-drm-msm-preserve-firmware-dual-DSI-handoff-clocks.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -343,6 +345,11 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Preserve active dual-DSI scanout clocks until the display driver owns them.
+- Treat expected DSI PHY probe deferral as debug state instead of an error.
+- Move LN8000 status and charge work to the explicit per-CPU system queue.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Move SMB5 thermal policy polling off the deprecated system workqueue alias.
 - Keep charger policy work on the explicit per-CPU queue used by delayed work.

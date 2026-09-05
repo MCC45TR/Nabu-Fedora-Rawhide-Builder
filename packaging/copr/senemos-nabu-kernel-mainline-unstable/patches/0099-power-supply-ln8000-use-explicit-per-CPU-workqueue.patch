@@ -1,0 +1,72 @@
+From bfe87ec1e2da83da7f8c83548db5a5a9ec6419b7 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 09:58:47 +0300
+Subject: [PATCH] power: supply: ln8000: use explicit per-CPU workqueue
+
+---
+ drivers/power/supply/ln8000_charger.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/power/supply/ln8000_charger.c b/drivers/power/supply/ln8000_charger.c
+index f0183117d25a..0a2919c0cad5 100644
+--- a/drivers/power/supply/ln8000_charger.c
++++ b/drivers/power/supply/ln8000_charger.c
+@@ -1118,8 +1118,8 @@ static void psy_chg_get_ti_alarm_status(struct work_struct *work)
+ 	ln_info("st:0x%x:0x%x:0x%x:0x%x\n", val[0], val[1], val[2], val[3]);
+ 
+ 	if (info->chg_en)
+-		schedule_delayed_work(&info->charge_work,
+-				      msecs_to_jiffies(1000));
++		queue_delayed_work(system_percpu_wq, &info->charge_work,
++				   msecs_to_jiffies(1000));
+ 
+ 	return;
+ 
+@@ -1583,7 +1583,7 @@ static void ln8000_status_changed_worker(struct work_struct *work)
+ 			psy_chg_set_charging_enable(chip, false);
+ 		}
+ 		if (enable)
+-			mod_delayed_work(system_wq, &chip->charge_work, 0);
++			mod_delayed_work(system_percpu_wq, &chip->charge_work, 0);
+ 		else
+ 			cancel_delayed_work(&chip->charge_work);
+ 	}
+@@ -1599,7 +1599,7 @@ static int ln8000_notifier_call(struct notifier_block *nb, unsigned long val,
+ 
+ 	if ((psy == chip->typec_psy || psy == chip->switching_psy) &&
+ 	    !READ_ONCE(chip->suspended))
+-		mod_delayed_work(system_wq, &chip->status_changed_work,
++		mod_delayed_work(system_percpu_wq, &chip->status_changed_work,
+ 				 msecs_to_jiffies(100));
+ 
+ 	return NOTIFY_OK;
+@@ -1720,7 +1720,7 @@ static int ln8000_probe(struct i2c_client *client)
+ 			"failed to register power-supply notifier\n");
+ 	}
+ 	info->notifier_registered = true;
+-	mod_delayed_work(system_wq, &info->status_changed_work, 0);
++	mod_delayed_work(system_percpu_wq, &info->status_changed_work, 0);
+ 
+ 	return 0;
+ }
+@@ -1762,7 +1762,7 @@ static int ln8000_suspend(struct device *dev)
+ 	ret = psy_chg_set_charging_enable(info, false);
+ 	if (ret) {
+ 		WRITE_ONCE(info->suspended, false);
+-		mod_delayed_work(system_wq, &info->status_changed_work, 0);
++		mod_delayed_work(system_percpu_wq, &info->status_changed_work, 0);
+ 		return dev_err_probe(dev, ret,
+ 				     "failed to enter safe suspend state\n");
+ 	}
+@@ -1787,7 +1787,7 @@ static int ln8000_resume(struct device *dev)
+ 		info->irq_wake_enabled = false;
+ 	}
+ 	WRITE_ONCE(info->suspended, false);
+-	mod_delayed_work(system_wq, &info->status_changed_work, 0);
++	mod_delayed_work(system_percpu_wq, &info->status_changed_work, 0);
+ 
+ 	return 0;
+ }
+-- 
+2.55.0
+

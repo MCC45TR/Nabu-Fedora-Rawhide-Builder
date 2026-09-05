@@ -190,6 +190,14 @@ grep -A36 -F 'static void a6xx_set_pagetable' \
     | grep -Fq 'CP_EVENT_WRITE_0_EVENT(PC_CCU_INVALIDATE_COLOR)'
 grep -Fq 'mod_delayed_work(system_percpu_wq, &keyboard->detect_work,' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+test "$(grep -c 'mod_delayed_work(system_percpu_wq, &.*status_changed_work' \
+    "$work/linux-$version/drivers/power/supply/ln8000_charger.c")" -eq 4
+grep -Fq 'queue_delayed_work(system_percpu_wq, &info->charge_work,' \
+    "$work/linux-$version/drivers/power/supply/ln8000_charger.c"
+test "$(grep -c 'CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED' \
+    "$work/linux-$version/drivers/clk/qcom/dispcc-sm8250.c")" -eq 6
+grep -Fq 'return dev_err_probe(&pdev->dev, -EPROBE_DEFER,' \
+    "$work/linux-$version/drivers/gpu/drm/msm/dsi/dsi.c"
 grep -Fq 'alloc_ordered_workqueue("nvt_esd_check_wq", WQ_MEM_RECLAIM);' \
     "$work/linux-$version/drivers/input/touchscreen/nt36523/nt36xxx.c"
 # Trigger STOP must not invalidate the active ASM setup state. Otherwise the
