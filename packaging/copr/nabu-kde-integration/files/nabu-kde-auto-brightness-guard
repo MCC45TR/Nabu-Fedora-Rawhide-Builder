@@ -1,0 +1,109 @@
+#!/usr/bin/python3
+"""Repair only clearly collapsed Nabu KWin automatic-brightness curves.
+
+Stock KWin intentionally learns from manual brightness changes.  On Nabu, a
+bad sensor transient can compress several curve points around zero lux and
+turn later sensor/display feedback into a climb toward maximum brightness.
+This login-time guard keeps valid learned curves, and restores the measured
+Android-derived baseline only when the DSI-1 curve is structurally unsafe.
+"""
+
+import json
+import math
+import os
+from pathlib import Path
+import shutil
+import tempfile
+
+
+SAFE_CURVE = [
+    -3.20176853966701,
+    34.970977888676,
+    194.969856211704,
+    1019.04321965955,
+    2031.9863105125,
+    2383.34012739443,
+    2734.69394427636,
+    3086.04776115829,
+    5122.65304622817,
+    13917.4136651532,
+    100000.0,
+]
+
+
+def unsafe_curve(curve):
+    if not isinstance(curve, list) or len(curve) != len(SAFE_CURVE):
+        return True
+    if any(
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        for value in curve
+    ):
+        return True
+    if any(high <= low for low, high in zip(curve, curve[1:])):
+        return True
+
+    # A healthy Nabu curve has one sub-zero interpolation point. Multiple
+    # non-positive points or a near-zero midpoint are signatures of the
+    # observed feedback collapse, not ordinary user preference learning.
+    return (
+        sum(value <= 0 for value in curve) > 1
+        or curve[5] < 10
+        or curve[-1] < 1000
+    )
+
+
+def main():
+    home = Path.home()
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
+    state_home = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state"))
+    config = Path(
+        os.environ.get(
+            "NABU_KWIN_OUTPUT_CONFIG", config_home / "kwinoutputconfig.json"
+        )
+    )
+    if not config.is_file():
+        return
+
+    with config.open("r", encoding="utf-8") as stream:
+        document = json.load(stream)
+
+    changed = False
+    for section in document:
+        if section.get("name") != "outputs":
+            continue
+        for output in section.get("data", []):
+            if output.get("connectorName") != "DSI-1":
+                continue
+            if output.get("automaticBrightness") is not True:
+                continue
+            if unsafe_curve(output.get("autoBrightnessCurve")):
+                output["autoBrightnessCurve"] = SAFE_CURVE.copy()
+                changed = True
+
+    if not changed:
+        return
+
+    backup = state_home / "senemos-nabu" / "kwinoutputconfig.pre-brightness-guard.json"
+    backup.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if not backup.exists():
+        shutil.copy2(config, backup)
+        backup.chmod(0o600)
+
+    config.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=config.parent, delete=False
+    ) as stream:
+        json.dump(document, stream, ensure_ascii=False, indent=4)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+        temporary = Path(stream.name)
+    temporary.chmod(0o600)
+    temporary.replace(config)
+    print("Restored the safe Nabu automatic-brightness curve for DSI-1")
+
+
+if __name__ == "__main__":
+    main()

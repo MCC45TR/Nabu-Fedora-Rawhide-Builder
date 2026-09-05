@@ -26,7 +26,7 @@ for rpm_file in "$runtime" "$profile" "$meta"; do
 done
 
 rpm -qp --requires "$runtime" | grep -Fx 'kernel-nabu-core-uname-r'
-rpm -qp --requires "$runtime" | grep -F 'iio-sensor-proxy-nabu >= 3.9-104.nabu5.test'
+rpm -qp --requires "$runtime" | grep -F 'iio-sensor-proxy-nabu >= 3.9-117.nabu15.test'
 rpm -qp --requires "$runtime" | grep -Fx tuned
 ! rpm -qp --requires "$runtime" | grep -Fxq kscreen
 rpm -qp --requires "$profile" | grep -F 'nabu-runtime-integration = '
@@ -51,7 +51,8 @@ rpm -qpl "$runtime" | grep -Fx '/usr/lib/systemd/system/iio-sensor-proxy.service
 rpm -qpl "$profile" | grep -Fx '/etc/xdg/kwinoutputconfig.json'
 rpm -qpl "$profile" | grep -Fx '/etc/xdg/powerdevilrc'
 rpm -qpl "$profile" | grep -Fx '/usr/bin/senemos-nabu-display-profile'
-! rpm -qpl "$profile" | grep -Fq 'nabu-kde-scale-migration'
+rpm -qpl "$profile" | grep -Fx '/usr/libexec/senemos-nabu/nabu-kde-auto-brightness-guard'
+rpm -qpl "$profile" | grep -Fx '/usr/lib/systemd/user/nabu-kde-auto-brightness-guard.service'
 
 bash -n "$project_dir/files/nabu-slpi-suspend"
 ! grep -Fq 'nabu-display-resume' "$project_dir/files/nabu-slpi-suspend"
@@ -75,11 +76,13 @@ grep -Fx 'LimitRTPRIO=1' "$project_dir/files/90-nabu-compositor-realtime.conf"
 rpmspec -P "$project_dir/senemos-nabu-kde.spec" | grep -F 'nabu-sensor-registry-runtime.service'
 rpmspec -P "$project_dir/senemos-nabu-kde.spec" | grep -F 'hexagonrpcd-sdsp.service'
 grep -Fx 'LidAction=32' "$project_dir/files/powerdevilrc"
-! grep -Fq 'nabu-kde-scale-migration.service' "$project_dir/files/90-senemos-nabu-user.preset"
+grep -Fx 'enable nabu-kde-auto-brightness-guard.service' "$project_dir/files/90-senemos-nabu-user.preset"
 jq -e 'length == 0' "$project_dir/files/kwinoutputconfig.json" >/dev/null
 python3 -m py_compile \
     "$project_dir/files/nabu-audio-orientation"
 python3 -m py_compile "$project_dir/files/senemos-nabu-display-profile"
+python3 -m py_compile "$project_dir/files/nabu-kde-auto-brightness-guard"
+python3 "$project_dir/tests/test-auto-brightness-guard.py"
 
 bash -n "$project_dir/files/nabu-sensor-registry-runtime"
 registry_mock="$(mktemp -d "${TMPDIR:-/tmp}/senemos-nabu-registry-mock.XXXXXX")"
@@ -226,8 +229,8 @@ test ! -e "$payload_root/usr/libexec/senemos-nabu/nabu-display-resume"
 test ! -e "$payload_root/usr/libexec/senemos-nabu/nabu-sddm-kwin-wayland"
 test -s "$payload_root/etc/xdg/kwinoutputconfig.json"
 test -s "$payload_root/etc/xdg/powerdevilrc"
-test ! -e "$payload_root/usr/libexec/senemos-nabu/nabu-kde-scale-migration"
-test ! -e "$payload_root/usr/lib/systemd/user/nabu-kde-scale-migration.service"
+test -x "$payload_root/usr/libexec/senemos-nabu/nabu-kde-auto-brightness-guard"
+test -s "$payload_root/usr/lib/systemd/user/nabu-kde-auto-brightness-guard.service"
 test -s "$payload_root/usr/lib/systemd/system/iio-sensor-proxy.service.d/10-nabu-sensor-stack.conf"
 test -x "$payload_root/usr/libexec/senemos-nabu/nabu-sensor-registry-runtime"
 test -s "$payload_root/usr/lib/systemd/system/nabu-sensor-registry-runtime.service"

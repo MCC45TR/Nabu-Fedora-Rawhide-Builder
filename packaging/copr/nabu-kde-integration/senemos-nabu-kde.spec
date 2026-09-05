@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           nabu-kde-integration
 Version:        1.4.0.1
-Release:        8.test%{?dist}
+Release:        9.test%{?dist}
 Summary:        KDE Plasma integration for Xiaomi Pad 5 (nabu)
 License:        MIT
 URL:            https://github.com/mcc45tr
@@ -52,7 +52,7 @@ Requires:       tuned
 Requires:       tuned-ppd
 Requires:       upower
 Requires:       hexagonrpc-nabu >= 0.4.0-100.nabu1
-Requires:       iio-sensor-proxy-nabu >= 3.9-104.nabu5.test
+Requires:       iio-sensor-proxy-nabu >= 3.9-117.nabu15.test
 Requires:       libssc-nabu >= 0.4.1-101.nabu4
 Requires:       nabu-audio-config >= 1-3.nabu1
 Requires:       kernel-nabu-core-uname-r
@@ -120,10 +120,14 @@ install -Dm0644 runtime/fastfetch-config.jsonc \
 
 install -Dm0755 kde/nabu-audio-orientation \
     %{buildroot}%{_libexecdir}/senemos-nabu/nabu-audio-orientation
+install -Dm0755 kde/nabu-kde-auto-brightness-guard \
+    %{buildroot}%{_libexecdir}/senemos-nabu/nabu-kde-auto-brightness-guard
 install -Dm0755 kde/senemos-nabu-display-profile \
     %{buildroot}%{_bindir}/senemos-nabu-display-profile
 install -Dm0644 kde/nabu-audio-orientation.service \
     %{buildroot}%{_userunitdir}/nabu-audio-orientation.service
+install -Dm0644 kde/nabu-kde-auto-brightness-guard.service \
+    %{buildroot}%{_userunitdir}/nabu-kde-auto-brightness-guard.service
 install -Dm0644 kde/90-nabu-kde.preset \
     %{buildroot}%{_userpresetdir}/90-nabu-kde.preset
 install -Dm0644 kde/90-senemos-nabu-startupsound.conf \
@@ -179,13 +183,13 @@ if [ -x /usr/bin/systemctl ]; then
 fi
 
 %post -n nabu-kde-config
-%systemd_user_post nabu-audio-orientation.service
+%systemd_user_post nabu-audio-orientation.service nabu-kde-auto-brightness-guard.service
 
 %preun -n nabu-kde-config
-%systemd_user_preun nabu-audio-orientation.service
+%systemd_user_preun nabu-audio-orientation.service nabu-kde-auto-brightness-guard.service
 
 %postun -n nabu-kde-config
-%systemd_user_postun_with_restart nabu-audio-orientation.service
+%systemd_user_postun_with_restart nabu-audio-orientation.service nabu-kde-auto-brightness-guard.service
 
 %files
 %license LICENSE
@@ -221,8 +225,10 @@ fi
 %doc README.md
 %dir %{_libexecdir}/senemos-nabu
 %{_libexecdir}/senemos-nabu/nabu-audio-orientation
+%{_libexecdir}/senemos-nabu/nabu-kde-auto-brightness-guard
 %{_bindir}/senemos-nabu-display-profile
 %{_userunitdir}/nabu-audio-orientation.service
+%{_userunitdir}/nabu-kde-auto-brightness-guard.service
 %{_userpresetdir}/90-nabu-kde.preset
 %dir %{_userunitdir}/plasma-startupsound.service.d
 %{_userunitdir}/plasma-startupsound.service.d/90-senemos-nabu.conf
@@ -230,6 +236,12 @@ fi
 %config(noreplace) %{_sysconfdir}/xdg/powerdevilrc
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-9.test
+- Restore the Android-derived Nabu brightness curve only when KWin's learned
+  DSI-1 curve has structurally collapsed near zero lux.
+- Run the guard once at login before stock KWin, with no resident process.
+- Require the bounded front/rear SensorProxy policy that rejects rear flash.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-8.test
 - Allow the user service manager only the minimum real-time priority requested
   by stock KWin for compositor, input and DRM commit scheduling.

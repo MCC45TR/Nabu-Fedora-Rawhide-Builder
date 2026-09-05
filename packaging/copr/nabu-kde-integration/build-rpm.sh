@@ -45,8 +45,12 @@ install -m0644 "${files_dir}/90-nabu-mcc45tr.hwdb" "$source_root/runtime/90-nabu
 install -m0644 "${files_dir}/fastfetch-config.jsonc" "$source_root/runtime/fastfetch-config.jsonc"
 
 install -m0755 "${files_dir}/nabu-audio-orientation" "$source_root/kde/nabu-audio-orientation"
+install -m0755 "${files_dir}/nabu-kde-auto-brightness-guard" \
+    "$source_root/kde/nabu-kde-auto-brightness-guard"
 install -m0755 "${files_dir}/senemos-nabu-display-profile" "$source_root/kde/senemos-nabu-display-profile"
 install -m0644 "${files_dir}/nabu-audio-orientation.service" "$source_root/kde/nabu-audio-orientation.service"
+install -m0644 "${files_dir}/nabu-kde-auto-brightness-guard.service" \
+    "$source_root/kde/nabu-kde-auto-brightness-guard.service"
 install -m0644 "${files_dir}/90-senemos-nabu-user.preset" "$source_root/kde/90-nabu-kde.preset"
 install -m0644 "${files_dir}/90-senemos-nabu-startupsound.conf" "$source_root/kde/90-senemos-nabu-startupsound.conf"
 install -m0644 "${files_dir}/kwinoutputconfig.json" "$source_root/kde/kwinoutputconfig.json"

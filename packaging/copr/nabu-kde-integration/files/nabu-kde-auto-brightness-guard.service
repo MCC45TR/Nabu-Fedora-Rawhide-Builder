@@ -1,0 +1,11 @@
+[Unit]
+Description=Validate the Nabu automatic-brightness curve
+Before=plasma-kwin_wayland.service
+ConditionPathExists=%h/.config/kwinoutputconfig.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/senemos-nabu/nabu-kde-auto-brightness-guard
+
+[Install]
+WantedBy=default.target

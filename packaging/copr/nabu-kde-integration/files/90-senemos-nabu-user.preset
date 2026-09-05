@@ -1,1 +1,2 @@
 enable nabu-audio-orientation.service
+enable nabu-kde-auto-brightness-guard.service
