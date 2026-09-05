@@ -104,3 +104,4 @@ fb55ab0fe2821fc76bd9bcd9bc77763d75a242fd3555b62088b35919abf876d8  0100-drm-msm-p
 158fe99fcc56bc2ae6d5ae09cd5742246df9f3243dc9c93b4c3c2a82fbe4e65e  0104-media-iris-keep-polling-for-initial-source-change.patch
 3f28919d902ab8efc9539d7cdf0cf63d94b6496762515b11ddc28fac4c32d9fa  0105-media-iris-decouple-split-capture-and-DPB-counts.patch
 1996fcf47b70c05a29c476d04353de4c7b7f4de41932863dffb2b85258aa1c96  0106-slimbus-qcom-ngd-retry-recovery-after-ADSP-SSR.patch
+3870fd33e924331c1514eec2e25e2b67b397d37fe55b9a4f5e73c981e4a42d71  0107-media-iris-honor-VP9-firmware-capture-minimum.patch

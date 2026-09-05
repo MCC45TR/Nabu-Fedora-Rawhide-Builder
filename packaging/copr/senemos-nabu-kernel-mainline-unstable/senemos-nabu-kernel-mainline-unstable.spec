@@ -123,6 +123,7 @@ Patch0103:      0103-Input-use-Nabu-pogo-edge-protocol-for-computer-mode.patch
 Patch0104:      0104-media-iris-keep-polling-for-initial-source-change.patch
 Patch0105:      0105-media-iris-decouple-split-capture-and-DPB-counts.patch
 Patch0106:      0106-slimbus-qcom-ngd-retry-recovery-after-ADSP-SSR.patch
+Patch0107:      0107-media-iris-honor-VP9-firmware-capture-minimum.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -352,6 +353,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Honor the VP9 firmware capture-buffer minimum after source change so vb2
+  allocates enough client buffers instead of sending an invalid count to VPU5.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Prevent a transient empty-queue state from aborting Iris stateful decode
   before userspace receives the initial source-change event.
