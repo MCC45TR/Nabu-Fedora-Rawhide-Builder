@@ -119,7 +119,7 @@ Patch0099:      0099-power-supply-ln8000-use-explicit-per-CPU-workqueue.patch
 Patch0100:      0100-drm-msm-preserve-firmware-dual-DSI-handoff-clocks.patch
 Patch0101:      0101-Input-nabu-arm-keyboard-wake-only-while-attached.patch
 Patch0102:      0102-HID-enable-hidraw-for-Nabu-pogo-protocol-diagnostics.patch
-Patch0103:      0103-Input-derive-Nabu-computer-mode-from-real-pogo-acti.patch
+Patch0103:      0103-Input-use-Nabu-pogo-edge-protocol-for-computer-mode.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
