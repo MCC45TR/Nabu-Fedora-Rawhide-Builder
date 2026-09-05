@@ -190,6 +190,9 @@ grep -A36 -F 'static void a6xx_set_pagetable' \
     | grep -Fq 'CP_EVENT_WRITE_0_EVENT(PC_CCU_INVALIDATE_COLOR)'
 grep -Fq 'mod_delayed_work(system_percpu_wq, &keyboard->detect_work,' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+grep -A18 -F 'static int nabu_keyboard_suspend' \
+    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c" \
+    | grep -Fq '!device_may_wakeup(dev) || !connected'
 test "$(grep -c 'mod_delayed_work(system_percpu_wq, &.*status_changed_work' \
     "$work/linux-$version/drivers/power/supply/ln8000_charger.c")" -eq 4
 grep -Fq 'queue_delayed_work(system_percpu_wq, &info->charge_work,' \

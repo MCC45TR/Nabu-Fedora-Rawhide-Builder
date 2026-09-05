@@ -117,6 +117,7 @@ Patch0097:      0097-Input-nabu-use-explicit-modern-workqueue-modes.patch
 Patch0098:      0098-power-supply-qcom_smbx-use-explicit-per-CPU-workqueu.patch
 Patch0099:      0099-power-supply-ln8000-use-explicit-per-CPU-workqueue.patch
 Patch0100:      0100-drm-msm-preserve-firmware-dual-DSI-handoff-clocks.patch
+Patch0101:      0101-Input-nabu-arm-keyboard-wake-only-while-attached.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -346,6 +347,7 @@ fi
 
 %changelog
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Arm the keyboard-cover wake IRQ only while a cover is attached.
 - Preserve active dual-DSI scanout clocks until the display driver owns them.
 - Treat expected DSI PHY probe deferral as debug state instead of an error.
 - Move LN8000 status and charge work to the explicit per-CPU system queue.
