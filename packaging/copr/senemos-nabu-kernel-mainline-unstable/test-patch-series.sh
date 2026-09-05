@@ -114,8 +114,21 @@ for setting in \
     'CONFIG_BT_BNEP_MC_FILTER=y' \
     'CONFIG_BT_BNEP_PROTO_FILTER=y' \
     'CONFIG_HIDRAW=y' \
-    'CONFIG_UHID=y' \
-    'CONFIG_SCSI_UFS_QCOM=y' \
+	'CONFIG_UHID=y' \
+	'CONFIG_BLK_INLINE_ENCRYPTION=y' \
+	'CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK=y' \
+	'CONFIG_DM_INLINECRYPT=y' \
+	'CONFIG_DM_DEFAULT_KEY=y' \
+	'CONFIG_DM_CRYPT=m' \
+	'CONFIG_FS_ENCRYPTION=y' \
+	'CONFIG_FS_ENCRYPTION_ALGS=y' \
+	'CONFIG_FS_ENCRYPTION_INLINE_CRYPT=y' \
+	'CONFIG_F2FS_FS=m' \
+	'CONFIG_F2FS_FS_XATTR=y' \
+	'CONFIG_F2FS_FS_POSIX_ACL=y' \
+	'CONFIG_F2FS_FS_SECURITY=y' \
+	'CONFIG_QCOM_INLINE_CRYPTO_ENGINE=y' \
+	'CONFIG_SCSI_UFS_QCOM=y' \
     'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \
     'CONFIG_ATH10K_SNOC=m' \
     'CONFIG_USB_DWC3_DUAL_ROLE=y' \
@@ -132,6 +145,16 @@ for setting in \
         exit 1
     fi
 done
+dm_inlinecrypt="$work/linux-$version/drivers/md/dm-inlinecrypt.c"
+grep -Eq '^[[:space:]]*\.name[[:space:]]*=[[:space:]]*"default-key"' \
+    "$dm_inlinecrypt"
+grep -Fq 'ctx->key_type = BLK_CRYPTO_KEY_TYPE_HW_WRAPPED;' "$dm_inlinecrypt"
+grep -A24 -F 'static int default_key_map' "$dm_inlinecrypt" \
+    | grep -Fq 'bio_has_crypt_ctx(bio)'
+grep -A18 -F 'static struct target_type default_key_target' "$dm_inlinecrypt" \
+    | grep -Fq 'DM_TARGET_PASSES_CRYPTO'
+grep -Fq 'qcom_scm_has_wrapped_key_support()' \
+    "$work/linux-$version/drivers/soc/qcom/ice.c"
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
 grep -Fxq '# CONFIG_RPMB is not set' "$config_dir/.config"
 grep -Fq 'nvmem-cells = <&rtc_offset>;' \

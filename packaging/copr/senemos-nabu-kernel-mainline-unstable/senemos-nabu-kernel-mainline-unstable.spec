@@ -138,6 +138,7 @@ Patch0118:      0118-media-qcom-iris-disable-vpu5-power-collapse-at-core-init.pa
 Patch0119:      0119-media-i2c-expose-Nabu-sensor-geometry-and-frame-rate.patch
 Patch0120:      0120-media-connect-Nabu-rear-flash-to-camera.patch
 Patch0121:      0121-media-qcom-remove-Nabu-camera-bring-up-logging.patch
+Patch0122:      0122-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -288,6 +289,24 @@ grep -Fxq 'CONFIG_BT_RFCOMM=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_BT_BNEP=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_HIDRAW=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_UHID=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_BLK_INLINE_ENCRYPTION=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DM_INLINECRYPT=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DM_DEFAULT_KEY=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DM_CRYPT=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_FS_ENCRYPTION=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_FS_ENCRYPTION_INLINE_CRYPT=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_F2FS_FS=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_F2FS_FS_SECURITY=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_QCOM_INLINE_CRYPTO_ENGINE=y' %{buildroot}/boot/config-%{uname_r}
+grep -Eq '^[[:space:]]*\.name[[:space:]]*=[[:space:]]*"default-key"' \
+    drivers/md/dm-inlinecrypt.c
+grep -Fq 'ctx->key_type = BLK_CRYPTO_KEY_TYPE_HW_WRAPPED;' \
+    drivers/md/dm-inlinecrypt.c
+grep -A24 -F 'static int default_key_map' drivers/md/dm-inlinecrypt.c \
+    | grep -Fq 'bio_has_crypt_ctx(bio)'
+grep -A18 -F 'static struct target_type default_key_target' \
+    drivers/md/dm-inlinecrypt.c | grep -Fq 'DM_TARGET_PASSES_CRYPTO'
 recover_line=$(grep -n -F 'gpu->funcs->recover(gpu);' \
     drivers/gpu/drm/msm/msm_gpu.c | cut -d: -f1)
 retire_line=$(grep -n -F 'retire_submits(gpu);' \
@@ -324,7 +343,8 @@ test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
 # Built-in platform prerequisites (I2C_QCOM_CCI, SM_CAMCC_8150 and DMA-BUF
 # heaps) are validated through the config checks above.  Only loadable camera
 # and sensor drivers have module payloads to verify here.
-for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 qcom-ssc-cct; do
+for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 qcom-ssc-cct \
+    f2fs dm-crypt; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
 done
@@ -374,6 +394,8 @@ fi
 - Connect the rear flash LED to OV13B10 through the standard V4L2 flash class.
 - Remove OV8856 readback overhead and keep routine CAMSS frame diagnostics at
   debug level instead of filling the journal during camera use.
+- Restore F2FS and fscrypt, and add an Android options-format-v2 default-key
+  target that routes wrappedkey_v0 only through Qualcomm hardware-wrapped ICE.
 
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Sample the active-low pogo detect GPIO on both edges instead of toggling a
