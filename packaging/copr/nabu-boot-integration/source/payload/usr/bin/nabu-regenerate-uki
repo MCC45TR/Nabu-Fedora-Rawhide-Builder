@@ -79,7 +79,6 @@ uki="${vendor_dir}/${uki_name}"
 uki_tmp="${vendor_dir}/.${uki_name}.tmp.$$"
 legacy_uki="/boot/efi/EFI/fedora/fedora-${kver}.efi"
 family_entry="${loader_dir}/senemos-${uki_family}.conf"
-canonical_entry="${loader_dir}/senemos.conf"
 remoteproc_firmware=(
     usr/lib/firmware/qcom/sm8150/xiaomi/nabu/slpi_nb.mbn
     usr/lib/firmware/qcom/sm8150/xiaomi/nabu/cdsp.mbn
@@ -210,19 +209,14 @@ install -m0644 "$staged_uki" "$uki_tmp"
 mv -f "$uki_tmp" "$uki"
 rm -f "$legacy_uki"
 
-# Keep one manifest per managed family plus a compatibility manifest for the
-# requested default. Other families and user-installed EFI payloads survive.
+# Keep exactly one manifest per managed family. The selected boot manager
+# chooses its default without creating a second alias for the same UKI.
 install -d -m0755 "$loader_dir"
 entry_tmp=$(mktemp "$loader_dir/.senemos-${uki_family}.conf.XXXXXX")
 printf 'title Fedora Rawhide (%s %s)\nefi /EFI/fedora/%s\n' \
     "$uki_family" "$build_version" "$uki_name" >"$entry_tmp"
 chmod 0644 "$entry_tmp"
 mv -f "$entry_tmp" "$family_entry"
-entry_tmp=$(mktemp "$loader_dir/.senemos.conf.XXXXXX")
-printf 'title Fedora Rawhide (%s %s)\nefi /EFI/fedora/%s\n' \
-    "$uki_family" "$build_version" "$uki_name" >"$entry_tmp"
-chmod 0644 "$entry_tmp"
-mv -f "$entry_tmp" "$canonical_entry"
 if [[ -x /usr/bin/nabu-configure-boot-manager ]]; then
     /usr/bin/nabu-configure-boot-manager --sync-only --uki "$uki_name" || \
         printf 'Warning: selected Nabu boot-manager configuration could not be synchronized.\n' >&2

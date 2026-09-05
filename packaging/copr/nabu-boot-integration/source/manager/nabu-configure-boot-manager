@@ -189,6 +189,11 @@ if [[ -z $default_uki && -r $esp/loader/entries/senemos.conf ]]; then
     previous_family=$(managed_uki_family "$previous" 2>/dev/null || :)
     [[ -z $previous_family ]] || default_uki=${family_uki[$previous_family]:-}
 fi
+if [[ -z $default_uki && -r $esp/loader/loader.conf ]]; then
+    previous_entry=$(sed -nE 's/^default[[:space:]]+senemos-(SENEMOS[0-9]+(LTS|U)?)[.]conf$/\1/p' \
+        "$esp/loader/loader.conf" | head -n1)
+    [[ -z $previous_entry ]] || default_uki=${family_uki[$previous_entry]:-}
+fi
 if [[ -z $default_uki ]]; then
     mapfile -t ordered_families < <(printf '%s\n' "${!family_uki[@]}" | sort -V)
     default_uki=${family_uki[${ordered_families[0]}]}
@@ -215,14 +220,13 @@ case "$selected" in
             chmod 0644 "$temporary"
             mv -f "$temporary" "$esp/loader/entries/senemos-${family}.conf"
         done
-        temporary=$(mktemp "$esp/loader/entries/.senemos.conf.XXXXXX")
-        printf 'title %s\nefi %s\n' "$default_title" "$default_path" >"$temporary"
-        chmod 0644 "$temporary"
-        mv -f "$temporary" "$esp/loader/entries/senemos.conf"
+        default_family=$(managed_uki_family "$default_uki")
+        sed -i "s/^default .*/default senemos-${default_family}.conf/" "$esp/loader/loader.conf"
+        rm -f -- "$esp/loader/entries/senemos.conf"
         if [[ -n $android_entry ]]; then
             install -Dm0644 "$root_prefix/usr/share/nabu/bootloader/systemd-boot/android.conf" "$esp/loader/entries/android.conf"
         fi
-        bootctl --esp-path="$esp" set-default senemos.conf >/dev/null 2>&1 || :
+        bootctl --esp-path="$esp" set-default "senemos-${default_family}.conf" >/dev/null 2>&1 || :
         ;;
     refind)
         refind_efi=$root_prefix/usr/share/nabu/bootloader/refind/refind_aa64.efi
@@ -302,6 +306,14 @@ case "$selected" in
         ;;
 esac
 
+if [[ $selected != systemd-boot ]]; then
+    rm -f -- "$esp/loader/entries/senemos.conf"
+    for manager_entry in "$esp"/loader/entries/senemos-SENEMOS*.conf; do
+        [[ -e $manager_entry ]] || continue
+        rm -f -- "$manager_entry"
+    done
+fi
+
 [[ -z $android_digest ]] || [[ $(sha256sum "$esp$android_entry" | cut -d' ' -f1) == "$android_digest" ]]
 # Retain exactly the selected latest member of each managed family. Files that
 # do not match the strict SENEMOS family contract are user-owned and untouched.
@@ -311,8 +323,15 @@ for old_uki in "$linux_dir"/*.efi; do
     old_family=$(managed_uki_family "$old_name") || continue
     [[ ${family_uki[$old_family]} == "$old_name" ]] || rm -f -- "$old_uki"
 done
+# Remove image-builder aliases that predate the strict SENEMOS family names.
+# This pattern is project-owned; arbitrary EFI filenames remain untouched.
+for legacy_image_uki in "$linux_dir"/fedora-rawhide-*-system-*.efi \
+                        "$linux_dir"/fedora-rawhide-*.efi; do
+    [[ -e $legacy_image_uki ]] || continue
+    rm -f -- "$legacy_image_uki"
+done
 # Remove stale manager-owned loader manifests after the selected family set is
-# committed. The compatibility senemos.conf and Android manifest are retained.
+# committed. Android and unrelated user manifests are retained.
 for old_entry in "$esp"/loader/entries/senemos-SENEMOS*.conf; do
     [[ -e $old_entry ]] || continue
     old_family=${old_entry##*/senemos-}
