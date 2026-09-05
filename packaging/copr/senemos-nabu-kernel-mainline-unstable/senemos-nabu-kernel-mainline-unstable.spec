@@ -121,6 +121,7 @@ Patch0101:      0101-Input-nabu-arm-keyboard-wake-only-while-attached.patch
 Patch0102:      0102-HID-enable-hidraw-for-Nabu-pogo-protocol-diagnostics.patch
 Patch0103:      0103-Input-use-Nabu-pogo-edge-protocol-for-computer-mode.patch
 Patch0104:      0104-media-iris-keep-polling-for-initial-source-change.patch
+Patch0105:      0105-media-iris-decouple-split-capture-and-DPB-counts.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -353,6 +354,7 @@ fi
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Prevent a transient empty-queue state from aborting Iris stateful decode
   before userspace receives the initial source-change event.
+- Keep the client capture queue independent from firmware-owned VP9 DPBs.
 - Derive keyboard-cover state from the OEM rising-edge pogo protocol.
 
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
