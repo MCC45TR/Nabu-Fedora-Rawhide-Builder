@@ -114,6 +114,7 @@ Patch0094:      0094-drm-msm-align-A640-private-VMAs-to-64K.patch
 Patch0095:      0095-ASoC-qcom-keep-q6asm-setup-state-through-trigger-stop.patch
 Patch0096:      0096-HID-enable-UHID-for-Bluetooth-LE-input-devices.patch
 Patch0097:      0097-Input-nabu-use-explicit-modern-workqueue-modes.patch
+Patch0098:      0098-power-supply-qcom_smbx-use-explicit-per-CPU-workqueu.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -291,6 +292,8 @@ grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
     drivers/misc/fastrpc.c
 ! grep -Fq 'lionsemi,allow-direct-charging' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+! grep -Fq 'mod_delayed_work(system_wq, &chip->thermal_work' \
+    drivers/power/supply/qcom_smbx.c
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' %{buildroot}/boot/config-%{uname_r}
 test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
 # Built-in platform prerequisites (I2C_QCOM_CCI, SM_CAMCC_8150 and DMA-BUF
@@ -340,6 +343,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
+- Move SMB5 thermal policy polling off the deprecated system workqueue alias.
+- Keep charger policy work on the explicit per-CPU queue used by delayed work.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-%{nabu_build_stamp}.unstable
 - Enable UHID so BlueZ can expose Bluetooth LE HID/HOGP mice and keyboards.
 
