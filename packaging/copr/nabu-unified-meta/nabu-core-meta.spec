@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        58%{?dist}
+Release:        59%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -36,6 +36,7 @@ Source25:       nabu-locale-packages.path
 Source26:       nabu-locale-packages.timer
 Source27:       91-nabu-locale-packages.preset
 Source28:       test-locale-packages.sh
+Source29:       91-nabu-microphone-noise-cancel.conf
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  meson
@@ -75,11 +76,13 @@ Requires:       libcamera-tools
 Requires:       pipewire-plugin-libcamera
 Requires:       v4l-utils
 Requires:       NetworkManager-wifi
+Requires:       NetworkManager-bluetooth
 Requires:       openssh-server
 Requires:       alsa-ucm
 Requires:       atheros-firmware
 Requires:       bash
 Requires:       bluez
+Requires:       bluez-obexd
 Requires:       coreutils
 Requires:       dnf5
 Requires:       dosfstools
@@ -91,6 +94,7 @@ Requires:       libcanberra-backend-pulse
 Requires:       libcanberra
 %endif
 Requires:       policycoreutils
+Requires:       pipewire-pulseaudio
 Requires:       polkit
 Requires:       qcom-firmware
 Requires:       qrtr
@@ -106,6 +110,7 @@ Requires:       tuned-ppd
 Requires:       upower
 Requires:       util-linux-core
 Requires:       wpa_supplicant
+Requires:       webrtc-audio-processing
 Requires:       zram-generator
 
 Provides:       nabu-release-manifest = 3
@@ -215,6 +220,7 @@ install -Dm0644 %{SOURCE24} %{buildroot}%{_unitdir}/nabu-locale-packages.service
 install -Dm0644 %{SOURCE25} %{buildroot}%{_unitdir}/nabu-locale-packages.path
 install -Dm0644 %{SOURCE26} %{buildroot}%{_unitdir}/nabu-locale-packages.timer
 install -Dm0644 %{SOURCE27} %{buildroot}%{_presetdir}/91-nabu-locale-packages.preset
+install -Dm0644 %{SOURCE29} %{buildroot}%{_datadir}/pipewire/pipewire-pulse.conf.d/91-nabu-microphone-noise-cancel.conf
 install -d %{buildroot}%{_sysconfdir}/systemd/system
 ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.timer
 
@@ -354,6 +360,7 @@ fi
 %{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
 %config(noreplace) %{_sysconfdir}/pulse/daemon.conf.d/89-xiaomi_nabu.conf
 %config(noreplace) %{_sysconfdir}/pulse/default.pa.d/nabu.pa
+%{_datadir}/pipewire/pipewire-pulse.conf.d/91-nabu-microphone-noise-cancel.conf
 %config(noreplace) %{_sysconfdir}/NetworkManager/conf.d/20-nabu-wifi-wowlan.conf
 %config(noreplace) %{_sysconfdir}/nabu-sar.conf
 %{_prefix}/lib/modprobe.d/80-nabu-audio.conf
@@ -462,6 +469,11 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-59
+- Install NetworkManager's Bluetooth PAN/DUN plugin and BlueZ OBEX support.
+- Expose a WebRTC noise-cancelled microphone source while preserving the raw
+  two-channel internal microphone source.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-58
 - Continue SLPI quiescing after a bounded sensor-service stop timeout.
 - Require proof that a timed-out client is inactive before suspending.

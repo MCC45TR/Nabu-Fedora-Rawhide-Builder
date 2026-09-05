@@ -105,8 +105,14 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
     grep -Fq '%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf' "$kde_spec" || fail "Nabu DSI PowerDevil policy missing in $kde_spec"
+    grep -Fq '%{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf' "$kde_spec" || fail "bounded KWin realtime policy missing in $kde_spec"
 done
 grep -Fxq 'POWERDEVIL_NO_DDCUTIL=1' "$root/90-nabu-powerdevil.conf" || fail "PowerDevil DDC probe is not disabled for Nabu DSI"
+grep -Fxq 'LimitRTPRIO=1' "$root/90-nabu-compositor-realtime.conf" || fail "KWin realtime allowance is not bounded to priority 1"
+grep -Eq '^Requires:[[:space:]]+NetworkManager-bluetooth$' "$core" || fail "Bluetooth PAN/DUN plugin missing"
+grep -Eq '^Requires:[[:space:]]+bluez-obexd$' "$core" || fail "Bluetooth OBEX support missing"
+grep -Eq '^Requires:[[:space:]]+webrtc-audio-processing$' "$core" || fail "WebRTC audio processor missing"
+grep -Fq 'module-echo-cancel aec_method=webrtc' "$root/91-nabu-microphone-noise-cancel.conf" || fail "Nabu microphone noise cancellation missing"
 
 widget_archive="$root/vendor/nabu-kde-widgets-debug-1.0.1.tar.zst"
 weather_service=$(tar --zstd -xOf "$widget_archive" \
