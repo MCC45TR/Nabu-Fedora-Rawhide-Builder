@@ -98,6 +98,7 @@ for setting in \
     'CONFIG_BT_BNEP=m' \
     'CONFIG_BT_BNEP_MC_FILTER=y' \
     'CONFIG_BT_BNEP_PROTO_FILTER=y' \
+    'CONFIG_HIDRAW=y' \
     'CONFIG_UHID=y' \
     'CONFIG_SCSI_UFS_QCOM=y' \
     'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \

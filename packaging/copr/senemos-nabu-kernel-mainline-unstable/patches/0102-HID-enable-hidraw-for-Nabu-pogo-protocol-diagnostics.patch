@@ -1,0 +1,19 @@
+From ac914765b2c5ee815ec45916048170af3434a64b Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 11:25:15 +0300
+Subject: [PATCH] HID: enable hidraw for Nabu pogo protocol diagnostics
+
+---
+ senemos/configs/nabu-minimal.config | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index c8f794b9e382..7a190e0c8b14 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -106,2 +106,3 @@ CONFIG_HID_SUPPORT=y
+ CONFIG_HID=y
++CONFIG_HIDRAW=y
+ CONFIG_UHID=y
+-- 
+2.55.0

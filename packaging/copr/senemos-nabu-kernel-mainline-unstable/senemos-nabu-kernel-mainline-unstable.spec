@@ -4,7 +4,7 @@
 %global uname_r %{version}-nabu-senemos-mainline-unstable
 
 Name:           senemos-nabu-kernel-mainline-unstable
-Version:        7.2.2
+Version:        7.2.3
 Release:        %{nabu_build_stamp}.unstable%{?dist}
 Summary:        Patch-layered Linux 7.2.y SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
@@ -118,6 +118,7 @@ Patch0098:      0098-power-supply-qcom_smbx-use-explicit-per-CPU-workqueu.patch
 Patch0099:      0099-power-supply-ln8000-use-explicit-per-CPU-workqueue.patch
 Patch0100:      0100-drm-msm-preserve-firmware-dual-DSI-handoff-clocks.patch
 Patch0101:      0101-Input-nabu-arm-keyboard-wake-only-while-attached.patch
+Patch0102:      0102-HID-enable-hidraw-for-Nabu-pogo-protocol-diagnostics.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -265,6 +266,7 @@ grep -Fxq 'CONFIG_SND_SEQUENCER=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_INTERCONNECT_QCOM_OSM_L3=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_BT_RFCOMM=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_BT_BNEP=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_HIDRAW=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_UHID=y' %{buildroot}/boot/config-%{uname_r}
 recover_line=$(grep -n -F 'gpu->funcs->recover(gpu);' \
     drivers/gpu/drm/msm/msm_gpu.c | cut -d: -f1)
