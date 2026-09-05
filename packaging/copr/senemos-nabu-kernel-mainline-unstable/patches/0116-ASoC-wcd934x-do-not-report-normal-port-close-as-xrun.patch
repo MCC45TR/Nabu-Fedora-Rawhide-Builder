@@ -1,0 +1,74 @@
+From 2af6d5382f637e12c19c79677325602718f4ed4e Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 21:42:00 +0300
+Subject: [PATCH] ASoC: wcd934x: do not report normal port close as xrun
+
+WCD934x can latch its overflow or underflow bit together with PORT_CLOSED
+while a SoundWire/SLIMbus capture stream is being torn down.  The driver
+already disables the corresponding xrun interrupt and clears all latched
+bits, but currently reports the expected close transition as an error.
+
+Keep error-rate-limited reporting for a standalone overflow or underflow.
+When PORT_CLOSED is present in the same status value, keep the diagnostic at
+debug level.  This preserves real xrun visibility without alarming on every
+normal microphone stop.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ sound/soc/codecs/wcd934x.c | 26 ++++++++++++++++++--------
+ 1 file changed, 18 insertions(+), 8 deletions(-)
+
+diff --git a/sound/soc/codecs/wcd934x.c b/sound/soc/codecs/wcd934x.c
+index bc41a1466c70..c1b621ba09f2 100644
+--- a/sound/soc/codecs/wcd934x.c
++++ b/sound/soc/codecs/wcd934x.c
+@@ -2228,6 +2228,7 @@ static irqreturn_t wcd934x_slim_irq_handler(int irq, void *data)
+ 	unsigned long status = 0;
+ 	unsigned int i, j, port_id;
+ 	unsigned int val, int_val = 0;
++	bool port_closed;
+ 	irqreturn_t ret = IRQ_NONE;
+ 	bool tx;
+ 	unsigned short reg = 0;
+@@ -2259,12 +2260,20 @@ static irqreturn_t wcd934x_slim_irq_handler(int irq, void *data)
+ 			regmap_read(wcd->if_regmap, reg, &int_val);
+ 		}
+ 
+-		if (val & WCD934X_SLIM_IRQ_OVERFLOW)
+-			dev_err_ratelimited(wcd->dev,
+-					    "overflow error on %s port %d, value %x\n",
+-					    (tx ? "TX" : "RX"), port_id, val);
++		port_closed = val & WCD934X_SLIM_IRQ_PORT_CLOSED;
+ 
+-		if (val & WCD934X_SLIM_IRQ_UNDERFLOW)
++		if (val & WCD934X_SLIM_IRQ_OVERFLOW) {
++			if (port_closed)
++				dev_dbg(wcd->dev,
++					"overflow while closing %s port %d, value %x\n",
++					(tx ? "TX" : "RX"), port_id, val);
++			else
++				dev_err_ratelimited(wcd->dev,
++				    "overflow error on %s port %d, value %x\n",
++				    (tx ? "TX" : "RX"), port_id, val);
++		}
++
++		if ((val & WCD934X_SLIM_IRQ_UNDERFLOW) && !port_closed)
+ 			dev_err_ratelimited(wcd->dev,
+ 					    "underflow error on %s port %d, value %x\n",
+ 					    (tx ? "TX" : "RX"), port_id, val);
+@@ -2286,10 +2295,9 @@ static irqreturn_t wcd934x_slim_irq_handler(int irq, void *data)
+ 			}
+ 		}
+ 
+-		if (val & WCD934X_SLIM_IRQ_PORT_CLOSED)
+-			dev_err_ratelimited(wcd->dev,
+-					    "Port Closed %s port %d, value %x\n",
+-					    (tx ? "TX" : "RX"), port_id, val);
++		if (port_closed)
++			dev_dbg(wcd->dev, "closed %s port %d, value %x\n",
++				(tx ? "TX" : "RX"), port_id, val);
+ 
+ 		regmap_write(wcd->if_regmap,
+ 			     WCD934X_SLIM_PGD_PORT_INT_CLR_RX_0 + (j / 8),
+-- 
+2.51.0

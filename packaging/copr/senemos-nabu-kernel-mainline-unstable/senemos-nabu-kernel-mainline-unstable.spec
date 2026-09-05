@@ -132,6 +132,7 @@ Patch0112:      0112-ASoC-qcom-pause-q6asm-capture-streams-on-stop.patch
 Patch0113:      0113-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-level.patch
 Patch0114:      0114-media-qcom-iris-get-instance-from-file-in-streamparm.patch
 Patch0115:      0115-media-qcom-iris-use-vpu5-buffer-count-layout.patch
+Patch0116:      0116-ASoC-wcd934x-do-not-report-normal-port-close-as-xrun.patch
 
 BuildRequires:  bc
 BuildRequires:  bison

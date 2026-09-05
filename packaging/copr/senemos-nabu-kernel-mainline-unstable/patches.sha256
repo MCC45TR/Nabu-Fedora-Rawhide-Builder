@@ -113,3 +113,4 @@ fb55ab0fe2821fc76bd9bcd9bc77763d75a242fd3555b62088b35919abf876d8  0100-drm-msm-p
 69e0d8c60afa70066fd642e109f24a6b8a7d20a90f1aa81dd6e1eaab12c200b8  0113-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-level.patch
 792c47e9451d2055a64da61fd6376067f5871bd941b4b1679d7caf7dbaaf6052  0114-media-qcom-iris-get-instance-from-file-in-streamparm.patch
 e221fc429ae852cfd8c092b6c045fbef569e21bef99b23021e7d30c3afb9500b  0115-media-qcom-iris-use-vpu5-buffer-count-layout.patch
+6b04e5161941feb32f31d32530d1962ebd212a608ce770153b0ec60b3873c37d  0116-ASoC-wcd934x-do-not-report-normal-port-close-as-xrun.patch
