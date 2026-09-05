@@ -200,6 +200,13 @@ grep -Fq 'atomic_xchg(&keyboard->pending_edges, 0) & 1' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 grep -Fq 'keyboard->computer_mode = connected;' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+grep -Fq 'static __poll_t iris_poll' \
+    "$work/linux-$version/drivers/media/platform/qcom/iris/iris_vidc.c"
+grep -A45 -F 'static __poll_t iris_poll' \
+    "$work/linux-$version/drivers/media/platform/qcom/iris/iris_vidc.c" \
+    | grep -Fq 'IRIS_INST_INPUT_STREAMING'
+grep -Fq '.poll                           = iris_poll,' \
+    "$work/linux-$version/drivers/media/platform/qcom/iris/iris_vidc.c"
 test "$(grep -c 'mod_delayed_work(system_percpu_wq, &.*status_changed_work' \
     "$work/linux-$version/drivers/power/supply/ln8000_charger.c")" -eq 4
 grep -Fq 'queue_delayed_work(system_percpu_wq, &info->charge_work,' \
