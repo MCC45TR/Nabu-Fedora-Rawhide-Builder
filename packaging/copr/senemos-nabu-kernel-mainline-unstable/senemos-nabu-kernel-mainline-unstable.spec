@@ -157,6 +157,7 @@ BuildRequires:  xz
 BuildRequires:  zstd
 Requires:       nabu-kernel-maintenance-api >= 5
 Requires:       nabu-boot-integration >= 2.0.0-29.test
+Provides:       kernel-nabu-core-uname-r
 Requires(posttrans): coreutils
 Requires(postun): kmod
 
