@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        57%{?dist}
+Release:        65%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ Source7:        90-nabu-kernel-maintenance.preset
 Source8:        kernel.conf
 Source9:        nabu-system-integration-2.0.0.tar.zst
 Source10:       nabu-flashlight-integration-1.0.0.tar.gz
-Source11:       nabu-sar-service-0.2.1.tar.zst
+Source11:       nabu-sar-service-0.2.3.tar.zst
 Source12:       nabu-ssc-probe.c
 Source13:       nabu-pen-autopair
 Source14:       82-nabu-pen-autopair.rules
@@ -36,12 +36,13 @@ Source25:       nabu-locale-packages.path
 Source26:       nabu-locale-packages.timer
 Source27:       91-nabu-locale-packages.preset
 Source28:       test-locale-packages.sh
+Source29:       91-nabu-microphone-noise-cancel.conf
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  meson
 BuildRequires:  openssh
 BuildRequires:  pkgconfig(gio-2.0)
-BuildRequires:  libssc-nabu-devel >= 0.4.4-6.nabu5.test
+BuildRequires:  libssc-nabu-devel >= 0.4.4-9.nabu8.test
 BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  pkgconfig(Qt6DBus)
 BuildRequires:  systemd-rpm-macros
@@ -52,15 +53,15 @@ BuildRequires:  systemd-udev
 # packages may remain installed but do not consume the constrained Nabu ESP.
 Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)
 Recommends:     senemos-nabu-kernel-alpha
-Recommends:     senemos-fastfetch-config >= 1.1.0-1
+Recommends:     senemos-fastfetch-config >= 1.2.0-1
 
 # Hardware, boot, firmware and service payloads remain independently built
 # where architecture, ABI, licensing or physical validation lifecycles differ.
 Requires:       nabu-boot-integration >= 2.0.0-31.test
 Requires:       nabu-boot-manager
 Requires:       hexagonrpc-nabu
-Requires:       libssc-nabu >= 0.4.4-6.nabu5.test
-Requires:       python3-ssc-nabu >= 0.4.4-6.nabu5.test
+Requires:       libssc-nabu >= 0.4.4-9.nabu8.test
+Requires:       python3-ssc-nabu >= 0.4.4-9.nabu8.test
 Requires:       iio-sensor-proxy-nabu
 Requires:       xiaomi-nabu-firmware
 Requires:       senemos-nabu-plymouth >= 1.0.0-5.test
@@ -75,11 +76,13 @@ Requires:       libcamera-tools
 Requires:       pipewire-plugin-libcamera
 Requires:       v4l-utils
 Requires:       NetworkManager-wifi
+Requires:       NetworkManager-bluetooth
 Requires:       openssh-server
 Requires:       alsa-ucm
 Requires:       atheros-firmware
 Requires:       bash
 Requires:       bluez
+Requires:       bluez-obexd
 Requires:       coreutils
 Requires:       dnf5
 Requires:       dosfstools
@@ -91,6 +94,7 @@ Requires:       libcanberra-backend-pulse
 Requires:       libcanberra
 %endif
 Requires:       policycoreutils
+Requires:       pipewire-pulseaudio
 Requires:       polkit
 Requires:       qcom-firmware
 Requires:       qrtr
@@ -106,6 +110,7 @@ Requires:       tuned-ppd
 Requires:       upower
 Requires:       util-linux-core
 Requires:       wpa_supplicant
+Requires:       webrtc-audio-processing
 Requires:       zram-generator
 
 Provides:       nabu-release-manifest = 3
@@ -215,6 +220,7 @@ install -Dm0644 %{SOURCE24} %{buildroot}%{_unitdir}/nabu-locale-packages.service
 install -Dm0644 %{SOURCE25} %{buildroot}%{_unitdir}/nabu-locale-packages.path
 install -Dm0644 %{SOURCE26} %{buildroot}%{_unitdir}/nabu-locale-packages.timer
 install -Dm0644 %{SOURCE27} %{buildroot}%{_presetdir}/91-nabu-locale-packages.preset
+install -Dm0644 %{SOURCE29} %{buildroot}%{_datadir}/pipewire/pipewire-pulse.conf.d/91-nabu-microphone-noise-cancel.conf
 install -d %{buildroot}%{_sysconfdir}/systemd/system
 ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.timer
 
@@ -300,6 +306,9 @@ grep -Fq -- '--sensor accelerometer --timeout 1' \
 (cd system-integration && bash tests/test-sensor-registry-runtime.sh)
 (cd system-integration && bash tests/test-selinux-label-preparation.sh)
 (cd system-integration && bash tests/test-suspend-user-slice-policy.sh)
+(cd system-integration && bash tests/test-slpi-suspend.sh)
+grep -Fq "node.pause-on-idle=true node.passive=true" %{SOURCE29}
+test "$(grep -o 'module-echo-cancel' %{SOURCE29} | wc -l)" -eq 1
 (cd system-integration && bash tests/test-ssh-host-key-guard.sh)
 (cd system-integration && bash tests/test-update-recovery-policy.sh)
 bash -n system-integration/runtime/senemos-nabu-status
@@ -353,6 +362,7 @@ fi
 %{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
 %config(noreplace) %{_sysconfdir}/pulse/daemon.conf.d/89-xiaomi_nabu.conf
 %config(noreplace) %{_sysconfdir}/pulse/default.pa.d/nabu.pa
+%{_datadir}/pipewire/pipewire-pulse.conf.d/91-nabu-microphone-noise-cancel.conf
 %config(noreplace) %{_sysconfdir}/NetworkManager/conf.d/20-nabu-wifi-wowlan.conf
 %config(noreplace) %{_sysconfdir}/nabu-sar.conf
 %{_prefix}/lib/modprobe.d/80-nabu-audio.conf
@@ -449,6 +459,7 @@ if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl reenable nabu-sensor-session-gate.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
     /usr/bin/systemctl disable --now hexagonrpcd-adsp-sensorspd.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable rmtfs.service tqftpserv.service mnt-vendor-persist.mount hexagonrpcd-sdsp.service hexagonrpcd-adsp-rootpd.service iio-sensor-proxy.service nabu-sensor-session-gate.service nabu-sar-service.service nabu-cct-iio-bridge.service >/dev/null 2>&1 || :
+    /usr/bin/systemctl try-restart nabu-cct-iio-bridge.service >/dev/null 2>&1 || :
 fi
 
 %preun
@@ -461,6 +472,40 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-65
+- Remove every uncalibrated ADUX1050 channel selection and threshold default.
+- Keep all three raw SAR/grip channels available without mapping them to a
+  physical edge or the screen proximity policy.
+
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-64
+- Keep the optional WebRTC microphone processing graph passive while idle so
+  display and system resume do not reopen stale Qualcomm DSP streams.
+- Preserve both the raw stereo microphone and the processed source.
+
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-63
+- Quiesce both ADSP and SDSP FastRPC clients around system sleep, then restore
+  them in dependency order to avoid stale DSP handles after resume.
+
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-62
+- Warm SensorProxy with a bounded real accelerometer sample before starting the
+  graphical login, avoiding KWin's 25-second first-claim timeout.
+
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-61
+- Retain the last valid TCS3701 value from its on-change SSC stream.
+- Require the packed standard-event CCT decoder and apply the bridge update live.
+
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-60
+- Require the corrected SSC standard-event decoder before enabling the TCS3701
+  colour-temperature bridge.
+
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-59
+- Install NetworkManager's Bluetooth PAN/DUN plugin and BlueZ OBEX support.
+- Expose a WebRTC noise-cancelled microphone source while preserving the raw
+  two-channel internal microphone source.
+
+* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-58
+- Recommend the expanded locale-aware Fastfetch 1.2 configuration.
+
 * Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-57
 - Keep ADUX1050 as an unmapped three-channel SAR/grip stream by default.
 - Remove uncalibrated CH0/CH2 selection and synthetic grip thresholds.
