@@ -137,6 +137,7 @@ Patch0117:      0117-media-qcom-iris-use-vb2-buffer-counts-on-vpu5.patch
 Patch0118:      0118-media-qcom-iris-disable-vpu5-power-collapse-at-core-init.patch
 Patch0119:      0119-media-i2c-expose-Nabu-sensor-geometry-and-frame-rate.patch
 Patch0120:      0120-media-connect-Nabu-rear-flash-to-camera.patch
+Patch0121:      0121-media-qcom-remove-Nabu-camera-bring-up-logging.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -370,6 +371,9 @@ fi
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Expose OV13B10 and OV8856 crop geometry and mode-derived frame intervals to
   libcamera so applications can enumerate the real sensor modes and rates.
+- Connect the rear flash LED to OV13B10 through the standard V4L2 flash class.
+- Remove OV8856 readback overhead and keep routine CAMSS frame diagnostics at
+  debug level instead of filling the journal during camera use.
 
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Sample the active-low pogo detect GPIO on both edges instead of toggling a

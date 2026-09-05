@@ -228,11 +228,22 @@ grep -A14 -F 'case SNDRV_PCM_TRIGGER_STOP:' "$q6asm_dai" \
     | grep -Fq 'prtd->stream_id, CMD_EOS'
 grep -A14 -F 'case SNDRV_PCM_TRIGGER_STOP:' "$q6asm_dai" \
     | grep -Fq 'prtd->stream_id, CMD_PAUSE'
-# Normal camera frames must not emit large info-level register dumps from IRQ.
-! grep -Fq 'dev_info_ratelimited(vfe->camss->dev,' \
-    "$work/linux-$version/drivers/media/platform/qcom/camss/camss-vfe-17x.c"
+# Normal camera operation must not emit bring-up register or frame diagnostics.
+camss_vfe="$work/linux-$version/drivers/media/platform/qcom/camss/camss-vfe-17x.c"
+ov8856="$work/linux-$version/drivers/media/i2c/ov8856.c"
+if grep -Fq 'dev_info_ratelimited(vfe->camss->dev,' "$camss_vfe"; then
+    printf 'ERROR: CAMSS still emits info-level per-frame diagnostics\n' >&2
+    exit 1
+fi
+if grep -Fq 'stream readback' "$ov8856"; then
+    printf 'ERROR: OV8856 still performs bring-up register readbacks\n' >&2
+    exit 1
+fi
+grep -Fq 'dev_dbg(vfe->camss->dev, "VFE%d clock' "$camss_vfe"
+grep -B1 -F 'WM%u address FIFO after queue' "$camss_vfe" \
+    | grep -Fq 'dev_dbg_ratelimited(vfe->camss->dev,'
 test "$(grep -c 'dev_dbg_ratelimited(vfe->camss->dev,' \
-    "$work/linux-$version/drivers/media/platform/qcom/camss/camss-vfe-17x.c")" \
+    "$camss_vfe")" \
     -ge 3
 grep -Fq 'static __poll_t iris_poll' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_vidc.c"
