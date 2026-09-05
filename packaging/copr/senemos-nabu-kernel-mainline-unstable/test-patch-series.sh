@@ -207,6 +207,10 @@ grep -A45 -F 'static __poll_t iris_poll' \
     | grep -Fq 'IRIS_INST_INPUT_STREAMING'
 grep -Fq '.poll                           = iris_poll,' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_vidc.c"
+slim_ngd="$work/linux-$version/drivers/slimbus/qcom-ngd-ctrl.c"
+grep -Fq 'struct delayed_work ngd_up_work;' "$slim_ngd"
+grep -Fq 'mod_delayed_work(system_wq, &ctrl->ngd_up_work,' "$slim_ngd"
+grep -Fq 'cancel_delayed_work_sync(&ctrl->ngd_up_work);' "$slim_ngd"
 test "$(grep -c 'mod_delayed_work(system_percpu_wq, &.*status_changed_work' \
     "$work/linux-$version/drivers/power/supply/ln8000_charger.c")" -eq 4
 grep -Fq 'queue_delayed_work(system_percpu_wq, &info->charge_work,' \

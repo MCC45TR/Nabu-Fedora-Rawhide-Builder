@@ -122,6 +122,7 @@ Patch0102:      0102-HID-enable-hidraw-for-Nabu-pogo-protocol-diagnostics.patch
 Patch0103:      0103-Input-use-Nabu-pogo-edge-protocol-for-computer-mode.patch
 Patch0104:      0104-media-iris-keep-polling-for-initial-source-change.patch
 Patch0105:      0105-media-iris-decouple-split-capture-and-DPB-counts.patch
+Patch0106:      0106-slimbus-qcom-ngd-retry-recovery-after-ADSP-SSR.patch
 
 BuildRequires:  bc
 BuildRequires:  bison

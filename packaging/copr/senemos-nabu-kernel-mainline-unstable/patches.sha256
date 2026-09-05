@@ -103,3 +103,4 @@ fb55ab0fe2821fc76bd9bcd9bc77763d75a242fd3555b62088b35919abf876d8  0100-drm-msm-p
 3bc1464525fe722d8c3c8d0a3621085eadb021a533c98dbf848082960dee2a77  0103-Input-use-Nabu-pogo-edge-protocol-for-computer-mode.patch
 158fe99fcc56bc2ae6d5ae09cd5742246df9f3243dc9c93b4c3c2a82fbe4e65e  0104-media-iris-keep-polling-for-initial-source-change.patch
 3f28919d902ab8efc9539d7cdf0cf63d94b6496762515b11ddc28fac4c32d9fa  0105-media-iris-decouple-split-capture-and-DPB-counts.patch
+1996fcf47b70c05a29c476d04353de4c7b7f4de41932863dffb2b85258aa1c96  0106-slimbus-qcom-ngd-retry-recovery-after-ADSP-SSR.patch
