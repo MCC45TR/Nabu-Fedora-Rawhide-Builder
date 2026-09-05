@@ -41,6 +41,14 @@ grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fq '.enum_frame_interval = ov13b10_enum_frame_interval' \
+    "$work/linux-$version/drivers/media/i2c/ov13b10.c"
+grep -Fq '.get_selection = ov13b10_get_selection' \
+    "$work/linux-$version/drivers/media/i2c/ov13b10.c"
+grep -Fq '.enum_frame_interval = ov8856_enum_frame_interval' \
+    "$work/linux-$version/drivers/media/i2c/ov8856.c"
+grep -Fq '.get_selection = ov8856_get_selection' \
+    "$work/linux-$version/drivers/media/i2c/ov8856.c"
 test -s "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts"
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"

@@ -116,3 +116,4 @@ e221fc429ae852cfd8c092b6c045fbef569e21bef99b23021e7d30c3afb9500b  0115-media-qco
 6b04e5161941feb32f31d32530d1962ebd212a608ce770153b0ec60b3873c37d  0116-ASoC-wcd934x-do-not-report-normal-port-close-as-xrun.patch
 879496ba7f005660e37ff79a164ee46216521ae6fe68acab3a583bae57d7e072  0117-media-qcom-iris-use-vb2-buffer-counts-on-vpu5.patch
 6d2f674ea1e365049b43b090ec21778856bf20aaa4762f8f1eaaf3c8ba38fe90  0118-media-qcom-iris-disable-vpu5-power-collapse-at-core-init.patch
+22a3ac15888dead82612390dde337d63df012454d3c0f7cb4457eb29fe7f060e  0119-media-i2c-expose-Nabu-sensor-geometry-and-frame-rate.patch

@@ -135,6 +135,7 @@ Patch0115:      0115-media-qcom-iris-use-vpu5-buffer-count-layout.patch
 Patch0116:      0116-ASoC-wcd934x-do-not-report-normal-port-close-as-xrun.patch
 Patch0117:      0117-media-qcom-iris-use-vb2-buffer-counts-on-vpu5.patch
 Patch0118:      0118-media-qcom-iris-disable-vpu5-power-collapse-at-core-init.patch
+Patch0119:      0119-media-i2c-expose-Nabu-sensor-geometry-and-frame-rate.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -365,6 +366,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Expose OV13B10 and OV8856 crop geometry and mode-derived frame intervals to
+  libcamera so applications can enumerate the real sensor modes and rates.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Sample the active-low pogo detect GPIO on both edges instead of toggling a
   guessed keyboard state that could abort suspend while no cover is attached.
