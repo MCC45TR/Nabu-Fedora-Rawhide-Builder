@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           nabu-kde-integration
 Version:        1.4.0.1
-Release:        7.test%{?dist}
+Release:        8.test%{?dist}
 Summary:        KDE Plasma integration for Xiaomi Pad 5 (nabu)
 License:        MIT
 URL:            https://github.com/mcc45tr
@@ -69,6 +69,7 @@ Requires:       bash
 Requires:       kscreen
 Requires:       kwin
 Requires:       pipewire-utils
+Requires:       pulseaudio-utils
 Requires:       wireplumber
 Requires:       python3
 
@@ -217,6 +218,10 @@ fi
 %config(noreplace) %{_sysconfdir}/xdg/powerdevilrc
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-8.test
+- Expose all four screen-relative speakers to Plasma's channel test.
+- Repair zeroed rear-channel volume left by the two-channel sink migration.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-7.test
 - Use one PipeWire filter-chain sink to mirror stereo into four independently
   routable speaker channels with one shared volume control.

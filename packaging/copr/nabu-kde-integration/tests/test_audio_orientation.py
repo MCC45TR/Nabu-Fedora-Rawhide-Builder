@@ -62,7 +62,7 @@ class KWinRotationTests(unittest.TestCase):
         self.assertEqual(self.module.kscreen_rotation(), 8)
 
 
-class StereoFanoutTests(unittest.TestCase):
+class FourChannelRoutingTests(unittest.TestCase):
     def setUp(self):
         self.module = load_module()
 
@@ -83,6 +83,42 @@ class StereoFanoutTests(unittest.TestCase):
                 self.assertEqual(actual, mapping)
                 self.assertEqual({destination for _, destination in actual}, set(self.module.PHYSICAL_POSITIONS))
                 self.assertEqual(len(actual), 4)
+
+    def test_partial_two_channel_volume_restore_is_repaired(self):
+        payload = [{
+            "name": self.module.VIRTUAL_SINK,
+            "volume": {
+                "front-left": {"value": 32768},
+                "front-right": {"value": 32768},
+                "rear-left": {"value": 0},
+                "rear-right": {"value": 0},
+            },
+        }]
+        calls = []
+        self.module.command_output = lambda *_args, **_kwargs: json.dumps(payload)
+        self.module.run_command = lambda argv, **_kwargs: calls.append(argv)
+
+        self.module.repair_partial_volume_restore()
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][:3], ["pactl", "set-sink-volume", self.module.VIRTUAL_SINK])
+        self.assertEqual(calls[0][3:], ["50.000000%"] * 4)
+
+    def test_balanced_four_channel_volume_is_preserved(self):
+        payload = [{
+            "name": self.module.VIRTUAL_SINK,
+            "volume": {
+                position: {"value": 16384}
+                for position in ("front-left", "front-right", "rear-left", "rear-right")
+            },
+        }]
+        calls = []
+        self.module.command_output = lambda *_args, **_kwargs: json.dumps(payload)
+        self.module.run_command = lambda argv, **_kwargs: calls.append(argv)
+
+        self.module.repair_partial_volume_restore()
+
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

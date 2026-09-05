@@ -16,7 +16,6 @@ FILTER_CONFIG = os.environ.get(
     "/usr/share/senemos-nabu/nabu-speaker-filter-chain.conf",
 )
 PHYSICAL_POSITIONS = ["FL", "FR", "RL", "RR"]
-LOGICAL_POSITIONS = ["FL", "FR"]
 ROTATION_MAP = {
     1: ["FL", "FR", "RL", "RR"],
     2: ["RL", "FL", "RR", "FR"],
@@ -252,7 +251,40 @@ def wait_for_filter_chain(process):
     raise RuntimeError("persistent stereo-to-four-channel filter did not appear")
 
 
+def repair_partial_volume_restore():
+    """Initialize channels added by the two-to-four-channel sink migration."""
+    try:
+        sinks = json.loads(
+            command_output(["pactl", "--format=json", "list", "sinks"], timeout=5)
+        )
+    except (json.JSONDecodeError, OSError, subprocess.SubprocessError):
+        return
+
+    sink = next(
+        (item for item in sinks if item.get("name") == VIRTUAL_SINK),
+        None,
+    )
+    if sink is None:
+        return
+    volume = sink.get("volume", {})
+    try:
+        values = [int(volume[position]["value"])
+                  for position in ("front-left", "front-right", "rear-left", "rear-right")]
+    except (KeyError, TypeError, ValueError):
+        return
+    peak = max(values)
+    if peak <= 0 or all(value > 0 for value in values):
+        return
+
+    percent = f"{peak * 100 / 65536:.6f}%"
+    run_command(
+        ["pactl", "set-sink-volume", VIRTUAL_SINK, *([percent] * 4)]
+    )
+    log("initialized restored volume for all four speaker channels")
+
+
 def select_sink_and_move_streams(sink_id):
+    repair_partial_volume_restore()
     subprocess.run(["wpctl", "set-default", str(sink_id)], check=False)
     for node in nodes(pipewire_objects()):
         node_props = props(node)
@@ -307,7 +339,7 @@ def reconcile_links(target_name, rotation):
         raise RuntimeError(f"link verification failed: wanted {len(desired)}, found {len(verified)}")
     log(
         f"rotation={rotation} target={target_name} mapping={','.join(mapping)} "
-        "stereo-fanout=true stable-sink=true"
+        "four-channel=true stable-sink=true"
     )
 
 

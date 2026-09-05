@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        19%{?dist}
+Release:        20%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -35,6 +35,7 @@ Requires:       gzip
 Requires:       kdialog
 Requires:       lcms2
 Requires:       pipewire-utils
+Requires:       pulseaudio-utils
 Requires:       python3
 Requires:       tar
 Requires:       wireplumber
@@ -246,6 +247,10 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-20
+- Expose the four physical speakers separately in Plasma's Built-in Audio test.
+- Migrate restored two-channel volume state without leaving rear speakers muted.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-19
 - Fan stereo application audio out to all four physical speakers while keeping
   screen-relative left and right routing across display rotation.
