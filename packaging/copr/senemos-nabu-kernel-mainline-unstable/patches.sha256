@@ -94,3 +94,4 @@ e2156ab033ad038ce37b9c111ffc10c88b7924f88c9f67967d82118d89450ad1  0091-drm-msm-b
 687a51a7b4efef99b1962dd08e91cb46cf617c5eb74ddaa23667bb75b036072a  0094-drm-msm-align-A640-private-VMAs-to-64K.patch
 ec10b156f287c4699d67747af6939f3aed2f885bf2fa90332807aae40a32cd4c  0095-ASoC-qcom-keep-q6asm-setup-state-through-trigger-stop.patch
 e01581d6440b1f7b779033e1ec08d094f038c5153ab6ed84c5b3f9ddd4eef364  0096-HID-enable-UHID-for-Bluetooth-LE-input-devices.patch
+a5ed5f2931eb42a01564b9a86a800f0cac66b0a38e3cdc8d2c8205eaf178b88e  0097-Input-nabu-use-explicit-modern-workqueue-modes.patch

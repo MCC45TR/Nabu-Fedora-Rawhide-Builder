@@ -113,6 +113,7 @@ Patch0093:      0093-senemos-enable-multigenerational-LRU.patch
 Patch0094:      0094-drm-msm-align-A640-private-VMAs-to-64K.patch
 Patch0095:      0095-ASoC-qcom-keep-q6asm-setup-state-through-trigger-stop.patch
 Patch0096:      0096-HID-enable-UHID-for-Bluetooth-LE-input-devices.patch
+Patch0097:      0097-Input-nabu-use-explicit-modern-workqueue-modes.patch
 
 BuildRequires:  bc
 BuildRequires:  bison

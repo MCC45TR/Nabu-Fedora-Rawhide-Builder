@@ -188,6 +188,10 @@ grep -A30 -F 'static void a6xx_set_pagetable' \
 grep -A36 -F 'static void a6xx_set_pagetable' \
     "$work/linux-$version/drivers/gpu/drm/msm/adreno/a6xx_gpu.c" \
     | grep -Fq 'CP_EVENT_WRITE_0_EVENT(PC_CCU_INVALIDATE_COLOR)'
+grep -Fq 'mod_delayed_work(system_percpu_wq, &keyboard->detect_work,' \
+    "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+grep -Fq 'alloc_ordered_workqueue("nvt_esd_check_wq", WQ_MEM_RECLAIM);' \
+    "$work/linux-$version/drivers/input/touchscreen/nt36523/nt36xxx.c"
 # Trigger STOP must not invalidate the active ASM setup state. Otherwise the
 # next capture prepare reopens stream 1 without closing it and ADSP_EALREADY
 # loops at PipeWire retry frequency.
