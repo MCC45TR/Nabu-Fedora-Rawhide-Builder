@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           nabu-kde-integration
 Version:        1.4.0.1
-Release:        6.test%{?dist}
+Release:        8.test%{?dist}
 Summary:        KDE Plasma integration for Xiaomi Pad 5 (nabu)
 License:        MIT
 URL:            https://github.com/mcc45tr
@@ -16,7 +16,7 @@ Requires:       nabu-kde-widgets >= 1.0.1
 Requires:       nabu-kde-l10n >= 1.0.0-1.test
 Requires:       plasma-workspace
 Requires:       kwin >= 6.7.4
-Requires:       sddm
+Requires:       plasma-login-manager
 Requires:       plasma-welcome
 Requires:       plasma-setup
 Requires:       plasma-discover
@@ -87,18 +87,26 @@ install -Dm0755 runtime/nabu-pmic-rtc-sync \
     %{buildroot}%{_libexecdir}/senemos-nabu/nabu-pmic-rtc-sync
 install -Dm0755 runtime/nabu-slpi-suspend \
     %{buildroot}%{_libexecdir}/senemos-nabu/nabu-slpi-suspend
+install -Dm0755 runtime/nabu-sensor-registry-runtime \
+    %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
 install -Dm0755 runtime/senemos-nabu-status \
     %{buildroot}%{_bindir}/senemos-nabu-status
 install -Dm0644 runtime/nabu-pmic-rtc-sync.service \
     %{buildroot}%{_unitdir}/nabu-pmic-rtc-sync.service
 install -Dm0644 runtime/nabu-slpi-suspend.service \
     %{buildroot}%{_unitdir}/nabu-slpi-suspend.service
+install -Dm0644 runtime/nabu-sensor-registry-runtime.service \
+    %{buildroot}%{_unitdir}/nabu-sensor-registry-runtime.service
 install -Dm0644 runtime/mnt-vendor-persist.mount \
     %{buildroot}%{_unitdir}/mnt-vendor-persist.mount
 install -Dm0644 runtime/90-senemos-nabu.preset \
     %{buildroot}%{_presetdir}/90-senemos-nabu.preset
 install -Dm0644 runtime/10-nabu-sensor-stack.conf \
     %{buildroot}%{_unitdir}/iio-sensor-proxy.service.d/10-nabu-sensor-stack.conf
+install -Dm0644 runtime/20-nabu-runtime-registry.conf \
+    %{buildroot}%{_unitdir}/hexagonrpcd-sdsp.service.d/20-nabu-runtime-registry.conf
+install -Dm0644 runtime/90-nabu-compositor-realtime.conf \
+    %{buildroot}%{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf
 install -Dm0644 runtime/80-nabu-disable-efi-rtc-wakeup.rules \
     %{buildroot}%{_udevrulesdir}/80-nabu-disable-efi-rtc-wakeup.rules
 install -Dm0644 runtime/81-nabu-suspend-wake.rules \
@@ -129,16 +137,16 @@ install -Dm0644 kde/powerdevilrc \
 /usr/bin/mkdir -p /mnt/vendor/persist || :
 
 %post -n nabu-runtime-integration
-%systemd_post nabu-pmic-rtc-sync.service nabu-slpi-suspend.service mnt-vendor-persist.mount
+%systemd_post nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-registry-runtime.service mnt-vendor-persist.mount
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
 
 %preun -n nabu-runtime-integration
-%systemd_preun nabu-pmic-rtc-sync.service nabu-slpi-suspend.service mnt-vendor-persist.mount
+%systemd_preun nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-registry-runtime.service mnt-vendor-persist.mount
 
 %postun -n nabu-runtime-integration
-%systemd_postun nabu-pmic-rtc-sync.service nabu-slpi-suspend.service mnt-vendor-persist.mount
+%systemd_postun nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-registry-runtime.service mnt-vendor-persist.mount
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
@@ -156,8 +164,11 @@ if [ -x /usr/bin/systemctl ]; then
     case "$(/usr/bin/systemctl is-system-running 2>/dev/null || :)" in
         running|degraded)
             /usr/bin/systemctl start mnt-vendor-persist.mount >/dev/null 2>&1 || :
+            /usr/bin/systemctl restart \
+                nabu-sensor-registry-runtime.service >/dev/null 2>&1 || :
+            /usr/bin/systemctl restart \
+                hexagonrpcd-sdsp.service >/dev/null 2>&1 || :
             /usr/bin/systemctl start \
-                hexagonrpcd-sdsp.service \
                 hexagonrpcd-adsp-rootpd.service >/dev/null 2>&1 || :
             /usr/bin/udevadm control --reload >/dev/null 2>&1 || :
             /usr/bin/udevadm trigger --action=change \
@@ -187,12 +198,18 @@ fi
 %dir %{_libexecdir}/senemos-nabu
 %{_libexecdir}/senemos-nabu/nabu-pmic-rtc-sync
 %{_libexecdir}/senemos-nabu/nabu-slpi-suspend
+%{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
 %{_unitdir}/nabu-pmic-rtc-sync.service
 %{_unitdir}/nabu-slpi-suspend.service
+%{_unitdir}/nabu-sensor-registry-runtime.service
 %{_unitdir}/mnt-vendor-persist.mount
 %{_presetdir}/90-senemos-nabu.preset
 %dir %{_unitdir}/iio-sensor-proxy.service.d
 %{_unitdir}/iio-sensor-proxy.service.d/10-nabu-sensor-stack.conf
+%dir %{_unitdir}/hexagonrpcd-sdsp.service.d
+%{_unitdir}/hexagonrpcd-sdsp.service.d/20-nabu-runtime-registry.conf
+%dir %{_unitdir}/user@.service.d
+%{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf
 %{_udevrulesdir}/80-nabu-disable-efi-rtc-wakeup.rules
 %{_udevrulesdir}/81-nabu-suspend-wake.rules
 %{_prefix}/lib/dracut/dracut.conf.d/90-nabu-unneeded-storage.conf
@@ -213,6 +230,20 @@ fi
 %config(noreplace) %{_sysconfdir}/xdg/powerdevilrc
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-8.test
+- Allow the user service manager only the minimum real-time priority requested
+  by stock KWin for compositor, input and DRM commit scheduling.
+- Keep KWin's upstream dynamic double/triple-buffering policy unchanged.
+
+* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-7.test
+- Serve the downstream SSC registry from a volatile writable copy so the DSP
+  can create temporary registry files without modifying Android persist or the
+  packaged firmware payload.
+- Delay SensorProxy until the Type=simple HexagonRPC listener has had time to
+  publish the SSC QRTR service.
+- Recreate the volatile registry and restart only the sensor FastRPC listener
+  during a live package upgrade so the new root takes effect without rebooting.
+
 * Sun Aug 23 2026 SENEMOS Project <senemos@localhost> - 1.4.0.1-6.test
 - Keep the reusable Nabu KDE configuration independent of a particular
   display manager so Plasma Mobile can use Plasma Login Manager without

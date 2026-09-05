@@ -26,6 +26,18 @@ Run senemos-nabu-status after boot to verify the device integration. This
 package does not claim to solve deep sleep beyond s2idle, DT2W, UFS boot
 determinism, four-speaker amplifier tuning, or EL2/KVM firmware handoff.
 
+The runtime integration grants user sessions only real-time priority 1. This
+is the minimum requested by unmodified KWin for compositor, input and DRM
+commit threads; KWin's upstream dynamic buffering policy remains untouched.
+
+The sensor runtime keeps Android persist read-only and gives SSC a volatile,
+writable registry copy below `/run`. On the physically tested Nabu, SSC
+publishes the STMicro LSM6DSO accelerometer and ams AG TCS3701 ambient-light
+sensor. The factory registry's ROHM BU27030 entries are named `bu27030_back`
+and describe the secondary/rear light sensor; they must not replace TCS3701 as
+the primary ALS identity. ADUX1050 proximity calibration is present, but live
+proximity publication has not been established.
+
 The internal panel has a fixed native 2560x1600 landscape timing. Select a
 safe logical workspace size without sending an unverified non-native timing
 to the DSI panel:

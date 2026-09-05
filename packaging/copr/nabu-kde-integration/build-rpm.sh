@@ -21,12 +21,20 @@ install -m0644 "${project_dir}/README.md" "$source_root/README.md"
 
 install -m0755 "${files_dir}/nabu-pmic-rtc-sync" "$source_root/runtime/nabu-pmic-rtc-sync"
 install -m0755 "${files_dir}/nabu-slpi-suspend" "$source_root/runtime/nabu-slpi-suspend"
+install -m0755 "${files_dir}/nabu-sensor-registry-runtime" \
+    "$source_root/runtime/nabu-sensor-registry-runtime"
 install -m0755 "${files_dir}/senemos-nabu-status" "$source_root/runtime/senemos-nabu-status"
 install -m0644 "${files_dir}/nabu-pmic-rtc-sync.service" "$source_root/runtime/nabu-pmic-rtc-sync.service"
 install -m0644 "${files_dir}/nabu-slpi-suspend.service" "$source_root/runtime/nabu-slpi-suspend.service"
+install -m0644 "${files_dir}/nabu-sensor-registry-runtime.service" \
+    "$source_root/runtime/nabu-sensor-registry-runtime.service"
 install -m0644 "${files_dir}/mnt-vendor-persist.mount" "$source_root/runtime/mnt-vendor-persist.mount"
 install -m0644 "${files_dir}/90-senemos-nabu.preset" "$source_root/runtime/90-senemos-nabu.preset"
 install -m0644 "${files_dir}/10-nabu-sensor-stack.conf" "$source_root/runtime/10-nabu-sensor-stack.conf"
+install -m0644 "${files_dir}/20-nabu-runtime-registry.conf" \
+    "$source_root/runtime/20-nabu-runtime-registry.conf"
+install -m0644 "${files_dir}/90-nabu-compositor-realtime.conf" \
+    "$source_root/runtime/90-nabu-compositor-realtime.conf"
 install -m0644 "${files_dir}/80-nabu-disable-efi-rtc-wakeup.rules" \
     "$source_root/runtime/80-nabu-disable-efi-rtc-wakeup.rules"
 install -m0644 "${files_dir}/81-nabu-suspend-wake.rules" \
