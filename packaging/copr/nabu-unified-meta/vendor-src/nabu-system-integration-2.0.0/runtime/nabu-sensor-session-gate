@@ -13,6 +13,7 @@ set -u
 
 busctl_bin=${NABU_SENSOR_GATE_BUSCTL:-/usr/bin/busctl}
 grep_bin=${NABU_SENSOR_GATE_GREP:-/usr/bin/grep}
+monitor_sensor_bin=${NABU_SENSOR_GATE_MONITOR_SENSOR:-/usr/bin/monitor-sensor}
 ssccli_bin=${NABU_SENSOR_GATE_SSCCLI:-/usr/bin/ssccli}
 systemctl_bin=${NABU_SENSOR_GATE_SYSTEMCTL:-/usr/bin/systemctl}
 timeout_bin=${NABU_SENSOR_GATE_TIMEOUT:-/usr/bin/timeout}
@@ -33,6 +34,18 @@ sensor_ready() {
 	[[ $("${busctl_bin}" get-property net.hadess.SensorProxy \
 		/net/hadess/SensorProxy net.hadess.SensorProxy \
 		HasAccelerometer 2>/dev/null || :) == 'b true' ]]
+}
+
+proxy_sample_ready() {
+	local sample
+
+	# Keep the D-Bus claim alive while waiting for SensorProxy's initial sample.
+	# timeout releases the claim after the bounded warm-up window.
+	sample=$(LC_ALL=C "${timeout_bin}" 4 "${monitor_sensor_bin}" \
+		--accel 2>/dev/null || :)
+	printf '%s\n' "${sample}" | "${grep_bin}" -qm1 \
+		-e '^=== Has accelerometer ' \
+		-e '^    Accelerometer orientation changed:'
 }
 
 wait_until() {
@@ -87,15 +100,15 @@ if ! wait_until ssc_ready "${ssc_attempts}"; then
 fi
 echo 'Nabu sensor gate: SSC produced an accelerometer sample.'
 
-if wait_until sensor_ready "${proxy_attempts}"; then
-	echo 'Nabu sensor gate: SensorProxy exported the accelerometer before the graphical session.'
+if wait_until sensor_ready "${proxy_attempts}" && proxy_sample_ready; then
+	echo 'Nabu sensor gate: SensorProxy delivered an accelerometer sample before the graphical session.'
 	exit 0
 fi
 
 echo 'Nabu sensor gate: restarting iio-sensor-proxy after late SSC publication.' >&2
 if "${systemctl_bin}" restart iio-sensor-proxy.service && \
-	wait_until sensor_ready "${proxy_attempts}"; then
-	echo 'Nabu sensor gate: SensorProxy exported the accelerometer after one bounded restart.'
+	wait_until sensor_ready "${proxy_attempts}" && proxy_sample_ready; then
+	echo 'Nabu sensor gate: SensorProxy delivered an accelerometer sample after one bounded restart.'
 	exit 0
 fi
 
