@@ -62,5 +62,28 @@ class KWinRotationTests(unittest.TestCase):
         self.assertEqual(self.module.kscreen_rotation(), 8)
 
 
+class StereoFanoutTests(unittest.TestCase):
+    def setUp(self):
+        self.module = load_module()
+
+    def test_each_rotation_routes_all_four_upmixed_channels(self):
+        expected = {
+            1: {("FL", "FL"), ("FR", "FR"), ("RL", "RL"), ("RR", "RR")},
+            2: {("FL", "RL"), ("FR", "FL"), ("RL", "RR"), ("RR", "FR")},
+            4: {("FL", "RR"), ("FR", "RL"), ("RL", "FR"), ("RR", "FL")},
+            8: {("FL", "FR"), ("FR", "RR"), ("RL", "FL"), ("RR", "RL")},
+        }
+        for rotation, mapping in expected.items():
+            with self.subTest(rotation=rotation):
+                actual = set(zip(
+                    self.module.PHYSICAL_POSITIONS,
+                    self.module.ROTATION_MAP[rotation],
+                    strict=True,
+                ))
+                self.assertEqual(actual, mapping)
+                self.assertEqual({destination for _, destination in actual}, set(self.module.PHYSICAL_POSITIONS))
+                self.assertEqual(len(actual), 4)
+
+
 if __name__ == "__main__":
     unittest.main()

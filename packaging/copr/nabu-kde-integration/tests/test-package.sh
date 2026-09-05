@@ -47,6 +47,7 @@ rpm -qpl "$runtime" | grep -Fx '/usr/lib/systemd/system/iio-sensor-proxy.service
 rpm -qpl "$profile" | grep -Fx '/etc/xdg/kwinoutputconfig.json'
 rpm -qpl "$profile" | grep -Fx '/etc/xdg/powerdevilrc'
 rpm -qpl "$profile" | grep -Fx '/usr/bin/senemos-nabu-display-profile'
+rpm -qpl "$profile" | grep -Fx '/usr/share/senemos-nabu/nabu-speaker-filter-chain.conf'
 ! rpm -qpl "$profile" | grep -Fq 'nabu-kde-scale-migration'
 
 bash -n "$project_dir/files/nabu-slpi-suspend"
@@ -68,6 +69,9 @@ grep -Fx 'LidAction=32' "$project_dir/files/powerdevilrc"
 jq -e 'length == 0' "$project_dir/files/kwinoutputconfig.json" >/dev/null
 python3 -m py_compile \
     "$project_dir/files/nabu-audio-orientation"
+test -s "$project_dir/files/nabu-speaker-filter-chain.conf"
+grep -Fq 'media.class = "Audio/Sink"' "$project_dir/files/nabu-speaker-filter-chain.conf"
+grep -Fq 'audio.position = [ FL FR RL RR ]' "$project_dir/files/nabu-speaker-filter-chain.conf"
 python3 -m unittest -v "$project_dir/tests/test_audio_orientation.py"
 python3 -m py_compile "$project_dir/files/senemos-nabu-display-profile"
 

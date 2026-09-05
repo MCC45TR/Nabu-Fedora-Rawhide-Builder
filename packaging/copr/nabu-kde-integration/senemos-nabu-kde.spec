@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           nabu-kde-integration
 Version:        1.4.0.1
-Release:        6.test%{?dist}
+Release:        7.test%{?dist}
 Summary:        KDE Plasma integration for Xiaomi Pad 5 (nabu)
 License:        MIT
 URL:            https://github.com/mcc45tr
@@ -112,6 +112,8 @@ install -Dm0644 runtime/fastfetch-config.jsonc \
 
 install -Dm0755 kde/nabu-audio-orientation \
     %{buildroot}%{_libexecdir}/senemos-nabu/nabu-audio-orientation
+install -Dm0644 kde/nabu-speaker-filter-chain.conf \
+    %{buildroot}%{_datadir}/senemos-nabu/nabu-speaker-filter-chain.conf
 install -Dm0755 kde/senemos-nabu-display-profile \
     %{buildroot}%{_bindir}/senemos-nabu-display-profile
 install -Dm0644 kde/nabu-audio-orientation.service \
@@ -204,6 +206,8 @@ fi
 %doc README.md
 %dir %{_libexecdir}/senemos-nabu
 %{_libexecdir}/senemos-nabu/nabu-audio-orientation
+%dir %{_datadir}/senemos-nabu
+%{_datadir}/senemos-nabu/nabu-speaker-filter-chain.conf
 %{_bindir}/senemos-nabu-display-profile
 %{_userunitdir}/nabu-audio-orientation.service
 %{_userpresetdir}/90-nabu-kde.preset
@@ -213,6 +217,10 @@ fi
 %config(noreplace) %{_sysconfdir}/xdg/powerdevilrc
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-7.test
+- Use one PipeWire filter-chain sink to mirror stereo into four independently
+  routable speaker channels with one shared volume control.
+
 * Sun Aug 23 2026 mcc45tr <mcc45tr@gmail.com> - 1.4.0.1-6.test
 - Keep the reusable Nabu KDE configuration independent of a particular
   display manager so Plasma Mobile can use Plasma Login Manager without

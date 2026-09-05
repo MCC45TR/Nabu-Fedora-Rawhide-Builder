@@ -11,8 +11,12 @@ import time
 
 VIRTUAL_SINK = "nabu_screen_speakers"
 PLAYBACK_NODE = f"playback.{VIRTUAL_SINK}"
-LOOPBACK_NAME = "nabu-screen-audio"
-CANONICAL_POSITIONS = ["FL", "FR", "RL", "RR"]
+FILTER_CONFIG = os.environ.get(
+    "NABU_AUDIO_FILTER_CONFIG",
+    "/usr/share/senemos-nabu/nabu-speaker-filter-chain.conf",
+)
+PHYSICAL_POSITIONS = ["FL", "FR", "RL", "RR"]
+LOGICAL_POSITIONS = ["FL", "FR"]
 ROTATION_MAP = {
     1: ["FL", "FR", "RL", "RR"],
     2: ["RL", "FL", "RR", "FR"],
@@ -102,7 +106,7 @@ def discover_target(objects):
         except (TypeError, ValueError):
             continue
         positions = str(node_props.get("audio.position", ""))
-        if channels != 4 or not all(position in positions for position in CANONICAL_POSITIONS):
+        if channels != 4 or not all(position in positions for position in PHYSICAL_POSITIONS):
             continue
         description = " ".join(
             str(node_props.get(key, ""))
@@ -188,38 +192,8 @@ def kscreen_rotation():
         return None
 
 
-def launch_loopback():
-    capture_props = {
-        "node.name": VIRTUAL_SINK,
-        "node.description": "Nabu Screen-relative Speakers",
-        "media.class": "Audio/Sink",
-        "audio.position": CANONICAL_POSITIONS,
-        "priority.session": 2000,
-    }
-    playback_props = {
-        "node.name": PLAYBACK_NODE,
-        "media.class": "Stream/Output/Audio",
-        "audio.position": CANONICAL_POSITIONS,
-        "node.autoconnect": False,
-        "node.dont-reconnect": True,
-        "stream.dont-remix": True,
-        "node.passive": True,
-    }
-    return subprocess.Popen(
-        [
-            "pw-loopback",
-            "--name",
-            LOOPBACK_NAME,
-            "--channels",
-            "4",
-            "--channel-map",
-            "[ FL, FR, RL, RR ]",
-            "--capture-props",
-            json.dumps(capture_props),
-            "--playback-props",
-            json.dumps(playback_props),
-        ]
-    )
+def launch_filter_chain():
+    return subprocess.Popen(["pipewire", "-c", FILTER_CONFIG])
 
 
 def find_node(objects, name):
@@ -242,7 +216,7 @@ def port_map(objects, node_id, direction):
         if item_node_id != node_id or item_props.get("port.direction") != direction:
             continue
         channel = str(item_props.get("audio.channel", ""))
-        if channel in CANONICAL_POSITIONS:
+        if channel in PHYSICAL_POSITIONS:
             result[channel] = int(item["id"])
     return result
 
@@ -264,18 +238,18 @@ def output_links(objects, playback_id):
     return result
 
 
-def wait_for_loopback(process):
+def wait_for_filter_chain(process):
     for _ in range(50):
         if process.poll() is not None:
-            raise RuntimeError(f"pw-loopback exited with status {process.returncode}")
+            raise RuntimeError(f"speaker filter exited with status {process.returncode}")
         objects = pipewire_objects()
         sink_id = find_node(objects, VIRTUAL_SINK)
         playback_id = find_node(objects, PLAYBACK_NODE)
         if sink_id is not None and playback_id is not None:
-            if len(port_map(objects, playback_id, "out")) == 4:
+            if set(port_map(objects, playback_id, "out")) == set(PHYSICAL_POSITIONS):
                 return sink_id
         time.sleep(0.1)
-    raise RuntimeError("persistent virtual sink did not appear")
+    raise RuntimeError("persistent stereo-to-four-channel filter did not appear")
 
 
 def select_sink_and_move_streams(sink_id):
@@ -299,18 +273,21 @@ def reconcile_links(target_name, rotation):
     playback_id = find_node(objects, PLAYBACK_NODE)
     target_id = find_node(objects, target_name)
     if playback_id is None or target_id is None:
-        raise RuntimeError("persistent playback or target sink node is unavailable")
+        raise RuntimeError("four-channel filter or target sink node is unavailable")
     outputs = port_map(objects, playback_id, "out")
     inputs = port_map(objects, target_id, "in")
-    if set(outputs) != set(CANONICAL_POSITIONS) or set(inputs) != set(CANONICAL_POSITIONS):
-        raise RuntimeError("four-channel PipeWire ports are incomplete")
+    if set(outputs) != set(PHYSICAL_POSITIONS) or set(inputs) != set(PHYSICAL_POSITIONS):
+        raise RuntimeError("four-channel filter or hardware ports are incomplete")
 
     mapping = ROTATION_MAP[rotation]
     desired = {
         (outputs[source], inputs[destination])
-        for source, destination in zip(CANONICAL_POSITIONS, mapping, strict=True)
+        for source, destination in zip(PHYSICAL_POSITIONS, mapping, strict=True)
     }
-    existing = {(output_port, input_port) for _, output_port, input_port in output_links(objects, playback_id)}
+    existing = {
+        (output_port, input_port)
+        for _, output_port, input_port in output_links(objects, playback_id)
+    }
 
     # Add the new route before dropping obsolete links.  The stable virtual
     # sink never disappears, so Plasma does not report a new audio device.
@@ -328,7 +305,10 @@ def reconcile_links(target_name, rotation):
     }
     if verified != desired:
         raise RuntimeError(f"link verification failed: wanted {len(desired)}, found {len(verified)}")
-    log(f"rotation={rotation} target={target_name} mapping={','.join(mapping)} stable-sink=true")
+    log(
+        f"rotation={rotation} target={target_name} mapping={','.join(mapping)} "
+        "stereo-fanout=true stable-sink=true"
+    )
 
 
 def terminate(process):
@@ -358,8 +338,8 @@ def main():
                 terminate(process)
                 process = None
                 try:
-                    process = launch_loopback()
-                    sink_id = wait_for_loopback(process)
+                    process = launch_filter_chain()
+                    sink_id = wait_for_filter_chain(process)
                     select_sink_and_move_streams(sink_id)
                     log(f"persistent sink ready sink-id={sink_id}")
                 except (OSError, RuntimeError, subprocess.SubprocessError) as error:
