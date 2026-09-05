@@ -1,0 +1,45 @@
+From d92507f6bde194f92a22502284afd28fdee7c57b Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 02:25:41 +0300
+Subject: [PATCH] ufs: qcom: preserve Nabu device reference-clock timing
+
+---
+ drivers/ufs/host/ufs-qcom.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/ufs/host/ufs-qcom.c b/drivers/ufs/host/ufs-qcom.c
+index 291c43448..d9adb9994 100644
+--- a/drivers/ufs/host/ufs-qcom.c
++++ b/drivers/ufs/host/ufs-qcom.c
+@@ -894,11 +894,24 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
+ 
+ 		/*
+ 		 * If we call hibern8 exit after this, we need to make sure that
+-		 * device ref_clk is stable for at least 1us before the hibern8
+-		 * exit command.
++		 * device ref_clk is stable before the hibern8 exit command.
++		 *
++		 * Xiaomi's downstream SM8150 implementation gives every Nabu UFS
++		 * device 200us here, irrespective of its manufacturer.  It gives
++		 * WDC/SanDisk devices a longer interval.  Keep this board-scoped:
++		 * other Qualcomm platforms retain the upstream 1us requirement.
+ 		 */
+-		if (enable)
+-			udelay(1);
++		if (enable) {
++			if (of_machine_is_compatible("xiaomi,nabu")) {
++				if (host->hba->dev_info.wmanufacturerid ==
++				    UFS_VENDOR_WDC)
++					usleep_range(960, 970);
++				else
++					usleep_range(200, 210);
++			} else {
++				udelay(1);
++			}
++		}
+ 
+ 		host->is_dev_ref_clk_enabled = enable;
+ 	}
+-- 
+2.55.0
+

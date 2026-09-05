@@ -139,6 +139,7 @@ Patch0119:      0119-media-i2c-expose-Nabu-sensor-geometry-and-frame-rate.patch
 Patch0120:      0120-media-connect-Nabu-rear-flash-to-camera.patch
 Patch0121:      0121-media-qcom-remove-Nabu-camera-bring-up-logging.patch
 Patch0122:      0122-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
+Patch0123:      0123-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -388,6 +389,11 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Preserve Xiaomi's Nabu-wide UFS reference-clock settling interval.
+- Give WDC and SanDisk storage the longer interval used by Android.
+- Keep every non-Nabu Qualcomm platform on the upstream timing path.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Expose OV13B10 and OV8856 crop geometry and mode-derived frame intervals to
   libcamera so applications can enumerate the real sensor modes and rates.

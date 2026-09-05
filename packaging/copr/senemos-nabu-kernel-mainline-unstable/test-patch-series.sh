@@ -155,6 +155,14 @@ grep -A18 -F 'static struct target_type default_key_target' "$dm_inlinecrypt" \
     | grep -Fq 'DM_TARGET_PASSES_CRYPTO'
 grep -Fq 'qcom_scm_has_wrapped_key_support()' \
     "$work/linux-$version/drivers/soc/qcom/ice.c"
+ufs_qcom="$work/linux-$version/drivers/ufs/host/ufs-qcom.c"
+grep -Fq 'of_machine_is_compatible("xiaomi,nabu")' "$ufs_qcom"
+grep -A8 -F 'of_machine_is_compatible("xiaomi,nabu")' "$ufs_qcom" \
+    | grep -Fq 'UFS_VENDOR_WDC'
+grep -A8 -F 'of_machine_is_compatible("xiaomi,nabu")' "$ufs_qcom" \
+    | grep -Fq 'usleep_range(960, 970);'
+grep -A10 -F 'of_machine_is_compatible("xiaomi,nabu")' "$ufs_qcom" \
+    | grep -Fq 'usleep_range(200, 210);'
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
 grep -Fxq '# CONFIG_RPMB is not set' "$config_dir/.config"
 grep -Fq 'nvmem-cells = <&rtc_offset>;' \
