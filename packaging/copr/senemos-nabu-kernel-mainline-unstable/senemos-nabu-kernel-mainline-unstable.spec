@@ -131,6 +131,7 @@ Patch0111:      0111-input-nabu-do-not-treat-controller-irq-as-presence.patch
 Patch0112:      0112-ASoC-qcom-pause-q6asm-capture-streams-on-stop.patch
 Patch0113:      0113-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-level.patch
 Patch0114:      0114-media-qcom-iris-get-instance-from-file-in-streamparm.patch
+Patch0115:      0115-media-qcom-iris-use-vpu5-buffer-count-layout.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
