@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        59%{?dist}
+Release:        60%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -42,7 +42,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  meson
 BuildRequires:  openssh
 BuildRequires:  pkgconfig(gio-2.0)
-BuildRequires:  libssc-nabu-devel >= 0.4.4-6.nabu5.test
+BuildRequires:  libssc-nabu-devel >= 0.4.4-8.nabu7.test
 BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  pkgconfig(Qt6DBus)
 BuildRequires:  systemd-rpm-macros
@@ -60,8 +60,8 @@ Recommends:     senemos-fastfetch-config >= 1.1.0-1
 Requires:       nabu-boot-integration >= 2.0.0-31.test
 Requires:       nabu-boot-manager
 Requires:       hexagonrpc-nabu
-Requires:       libssc-nabu >= 0.4.4-6.nabu5.test
-Requires:       python3-ssc-nabu >= 0.4.4-6.nabu5.test
+Requires:       libssc-nabu >= 0.4.4-8.nabu7.test
+Requires:       python3-ssc-nabu >= 0.4.4-8.nabu7.test
 Requires:       iio-sensor-proxy-nabu
 Requires:       xiaomi-nabu-firmware
 Requires:       senemos-nabu-plymouth >= 1.0.0-5.test
@@ -469,6 +469,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-60
+- Require the corrected SSC standard-event decoder before enabling the TCS3701
+  colour-temperature bridge.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-59
 - Install NetworkManager's Bluetooth PAN/DUN plugin and BlueZ OBEX support.
 - Expose a WebRTC noise-cancelled microphone source while preserving the raw
