@@ -1,0 +1,35 @@
+From 00fb94c9785e52ce4612b3a6bf613a8296b3ef2e Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 20:28:40 +0300
+Subject: [PATCH] ASoC: qcom: pause q6asm capture streams on stop
+
+Capture streams do not have rendered audio to drain. Sending EOS on STOP makes
+the Nabu ADSP capture path underflow and can leave stream close waiting until
+timeout during PipeWire recovery. Match the Qualcomm downstream lifecycle:
+keep EOS for playback and use PAUSE for capture.
+---
+ sound/soc/qcom/qdsp6/q6asm-dai.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/qcom/qdsp6/q6asm-dai.c b/sound/soc/qcom/qdsp6/q6asm-dai.c
+index 4f09fdd40..68a6c23de 100644
+--- a/sound/soc/qcom/qdsp6/q6asm-dai.c
++++ b/sound/soc/qcom/qdsp6/q6asm-dai.c
+@@ -347,8 +347,12 @@ static int q6asm_dai_trigger(struct snd_soc_component *component,
+ 				       0, 0, 0);
+ 		break;
+ 	case SNDRV_PCM_TRIGGER_STOP:
+-		ret = q6asm_cmd_nowait(prtd->audio_client, prtd->stream_id,
+-				       CMD_EOS);
++		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
++			ret = q6asm_cmd_nowait(prtd->audio_client,
++					       prtd->stream_id, CMD_EOS);
++		else
++			ret = q6asm_cmd_nowait(prtd->audio_client,
++					       prtd->stream_id, CMD_PAUSE);
+ 		break;
+ 	case SNDRV_PCM_TRIGGER_SUSPEND:
+ 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+-- 
+2.55.0
+

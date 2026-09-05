@@ -109,3 +109,5 @@ fb55ab0fe2821fc76bd9bcd9bc77763d75a242fd3555b62088b35919abf876d8  0100-drm-msm-p
 80b4f71357c5d0d142667acb25c0ed34288554b0f78c105a9c4987f5e888aff6  0109-ASoC-qcom-drop-unreliable-rendered-EOS-wait.patch
 555a4f2ff7a66381ca5302db0118860f324d4f4c76a7ccc56a9dc45d8f28a960  0110-input-nabu-sample-pogo-detect-state-instead-of-toggling.patch
 052f4d815cce32984c88d9c48fd27e4ff7643608f28d34ef96952570f1731f10  0111-input-nabu-do-not-treat-controller-irq-as-presence.patch
+0cf07fc397f8ec062106c241ec720aaece3ee8acb5c4213bd224deefd444c914  0112-ASoC-qcom-pause-q6asm-capture-streams-on-stop.patch
+69e0d8c60afa70066fd642e109f24a6b8a7d20a90f1aa81dd6e1eaab12c200b8  0113-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-level.patch

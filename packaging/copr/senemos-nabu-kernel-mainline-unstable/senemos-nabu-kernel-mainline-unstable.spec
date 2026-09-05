@@ -128,6 +128,8 @@ Patch0108:      0108-slimbus-qcom-ngd-use-default-unbound-workqueue.patch
 Patch0109:      0109-ASoC-qcom-drop-unreliable-rendered-EOS-wait.patch
 Patch0110:      0110-input-nabu-sample-pogo-detect-state-instead-of-toggling.patch
 Patch0111:      0111-input-nabu-do-not-treat-controller-irq-as-presence.patch
+Patch0112:      0112-ASoC-qcom-pause-q6asm-capture-streams-on-stop.patch
+Patch0113:      0113-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-level.patch
 
 BuildRequires:  bc
 BuildRequires:  bison

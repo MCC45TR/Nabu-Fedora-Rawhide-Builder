@@ -204,6 +204,21 @@ grep -Fq 'nabu_keyboard_publish_state(keyboard, false, true);' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 ! grep -Fq 'connected = !keyboard->connected;' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+# Qualcomm downstream uses EOS only for playback. Capture STOP must pause the
+# read stream so PipeWire recovery does not underflow TX and wedge CMD_CLOSE.
+q6asm_dai="$work/linux-$version/sound/soc/qcom/qdsp6/q6asm-dai.c"
+grep -A14 -F 'case SNDRV_PCM_TRIGGER_STOP:' "$q6asm_dai" \
+    | grep -Fq 'substream->stream == SNDRV_PCM_STREAM_PLAYBACK'
+grep -A14 -F 'case SNDRV_PCM_TRIGGER_STOP:' "$q6asm_dai" \
+    | grep -Fq 'prtd->stream_id, CMD_EOS'
+grep -A14 -F 'case SNDRV_PCM_TRIGGER_STOP:' "$q6asm_dai" \
+    | grep -Fq 'prtd->stream_id, CMD_PAUSE'
+# Normal camera frames must not emit large info-level register dumps from IRQ.
+! grep -Fq 'dev_info_ratelimited(vfe->camss->dev,' \
+    "$work/linux-$version/drivers/media/platform/qcom/camss/camss-vfe-17x.c"
+test "$(grep -c 'dev_dbg_ratelimited(vfe->camss->dev,' \
+    "$work/linux-$version/drivers/media/platform/qcom/camss/camss-vfe-17x.c")" \
+    -ge 3
 grep -Fq 'static __poll_t iris_poll' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_vidc.c"
 grep -A45 -F 'static __poll_t iris_poll' \
