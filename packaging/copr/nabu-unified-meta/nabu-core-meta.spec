@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        63%{?dist}
+Release:        65%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ Source7:        90-nabu-kernel-maintenance.preset
 Source8:        kernel.conf
 Source9:        nabu-system-integration-2.0.0.tar.zst
 Source10:       nabu-flashlight-integration-1.0.0.tar.gz
-Source11:       nabu-sar-service-0.2.2.tar.zst
+Source11:       nabu-sar-service-0.2.3.tar.zst
 Source12:       nabu-ssc-probe.c
 Source13:       nabu-pen-autopair
 Source14:       82-nabu-pen-autopair.rules
@@ -53,7 +53,7 @@ BuildRequires:  systemd-udev
 # packages may remain installed but do not consume the constrained Nabu ESP.
 Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)
 Recommends:     senemos-nabu-kernel-alpha
-Recommends:     senemos-fastfetch-config >= 1.1.0-1
+Recommends:     senemos-fastfetch-config >= 1.2.0-1
 
 # Hardware, boot, firmware and service payloads remain independently built
 # where architecture, ABI, licensing or physical validation lifecycles differ.
@@ -307,6 +307,8 @@ grep -Fq -- '--sensor accelerometer --timeout 1' \
 (cd system-integration && bash tests/test-selinux-label-preparation.sh)
 (cd system-integration && bash tests/test-suspend-user-slice-policy.sh)
 (cd system-integration && bash tests/test-slpi-suspend.sh)
+grep -Fq "node.pause-on-idle=true node.passive=true" %{SOURCE29}
+test "$(grep -o 'module-echo-cancel' %{SOURCE29} | wc -l)" -eq 1
 (cd system-integration && bash tests/test-ssh-host-key-guard.sh)
 (cd system-integration && bash tests/test-update-recovery-policy.sh)
 bash -n system-integration/runtime/senemos-nabu-status
@@ -470,6 +472,16 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-65
+- Remove every uncalibrated ADUX1050 channel selection and threshold default.
+- Keep all three raw SAR/grip channels available without mapping them to a
+  physical edge or the screen proximity policy.
+
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-64
+- Keep the optional WebRTC microphone processing graph passive while idle so
+  display and system resume do not reopen stale Qualcomm DSP streams.
+- Preserve both the raw stereo microphone and the processed source.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-63
 - Quiesce both ADSP and SDSP FastRPC clients around system sleep, then restore
   them in dependency order to avoid stale DSP handles after resume.

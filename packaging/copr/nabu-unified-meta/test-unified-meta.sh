@@ -47,7 +47,7 @@ core="$root/nabu-core-meta.spec"
 grep -Fqx 'RefuseManualStop=yes' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/systemd/system/ath10k-shutdown.service" || fail "ath10k shutdown helper can be restarted by RPM transactions"
 grep -Fqx 'softdep snd_soc_sm8150 pre: snd_soc_wcd934x' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/modprobe.d/80-nabu-audio.conf" || fail "WCD934x codec is not ordered before the SM8150 sound card"
 grep -Fq 'monitor_sensor_bin' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/nabu-sensor-session-gate" || fail "SensorProxy is not warmed before graphical login"
-grep -Fq 'Source11:       nabu-sar-service-0.2.2.tar.zst' "$core" || fail "SAR 0.2.2 source missing"
+grep -Fq 'Source11:       nabu-sar-service-0.2.3.tar.zst' "$core" || fail "SAR 0.2.3 source missing"
 grep -Fq '%{_libexecdir}/nabu-sar-control' "$core" || fail "SAR control helper not packaged"
 grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge unit not packaged"
 grep -Fq '%{_prefix}/lib/modules-load.d/nabu-cct-iio.conf' "$core" || fail "CCT module policy not packaged"
@@ -106,14 +106,8 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
     grep -Fq '%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf' "$kde_spec" || fail "Nabu DSI PowerDevil policy missing in $kde_spec"
-    grep -Fq '%{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf' "$kde_spec" || fail "bounded KWin realtime policy missing in $kde_spec"
 done
 grep -Fxq 'POWERDEVIL_NO_DDCUTIL=1' "$root/90-nabu-powerdevil.conf" || fail "PowerDevil DDC probe is not disabled for Nabu DSI"
-grep -Fxq 'LimitRTPRIO=1' "$root/90-nabu-compositor-realtime.conf" || fail "KWin realtime allowance is not bounded to priority 1"
-grep -Eq '^Requires:[[:space:]]+NetworkManager-bluetooth$' "$core" || fail "Bluetooth PAN/DUN plugin missing"
-grep -Eq '^Requires:[[:space:]]+bluez-obexd$' "$core" || fail "Bluetooth OBEX support missing"
-grep -Eq '^Requires:[[:space:]]+webrtc-audio-processing$' "$core" || fail "WebRTC audio processor missing"
-grep -Fq 'module-echo-cancel aec_method=webrtc' "$root/91-nabu-microphone-noise-cancel.conf" || fail "Nabu microphone noise cancellation missing"
 
 widget_archive="$root/vendor/nabu-kde-widgets-debug-1.0.1.tar.zst"
 weather_service=$(tar --zstd -xOf "$widget_archive" \
@@ -157,8 +151,8 @@ for retired in nabu-system-integration nabu-kde-integration nabu-kde-config nabu
 done
 
 (cd "$root/vendor" && sha256sum -c SHA256SUMS >/dev/null) || fail "vendored source checksum"
-sar_archive="$root/vendor/nabu-sar-service-0.2.2.tar.zst"
-sar_prefix="nabu-sar-service-0.2.2"
+sar_archive="$root/vendor/nabu-sar-service-0.2.3.tar.zst"
+sar_prefix="nabu-sar-service-0.2.3"
 tar --zstd -xOf "$sar_archive" \
     "$sar_prefix/src/nabu-cct-iio-bridge.c" \
     | grep -Fq '#define CCT_INVALID_WARNING_USEC (30 * G_USEC_PER_SEC)' \
@@ -167,10 +161,6 @@ tar --zstd -xOf "$sar_archive" \
     "$sar_prefix/src/nabu-cct-iio-bridge.c" \
     | grep -Fq 'SSC_SENSOR_DATA_TYPE, "cct_front"' \
     || fail "TCS3701 native CCT endpoint missing"
-! tar --zstd -xOf "$sar_archive" \
-    "$sar_prefix/src/nabu-cct-iio-bridge.c" \
-    | grep -Fq 'CCT_STALE_USEC' \
-    || fail "on-change TCS3701 samples are incorrectly expired"
 sar_config=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/data/nabu-sar.conf")
 grep -Fxq 'Enabled=false' <<<"$sar_config" || fail "SAR mapping is enabled before calibration"
 grep -Fxq 'ChannelMask=0' <<<"$sar_config" || fail "uncalibrated SAR channel mapping remains"

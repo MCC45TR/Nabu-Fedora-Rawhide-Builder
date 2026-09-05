@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        18%{?dist}
+Release:        20%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -35,6 +35,7 @@ Requires:       gzip
 Requires:       kdialog
 Requires:       lcms2
 Requires:       pipewire-utils
+Requires:       pulseaudio-utils
 Requires:       python3
 Requires:       tar
 Requires:       wireplumber
@@ -136,6 +137,7 @@ chmod +x kde-integration/kde/senemos-nabu-color-profile kde-integration/tests/mo
 %install
 install -Dm0644 %{SOURCE0} %{buildroot}%{_presetdir}/95-nabu-plasma-login.preset
 install -Dm0755 kde-integration/kde/nabu-audio-orientation %{buildroot}%{_libexecdir}/senemos-nabu/nabu-audio-orientation
+install -Dm0644 kde-integration/kde/nabu-speaker-filter-chain.conf %{buildroot}%{_datadir}/senemos-nabu/nabu-speaker-filter-chain.conf
 install -Dm0755 kde-integration/kde/senemos-nabu-display-profile %{buildroot}%{_bindir}/senemos-nabu-display-profile
 install -Dm0755 kde-integration/kde/senemos-nabu-color-profile %{buildroot}%{_bindir}/senemos-nabu-color-profile
 install -Dm0755 kde-integration/kde/senemos-nabu-color-settings %{buildroot}%{_bindir}/senemos-nabu-color-settings
@@ -164,6 +166,7 @@ install -Dm0644 flashlight/plasma-update/org.senemos.nabu.flashlight.js %{buildr
 
 %check
 python3 -m py_compile kde-integration/kde/nabu-audio-orientation kde-integration/kde/senemos-nabu-display-profile kde-integration/kde/senemos-nabu-color-profile
+grep -Fq 'audio.position = [ FL FR RL RR ]' kde-integration/kde/nabu-speaker-filter-chain.conf
 python3 kde-integration/kde/senemos-nabu-color-profile catalog
 python3 -m unittest -v kde-integration/tests/test_color_profile.py
 python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
@@ -180,6 +183,8 @@ grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 %doc kde-integration/README.md kde-integration/COLOR-PROFILE-PROVENANCE.md
 %dir %{_libexecdir}/senemos-nabu
 %{_libexecdir}/senemos-nabu/nabu-audio-orientation
+%dir %{_datadir}/senemos-nabu
+%{_datadir}/senemos-nabu/nabu-speaker-filter-chain.conf
 %{_libexecdir}/senemos-nabu/nabu-restore-kde-locales
 %{_bindir}/senemos-nabu-display-profile
 %{_bindir}/senemos-nabu-color-profile
@@ -196,7 +201,6 @@ grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 %config(noreplace) %{_sysconfdir}/xdg/kwinoutputconfig.json
 %config(noreplace) %{_sysconfdir}/xdg/powerdevilrc
 %{_sysconfdir}/rpm/macros.nabu-languages
-%dir %{_datadir}/senemos-nabu
 %dir %{_datadir}/senemos-nabu/l10n
 %{_datadir}/senemos-nabu/l10n/plasma-shell-locales.tar.gz
 %{_datadir}/senemos-nabu/l10n/plasma-setup-locales.tar.gz
@@ -243,6 +247,14 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-20
+- Expose the four physical speakers separately in Plasma's Built-in Audio test.
+- Migrate restored two-channel volume state without leaving rear speakers muted.
+
+* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-19
+- Fan stereo application audio out to all four physical speakers while keeping
+  screen-relative left and right routing across display rotation.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-18
 - Give stock KWin the minimum real-time priority it requests for compositor,
   input and DRM commit scheduling without replacing any Fedora KDE package.
