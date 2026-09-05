@@ -1,0 +1,43 @@
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 20:50:00 +0300
+Subject: [PATCH] media: qcom: iris: get instance from file in streamparm
+
+The V4L2 core may call the streamparm handlers with a NULL fh argument.  The
+Nabu Iris port converted these two handlers to container_of(fh), unlike the
+other ioctl handlers which recover the instance from filp.  A GStreamer
+VIDIOC_G_PARM probe consequently dereferences address 0x160 and oopses in
+iris_g_parm().
+
+Use the driver's established iris_get_inst() helper for both streamparm
+handlers.  This keeps the encoder probe safe regardless of whether the V4L2
+core supplied an fh cookie.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/media/platform/qcom/iris/iris_vidc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_vidc.c b/drivers/media/platform/qcom/iris/iris_vidc.c
+index 2f230f98f..996aa7c0d 100644
+--- a/drivers/media/platform/qcom/iris/iris_vidc.c
++++ b/drivers/media/platform/qcom/iris/iris_vidc.c
+@@ -692,7 +692,7 @@ static int iris_subscribe_event(struct v4l2_fh *fh, const struct v4l2_event_subs
+ 
+ static int iris_s_parm(struct file *filp, void *fh, struct v4l2_streamparm *a)
+ {
+-	struct iris_inst *inst = container_of(fh, struct iris_inst, fh);
++	struct iris_inst *inst = iris_get_inst(filp, NULL);
+ 
+ 	if (a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
+ 	    a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+@@ -706,7 +706,7 @@ static int iris_s_parm(struct file *filp, void *fh, struct v4l2_streamparm *a)
+ 
+ static int iris_g_parm(struct file *filp, void *fh, struct v4l2_streamparm *a)
+ {
+-	struct iris_inst *inst = container_of(fh, struct iris_inst, fh);
++	struct iris_inst *inst = iris_get_inst(filp, NULL);
+ 
+ 	if (a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
+ 	    a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+-- 
+2.51.0

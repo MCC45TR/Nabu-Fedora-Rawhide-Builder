@@ -111,3 +111,4 @@ fb55ab0fe2821fc76bd9bcd9bc77763d75a242fd3555b62088b35919abf876d8  0100-drm-msm-p
 052f4d815cce32984c88d9c48fd27e4ff7643608f28d34ef96952570f1731f10  0111-input-nabu-do-not-treat-controller-irq-as-presence.patch
 0cf07fc397f8ec062106c241ec720aaece3ee8acb5c4213bd224deefd444c914  0112-ASoC-qcom-pause-q6asm-capture-streams-on-stop.patch
 69e0d8c60afa70066fd642e109f24a6b8a7d20a90f1aa81dd6e1eaab12c200b8  0113-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-level.patch
+792c47e9451d2055a64da61fd6376067f5871bd941b4b1679d7caf7dbaaf6052  0114-media-qcom-iris-get-instance-from-file-in-streamparm.patch
