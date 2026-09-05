@@ -231,7 +231,7 @@ grep -Fxq '%{nabu_build_stamp}' \
     %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 grep -Fxq 'ConditionPathExists=!/etc/initrd-release' \
     %{buildroot}%{_unitdir}/nabu-mainline-unstable-late-xhci.service
-grep -Fxq 'ExecStart=/usr/sbin/modprobe xhci_plat_hcd' \
+grep -Fq 'test ! -d /usr/lib/modules/$(uname -r)' \
     %{buildroot}%{_unitdir}/nabu-mainline-unstable-late-xhci.service
 grep -Fxq 'enable nabu-mainline-unstable-late-xhci.service' \
     %{buildroot}%{_presetdir}/90-nabu-mainline-unstable.preset
@@ -329,7 +329,7 @@ mv -f "$temporary" /var/lib/nabu-kernel-maintenance/pending.d/mainline-unstable
 %systemd_preun nabu-mainline-unstable-late-xhci.service
 
 %postun
-%systemd_postun_with_restart nabu-mainline-unstable-late-xhci.service
+%systemd_postun nabu-mainline-unstable-late-xhci.service
 if [ "$1" -eq 0 ]; then
     /usr/sbin/depmod -a || :
 fi
