@@ -61,6 +61,15 @@ grep -Fq 'Stateful decoders,' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c"
 grep -Fq 'inst->domain == ENCODER' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c"
+iris_core="$work/linux-$version/drivers/media/platform/qcom/iris/iris_core.c"
+iris_probe="$work/linux-$version/drivers/media/platform/qcom/iris/iris_probe.c"
+grep -Fq 'int iris_core_deinit_for_system_suspend(struct iris_core *core)' \
+    "$iris_core"
+grep -Fq 'if (!list_empty(&core->instances)) {' "$iris_core"
+grep -Fq 'reinit_completion(&core->core_init_done);' "$iris_core"
+grep -Fq 'return iris_core_deinit_for_system_suspend(core);' "$iris_probe"
+! grep -A14 -F 'static int __maybe_unused iris_system_suspend' "$iris_probe" \
+    | grep -Fq 'Keep the controller powered'
 grep -Fq 'ADC5_USB_IN_V_16 describes the hardware divider.' \
     "$work/linux-$version/drivers/power/supply/qcom_smbx.c"
 if grep -Fq 'val->intval *= 16;' \

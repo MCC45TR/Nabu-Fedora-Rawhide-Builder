@@ -145,6 +145,7 @@ Patch0125:      0125-soc-qcom-ice-support-legacy-Keymaster-wrapped-keys.patch
 Patch0126:      0126-media-qcom-iris-use-VPU5-firmware-encoder-buffer-sizes.patch
 Patch0127:      0127-power-supply-qcom_smbx-fix-SMB5-USB-voltage-reporting.patch
 Patch0128:      0128-media-qcom-iris-keep-VPU5-decoder-counts-sequence-safe.patch
+Patch0129:      0129-media-qcom-iris-reinitialize-legacy-VPU5-across-s2idle.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -396,6 +397,11 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Quiesce idle legacy VPU5 firmware before s2idle and initialize it lazily.
+- Reject suspend with an open codec session instead of corrupting its state.
+- Reset the HFI system-init completion before every firmware initialization.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Keep stateful VPU5 decoder setup valid before CAPTURE buffers exist.
 - Restrict exact two-queue VB2 counts to the encoder domain.

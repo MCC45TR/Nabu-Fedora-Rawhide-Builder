@@ -126,3 +126,4 @@ a95a92ea6f04f60d0a66299eea125aeebb21094effeeb55fdbf26b5d0b7fc9cb  0125-soc-qcom-
 22f356d3a93210a82b71088f95f5e4f720db9b0562157d383ca7af6f72eb9de1  0126-media-qcom-iris-use-VPU5-firmware-encoder-buffer-sizes.patch
 e88d93dd98cd149665c0c31d1d6d6bb79a26c15cc700934b15f1823fe44c1371  0127-power-supply-qcom_smbx-fix-SMB5-USB-voltage-reporting.patch
 3f78b0660d445abb11b185f6534e0d3f918c41a35b66651e6ba9a0d76a873b8f  0128-media-qcom-iris-keep-VPU5-decoder-counts-sequence-safe.patch
+876ba266ac79edc292dd4864edd66b157cbb890f67db23aa659159997fd3c91b  0129-media-qcom-iris-reinitialize-legacy-VPU5-across-s2idle.patch

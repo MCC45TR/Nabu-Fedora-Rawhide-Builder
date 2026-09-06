@@ -1,0 +1,129 @@
+From 8ec0edaf1cdb7e47c86922b8edc12f3f9453ac54 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 23:16:13 +0300
+Subject: [PATCH] media: qcom: iris: reinitialize legacy VPU5 across s2idle
+
+Runtime PM remains forbidden on legacy VPU5 because its power-collapse
+handshake returns -EAGAIN. The system-sleep workaround therefore kept an
+initialized controller powered across s2idle. On Nabu the firmware state
+does not survive that transition: the first post-resume session times out
+waiting for HFI while unloading and reloading qcom_iris restores operation.
+
+Quiesce an idle legacy core directly from the system-suspend callback while
+the device is active, then let the next open perform the normal lazy
+initialization. Refuse suspend when a codec session is still open instead
+of silently invalidating it. Reset core_init_done before every HFI SYS_INIT
+so a previous boot completion cannot satisfy a new initialization, and
+preserve software teardown if a normal runtime resume fails.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/media/platform/qcom/iris/iris_core.c  | 42 ++++++++++++++++---
+ drivers/media/platform/qcom/iris/iris_core.h  |  1 +
+ drivers/media/platform/qcom/iris/iris_probe.c |  7 ++--
+ 3 files changed, 41 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_core.c b/drivers/media/platform/qcom/iris/iris_core.c
+index 61f36ad9a1cd..b827c6481bdf 100644
+--- a/drivers/media/platform/qcom/iris/iris_core.c
++++ b/drivers/media/platform/qcom/iris/iris_core.c
+@@ -11,8 +11,19 @@
+ #include "iris_state.h"
+ #include "iris_vpu_common.h"
+ 
++static void iris_core_deinit_locked(struct iris_core *core, bool power_off)
++{
++	iris_fw_unload(core);
++	if (power_off)
++		iris_vpu_power_off(core);
++	iris_hfi_queues_deinit(core);
++	core->state = IRIS_CORE_DEINIT;
++}
++
+ void iris_core_deinit(struct iris_core *core)
+ {
++	int ret;
++
+ 	/*
+ 	 * The core starts in DEINIT and remains there while allow_fw_boot is
+ 	 * disabled.  Do not resume power domains, issue PAS shutdown, or touch
+@@ -22,16 +33,34 @@ void iris_core_deinit(struct iris_core *core)
+ 	if (READ_ONCE(core->state) == IRIS_CORE_DEINIT)
+ 		return;
+ 
+-	pm_runtime_resume_and_get(core->dev);
++	ret = pm_runtime_resume_and_get(core->dev);
+ 
+ 	mutex_lock(&core->lock);
+-	iris_fw_unload(core);
+-	iris_vpu_power_off(core);
+-	iris_hfi_queues_deinit(core);
+-	core->state = IRIS_CORE_DEINIT;
++	if (core->state != IRIS_CORE_DEINIT)
++		iris_core_deinit_locked(core, ret >= 0);
++	mutex_unlock(&core->lock);
++
++	if (ret >= 0)
++		pm_runtime_put_sync(core->dev);
++}
++
++int iris_core_deinit_for_system_suspend(struct iris_core *core)
++{
++	int ret = 0;
++
++	mutex_lock(&core->lock);
++	if (!list_empty(&core->instances)) {
++		dev_warn(core->dev,
++			 "refusing system suspend with active codec sessions\n");
++		ret = -EBUSY;
++	} else if (core->state != IRIS_CORE_DEINIT) {
++		dev_info(core->dev,
++			 "quiescing legacy VPU5 for system suspend\n");
++		iris_core_deinit_locked(core, true);
++	}
+ 	mutex_unlock(&core->lock);
+ 
+-	pm_runtime_put_sync(core->dev);
++	return ret;
+ }
+ 
+ static int iris_wait_for_system_response(struct iris_core *core)
+@@ -117,6 +146,7 @@ int iris_core_init(struct iris_core *core)
+ 		goto error_unload_fw;
+ 
+ 	dev_info(core->dev, "initializing HFI core\n");
++	reinit_completion(&core->core_init_done);
+ 	ret = iris_hfi_core_init(core);
+ 	if (ret)
+ 		goto error_unload_fw;
+diff --git a/drivers/media/platform/qcom/iris/iris_core.h b/drivers/media/platform/qcom/iris/iris_core.h
+index d872ae9037e4..658c75ea2258 100644
+--- a/drivers/media/platform/qcom/iris/iris_core.h
++++ b/drivers/media/platform/qcom/iris/iris_core.h
+@@ -126,5 +126,6 @@ struct iris_core {
+ 
+ int iris_core_init(struct iris_core *core);
+ void iris_core_deinit(struct iris_core *core);
++int iris_core_deinit_for_system_suspend(struct iris_core *core);
+ 
+ #endif
+diff --git a/drivers/media/platform/qcom/iris/iris_probe.c b/drivers/media/platform/qcom/iris/iris_probe.c
+index 72a79092fa20..2f53dd30150a 100644
+--- a/drivers/media/platform/qcom/iris/iris_probe.c
++++ b/drivers/media/platform/qcom/iris/iris_probe.c
+@@ -363,11 +363,12 @@ static int __maybe_unused iris_system_suspend(struct device *dev)
+ 	 * Runtime PM is forbidden on legacy VPU5 until its power-collapse
+ 	 * handshake is implemented.  pm_runtime_force_suspend() bypasses that
+ 	 * prohibition and would still call iris_pm_suspend(), whose prepare-PC
+-	 * path intentionally returns -EAGAIN.  Keep the controller powered
+-	 * across s2idle instead of rejecting every system suspend.
++	 * path intentionally returns -EAGAIN.  A powered controller does not
++	 * retain usable firmware state across Nabu's s2idle, so tear it down
++	 * while the device is still active and let the next open initialize it.
+ 	 */
+ 	if (core->iris_platform_data->legacy_vpu5)
+-		return 0;
++		return iris_core_deinit_for_system_suspend(core);
+ 
+ 	return pm_runtime_force_suspend(dev);
+ }
