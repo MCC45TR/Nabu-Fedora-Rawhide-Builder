@@ -13,6 +13,10 @@ Requires:       plymouth
 Requires:       plymouth-plugin-script
 Requires:       abattis-cantarell-fonts
 Requires:       dracut
+Requires(post): coreutils
+Requires(post): gawk
+Requires(posttrans): coreutils
+Requires(posttrans): rpm
 
 %description
 SENEMOS boot, shutdown, reboot and offline-update visuals for Xiaomi Pad 5.
