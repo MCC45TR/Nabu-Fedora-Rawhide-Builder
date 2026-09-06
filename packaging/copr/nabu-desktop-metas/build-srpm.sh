@@ -6,7 +6,10 @@ copr_dir=$(cd -- "$root/.." && pwd)
 unified=$copr_dir/nabu-unified-meta
 top=${1:-$root/rpmbuild}
 mkdir -p "$top"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
-"$root/generate-family-spec.py"
+
+# nabu-desktop-metas.spec is generated and reviewed in the source tree.  Keep
+# the generator as a maintainer tool, but do not require Python in COPR's
+# deliberately minimal SRPM preparation chroot.
 
 install -m0644 \
     "$unified/vendor/nabu-kde-l10n-1.1.0.tar.gz" \
