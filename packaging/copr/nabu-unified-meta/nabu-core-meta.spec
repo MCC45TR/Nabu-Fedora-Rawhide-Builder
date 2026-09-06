@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        67%{?dist}
+Release:        68%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -57,14 +57,15 @@ Recommends:     senemos-fastfetch-config >= 1.2.0-1
 
 # Hardware, boot, firmware and service payloads remain independently built
 # where architecture, ABI, licensing or physical validation lifecycles differ.
-Requires:       nabu-boot-integration >= 2.0.0-31.test
+Requires:       nabu-boot-integration >= 2.0.0-37.test
 Requires:       nabu-boot-manager
-Requires:       hexagonrpc-nabu
-Requires:       libssc-nabu >= 0.4.4-9.nabu8.test
-Requires:       python3-ssc-nabu >= 0.4.4-9.nabu8.test
-Requires:       iio-sensor-proxy-nabu
+Requires:       hexagonrpc-nabu >= 0.5.0-4.nabu1.test
+Requires:       iris-vaapi-nabu >= 0.5.0-4.nabu1.test
+Requires:       libssc-nabu >= 2026.9.6-1
+Requires:       python3-ssc-nabu >= 2026.9.6-1
+Requires:       iio-sensor-proxy-nabu >= 2026.9.6-1
 Requires:       xiaomi-nabu-firmware
-Requires:       senemos-nabu-plymouth >= 1.0.0-5.test
+Requires:       senemos-nabu-plymouth >= 2.0.0-37.test
 # Keep the hardware-facing camera stack in CORE so every supported desktop
 # receives the same V4L2, libcamera, PipeWire and GStreamer integration. GUI
 # camera applications remain desktop-owned Fedora packages and are not forked
@@ -162,16 +163,16 @@ Obsoletes:      nabu-sar-service < %{legacy_meta_max}
 Obsoletes:      nabu-ssc-probe < %{legacy_meta_max}
 Obsoletes:      nabu-suspend-diagnostics < %{legacy_meta_max}
 Obsoletes:      senemos-nabu-pen-autopair < 1:1.17.0-1.v1.4.0.7.1.2
-# Legacy split payloads are intentionally not obsoleted in the first unified
-# release: one of them may be the running kernel and DNF must preserve it.
+Obsoletes:      senemos-nabu-kernel-alpha < %{legacy_meta_max}
+Obsoletes:      senemos-nabu-kernel-lts < %{legacy_meta_max}
 
 %description
 The single hardware-side release manifest for Fedora on Xiaomi Pad 5 (nabu).
 It installs the required firmware, boot, audio, sensor, power and service
-components and guarantees that at least one supported Nabu kernel family is
-installed.  Alpha is the recommended family, but stable, mainline and the
-reserved future LTS family may be installed together without replacing this
-meta package.  The package also owns repository configuration and the safe
+components and guarantees that the stable mainline Nabu kernel family is
+installed. The 6.17 fallback and mainline-unstable development channel remain
+independently installable without replacing this meta package. The package
+also owns repository configuration and the safe
 kernel/UKI maintenance control plane so their versions cannot drift apart.
 
 %prep
@@ -473,6 +474,11 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-68
+- Require the consolidated boot, sensor and platform-runtime family payloads.
+- Retire the old alpha and LTS package names during an ordinary DNF update.
+- Keep stable mainline, fallback and development as the three supported kernels.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-67
 - Make senemos-nabu-kernel-mainline 7.2.3 the release kernel and migrate existing
   alpha/development installations through a normal DNF update.
