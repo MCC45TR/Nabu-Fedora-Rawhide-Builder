@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Mon, 31 Aug 2026 01:55:32 +0300
+Subject: [PATCH] senemos: isolate mainline kernel identity
+
+---
+ senemos/README.md                   | 2 +-
+ senemos/build.sh                    | 2 +-
+ senemos/configs/nabu-minimal.config | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/senemos/README.md b/senemos/README.md
+index 3094da0e3acb..2cd7b0125533 100644
+--- a/senemos/README.md
++++ b/senemos/README.md
+@@ -41,7 +41,7 @@ The script recreates the output configuration from the Fedora Rawhide arm64
+ base plus `nabu-minimal.config`, and builds `Image`, the Nabu DTB and all
+ modules. The resulting ABI is:
+
+-`7.2.0-nabu-senemos-v7.2.0`
++`7.2.x-nabu-senemos-mainline`
+
+ The default output directory is:
+
+diff --git a/senemos/build.sh b/senemos/build.sh
+index 01fca7ef0815..a5432247392f 100755
+--- a/senemos/build.sh
++++ b/senemos/build.sh
+@@ -2,7 +2,7 @@
+ set -Eeuo pipefail
+
+ source_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+-output_dir=${SENEMOS_OUTPUT_DIR:-/workspace/kernel-builds/linux-nabu-senemos-mainline-alpha-v7.2.0}
++output_dir=${SENEMOS_OUTPUT_DIR:-/workspace/kernel-builds/linux-nabu-senemos-mainline}
+ jobs=${SENEMOS_JOBS:-16}
+
+ # Keep the release deterministic. An explicitly set empty LOCALVERSION stops
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index af66292977c6..da39b5f2c97b 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -1,5 +1,5 @@
+ # Senemos Xiaomi Pad 5 (nabu) boot-critical configuration layer.
+-CONFIG_LOCALVERSION="-nabu-senemos-mainline-alpha"
++CONFIG_LOCALVERSION="-nabu-senemos-mainline"
+ # CONFIG_LOCALVERSION_AUTO is not set
+
+ CONFIG_ARCH_QCOM=y

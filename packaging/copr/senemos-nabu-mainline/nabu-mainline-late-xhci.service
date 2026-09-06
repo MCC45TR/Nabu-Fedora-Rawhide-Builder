@@ -1,0 +1,15 @@
+[Unit]
+Description=Load the optional Nabu XHCI host after switch-root
+ConditionPathExists=!/etc/initrd-release
+After=local-fs.target systemd-udevd.service
+
+[Service]
+Type=oneshot
+# During an RPM upgrade, the running kernel's old module tree may already be
+# gone when systemd reloads this unit. Treat that transaction-only state as a
+# no-op; a normal boot always has the matching module tree.
+ExecStart=/bin/sh -c 'test ! -d /usr/lib/modules/$(uname -r) || exec /usr/sbin/modprobe xhci_plat_hcd'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
