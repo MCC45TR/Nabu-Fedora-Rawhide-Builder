@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        39.test%{?dist}
+Release:        40.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -134,6 +134,7 @@ grep -Fq 'log_buf_len=8M' payload/usr/bin/nabu-regenerate-uki
 grep -Fq '/usr/lib/senemos-nabu/verbose-uki.d' payload/usr/bin/nabu-regenerate-uki
 grep -Fq '/usr/lib/senemos-nabu/uki-version.d' payload/usr/bin/nabu-regenerate-uki
 grep -Fq 'build_version =~ ^[0-9]{10}$' payload/usr/bin/nabu-regenerate-uki
+grep -Fq 'nabu-senemos-mainline$' payload/usr/bin/nabu-regenerate-uki
 grep -Fqx 'compress="zstd -15 -q -T2"' payload/usr/lib/dracut/dracut.conf.d/91-nabu-responsive-compression.conf
 grep -Fq 'zstd -T2 -15 -q -o "$normalized"' payload/usr/libexec/senemos-nabu/sanitize-initramfs
 bash tests/test-kernel-build-identity.sh
