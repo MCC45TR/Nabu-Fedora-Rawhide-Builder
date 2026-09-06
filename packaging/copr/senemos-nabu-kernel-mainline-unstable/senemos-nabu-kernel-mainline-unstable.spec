@@ -141,6 +141,7 @@ Patch0121:      0121-media-qcom-remove-Nabu-camera-bring-up-logging.patch
 Patch0122:      0122-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
 Patch0123:      0123-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
 Patch0124:      0124-crypto-enable-Android-data-compatibility-algorithms.patch
+Patch0125:      0125-soc-qcom-ice-support-legacy-Keymaster-wrapped-keys.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -392,6 +393,11 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Add opt-in legacy Keymaster wrapped-key support for Nabu's pre-HWKM ICE.
+- Keep raw and wrapped key profiles mutually exclusive and fail closed on
+  unsupported modern wrapped-key lifecycle operations.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Enable modular Adiantum and HCTR2 for the Android 9-17 userdata matrix.
 - Keep Nabu's boot-critical AES-XTS/CTS, fscrypt and wrapped-key path unchanged.

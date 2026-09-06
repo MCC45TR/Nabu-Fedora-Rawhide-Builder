@@ -44,6 +44,11 @@ The modern FastRPC lifetime and VMID hardening remains in place, while SM8150
 SDSP allocations use Nabu's physically proven 34-bit, SID-specific IOVA windows.
 CAMSS links and exposes each sensor as it binds, so one failed camera no longer
 keeps another working camera out of the media graph.
+When explicitly selected with `qcom_ice.use_wrapped_keys=1`, pre-HWKM Qualcomm
+ICE can consume the ephemeral `wrappedkey_v0` keys produced by Android
+Keymaster. Raw-key and wrapped-key profiles remain mutually exclusive, and
+legacy mode rejects the modern generate/import/prepare operations it cannot
+provide.
 The A6xx context-switch path drains and invalidates the previous context's CCU
 state before replacing TTBR0, preventing stale render-backend accesses from
 being translated through the next process page table on Adreno 640.

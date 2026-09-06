@@ -157,6 +157,16 @@ grep -A18 -F 'static struct target_type default_key_target' "$dm_inlinecrypt" \
     | grep -Fq 'DM_TARGET_PASSES_CRYPTO'
 grep -Fq 'qcom_scm_has_wrapped_key_support()' \
     "$work/linux-$version/drivers/soc/qcom/ice.c"
+grep -Fq 'qcom_scm_has_legacy_wrapped_key_support()' \
+    "$work/linux-$version/drivers/soc/qcom/ice.c"
+grep -Fq 'ice->use_legacy_wrapped_keys = true;' \
+    "$work/linux-$version/drivers/soc/qcom/ice.c"
+grep -Fq 'ice->use_hwkm || ice->use_legacy_wrapped_keys' \
+    "$work/linux-$version/drivers/soc/qcom/ice.c"
+grep -Fq 'if (!ice->use_hwkm)' \
+    "$work/linux-$version/drivers/soc/qcom/ice.c"
+grep -Fq 'QCOM_SCM_ES_DERIVE_SW_SECRET' \
+    "$work/linux-$version/drivers/firmware/qcom/qcom_scm.c"
 ufs_qcom="$work/linux-$version/drivers/ufs/host/ufs-qcom.c"
 grep -Fq 'of_machine_is_compatible("xiaomi,nabu")' "$ufs_qcom"
 grep -A8 -F 'of_machine_is_compatible("xiaomi,nabu")' "$ufs_qcom" \
