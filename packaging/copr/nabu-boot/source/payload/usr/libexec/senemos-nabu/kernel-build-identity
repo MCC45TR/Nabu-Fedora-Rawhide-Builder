@@ -1,0 +1,42 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+field=${1:-}
+kver=${2:-}
+[[ $# -eq 2 && $field == --field=* ]] || {
+    printf 'usage: kernel-build-identity --field=FIELD KERNEL_VERSION\n' >&2
+    exit 2
+}
+field=${field#--field=}
+
+if [[ $kver =~ ^([0-9]+[.][0-9]+[.][0-9]+)-(senemos-)?([0-9]{10})$ ]]; then
+    kernel_base=${BASH_REMATCH[1]}
+    build_stamp=${BASH_REMATCH[3]}
+    kernel_major=${kernel_base%%.*}
+elif [[ $kver =~ ^([0-9]+[.][0-9]+[.][0-9]+)- ]]; then
+    kernel_base=${BASH_REMATCH[1]}
+    kernel_major=${kernel_base%%.*}
+    rpm_command=${NABU_KERNEL_IDENTITY_RPM:-rpm}
+    boot_dir=${NABU_KERNEL_IDENTITY_BOOT_DIR:-/boot}
+    package_release=$(
+        "$rpm_command" -qf --qf '%{RELEASE}\n' "$boot_dir/vmlinuz-$kver" 2>/dev/null || :
+    )
+    build_stamp=$(sed -nE 's/^([0-9]{10})([.]|$).*/\1/p' <<<"$package_release")
+    [[ $build_stamp =~ ^[0-9]{10}$ ]] || {
+        printf 'Kernel package release has no timestamp identity: %s\n' "$kver" >&2
+        exit 1
+    }
+else
+    printf 'Unsupported timestamped kernel identity: %s\n' "$kver" >&2
+    exit 1
+fi
+
+case "$field" in
+    base) printf '%s\n' "$kernel_base" ;;
+    major) printf '%s\n' "$kernel_major" ;;
+    stamp) printf '%s\n' "$build_stamp" ;;
+    uname) printf '%s\n' "$kver" ;;
+    efi-name) printf 'SENEMOS%s-%s.efi\n' "$kernel_major" "$build_stamp" ;;
+    efi-title) printf 'Fedora Rawhide (SENEMOS%s %s)\n' "$kernel_major" "$build_stamp" ;;
+    *) printf 'Unknown identity field: %s\n' "$field" >&2; exit 2 ;;
+esac
