@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        72%{?dist}
+Release:        73%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -222,10 +222,6 @@ install -Dm0644 %{SOURCE25} %{buildroot}%{_unitdir}/nabu-locale-packages.path
 install -Dm0644 %{SOURCE26} %{buildroot}%{_unitdir}/nabu-locale-packages.timer
 install -Dm0644 %{SOURCE27} %{buildroot}%{_presetdir}/91-nabu-locale-packages.preset
 install -Dm0644 %{SOURCE29} %{buildroot}%{_sysconfdir}/wireplumber/wireplumber.conf.d/95-nabu-audio-visibility.conf
-# feedbackd enables phone-oriented media-role loopbacks globally.  A fragment
-# with the same name in WirePlumber's higher-priority /etc layer masks it while
-# preserving feedbackd itself for haptic/event feedback.
-ln -s /dev/null %{buildroot}%{_sysconfdir}/wireplumber/wireplumber.conf.d/media-role-nodes.conf
 install -d %{buildroot}%{_sysconfdir}/systemd/system
 ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.timer
 
@@ -312,10 +308,10 @@ grep -Fq -- '--sensor accelerometer --timeout 1' \
 (cd system-integration && bash tests/test-selinux-label-preparation.sh)
 (cd system-integration && bash tests/test-suspend-user-slice-policy.sh)
 (cd system-integration && bash tests/test-slpi-suspend.sh)
+grep -Fq 'policy.linking.role-based.loopbacks = disabled' %{SOURCE29}
 grep -Fq 'node.name = "alsa_output.platform-sound.HiFi__Speaker__sink"' %{SOURCE29}
 grep -Fq 'node.hidden = true' %{SOURCE29}
 ! grep -Fq 'module-echo-cancel' %{SOURCE29}
-test "$(readlink %{buildroot}%{_sysconfdir}/wireplumber/wireplumber.conf.d/media-role-nodes.conf)" = /dev/null
 (cd system-integration && bash tests/test-ssh-host-key-guard.sh)
 (cd system-integration && bash tests/test-update-recovery-policy.sh)
 bash -n system-integration/runtime/senemos-nabu-status
@@ -372,7 +368,6 @@ fi
 %dir %{_sysconfdir}/wireplumber
 %dir %{_sysconfdir}/wireplumber/wireplumber.conf.d
 %config(noreplace) %{_sysconfdir}/wireplumber/wireplumber.conf.d/95-nabu-audio-visibility.conf
-%{_sysconfdir}/wireplumber/wireplumber.conf.d/media-role-nodes.conf
 %config(noreplace) %{_sysconfdir}/NetworkManager/conf.d/20-nabu-wifi-wowlan.conf
 %config(noreplace) %{_sysconfdir}/nabu-sar.conf
 %{_prefix}/lib/modprobe.d/80-nabu-audio.conf
@@ -482,6 +477,11 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-73
+- Disable feedbackd role loopbacks through the main profile from the
+  higher-priority host configuration layer; same-name fragment masking is not
+  supported by WirePlumber's merged fragment loader.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-72
 - Mask feedbackd's phone-oriented media-role fragment from WirePlumber's
   higher-priority configuration layer while retaining feedback support.
