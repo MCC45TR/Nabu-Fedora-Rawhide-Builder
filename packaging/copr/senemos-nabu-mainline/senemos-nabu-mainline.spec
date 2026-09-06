@@ -127,6 +127,20 @@ Patch0107:      0107-media-iris-honor-VP9-firmware-capture-minimum.patch
 Patch0108:      0108-slimbus-qcom-ngd-use-default-unbound-workqueue.patch
 Patch0109:      0109-ASoC-qcom-drop-unreliable-rendered-EOS-wait.patch
 Patch0110:      0110-input-nabu-sample-pogo-detect-state-instead-of-toggling.patch
+Patch0111:      0111-input-nabu-do-not-treat-controller-irq-as-presence.patch
+Patch0112:      0112-ASoC-qcom-pause-q6asm-capture-streams-on-stop.patch
+Patch0113:      0113-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-level.patch
+Patch0114:      0114-media-qcom-iris-get-instance-from-file-in-streamparm.patch
+Patch0115:      0115-media-qcom-iris-use-vpu5-buffer-count-layout.patch
+Patch0116:      0116-ASoC-wcd934x-do-not-report-normal-port-close-as-xrun.patch
+Patch0117:      0117-media-qcom-iris-use-vb2-buffer-counts-on-vpu5.patch
+Patch0118:      0118-media-qcom-iris-disable-vpu5-power-collapse-at-core-init.patch
+Patch0119:      0119-media-i2c-expose-Nabu-sensor-geometry-and-frame-rate.patch
+Patch0120:      0120-media-connect-Nabu-rear-flash-to-camera.patch
+Patch0121:      0121-media-qcom-remove-Nabu-camera-bring-up-logging.patch
+Patch0122:      0122-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
+Patch0123:      0123-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
+Patch0124:      0124-crypto-enable-Android-data-compatibility-algorithms.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -149,6 +163,7 @@ BuildRequires:  xz
 BuildRequires:  zstd
 Requires:       nabu-kernel-maintenance-api >= 5
 Requires:       nabu-boot-integration >= 2.0.0-29.test
+Provides:       kernel-nabu-core-uname-r
 Requires(posttrans): coreutils
 Requires(postun): kmod
 Provides:       senemos-nabu-kernel-mainline-alpha = %{version}-%{release}
@@ -280,6 +295,26 @@ grep -Fxq 'CONFIG_BT_RFCOMM=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_BT_BNEP=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_HIDRAW=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_UHID=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_BLK_INLINE_ENCRYPTION=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DM_INLINECRYPT=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DM_DEFAULT_KEY=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DM_CRYPT=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_FS_ENCRYPTION=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_FS_ENCRYPTION_INLINE_CRYPT=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_CRYPTO_ADIANTUM=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_CRYPTO_HCTR2=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_F2FS_FS=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_F2FS_FS_SECURITY=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_QCOM_INLINE_CRYPTO_ENGINE=y' %{buildroot}/boot/config-%{uname_r}
+grep -Eq '^[[:space:]]*\.name[[:space:]]*=[[:space:]]*"default-key"' \
+    drivers/md/dm-inlinecrypt.c
+grep -Fq 'ctx->key_type = BLK_CRYPTO_KEY_TYPE_HW_WRAPPED;' \
+    drivers/md/dm-inlinecrypt.c
+grep -A24 -F 'static int default_key_map' drivers/md/dm-inlinecrypt.c \
+    | grep -Fq 'bio_has_crypt_ctx(bio)'
+grep -A18 -F 'static struct target_type default_key_target' \
+    drivers/md/dm-inlinecrypt.c | grep -Fq 'DM_TARGET_PASSES_CRYPTO'
 recover_line=$(grep -n -F 'gpu->funcs->recover(gpu);' \
     drivers/gpu/drm/msm/msm_gpu.c | cut -d: -f1)
 retire_line=$(grep -n -F 'retire_submits(gpu);' \
@@ -316,7 +351,8 @@ test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
 # Built-in platform prerequisites (I2C_QCOM_CCI, SM_CAMCC_8150 and DMA-BUF
 # heaps) are validated through the config checks above.  Only loadable camera
 # and sensor drivers have module payloads to verify here.
-for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 qcom-ssc-cct; do
+for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 qcom-ssc-cct \
+    f2fs dm-crypt; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
 done
@@ -363,6 +399,24 @@ fi
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-1
 - Promote the validated 7.2.3 Nabu payload to the clean mainline-stable name.
 - Migrate both retired 7.2 alpha/development package names during DNF update.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Enable modular Adiantum and HCTR2 for the Android 9-17 userdata matrix.
+- Keep Nabu's boot-critical AES-XTS/CTS, fscrypt and wrapped-key path unchanged.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Preserve Xiaomi's Nabu-wide UFS reference-clock settling interval.
+- Give WDC and SanDisk storage the longer interval used by Android.
+- Keep every non-Nabu Qualcomm platform on the upstream timing path.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Expose OV13B10 and OV8856 crop geometry and mode-derived frame intervals to
+  libcamera so applications can enumerate the real sensor modes and rates.
+- Connect the rear flash LED to OV13B10 through the standard V4L2 flash class.
+- Remove OV8856 readback overhead and keep routine CAMSS frame diagnostics at
+  debug level instead of filling the journal during camera use.
+- Restore F2FS and fscrypt, and add an Android options-format-v2 default-key
+  target that routes wrappedkey_v0 only through Qualcomm hardware-wrapped ICE.
 
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Sample the active-low pogo detect GPIO on both edges instead of toggling a
