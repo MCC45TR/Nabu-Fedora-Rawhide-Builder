@@ -57,6 +57,10 @@ grep -Fq 'case HFI_BUFFER_INTERNAL_SCRATCH_2:' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c"
 grep -Fq 'exact_firmware_size = inst->core->iris_platform_data->legacy_vpu5' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_buffer.c"
+grep -Fq 'Stateful decoders,' \
+    "$work/linux-$version/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c"
+grep -Fq 'inst->domain == ENCODER' \
+    "$work/linux-$version/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c"
 grep -Fq 'ADC5_USB_IN_V_16 describes the hardware divider.' \
     "$work/linux-$version/drivers/power/supply/qcom_smbx.c"
 if grep -Fq 'val->intval *= 16;' \
