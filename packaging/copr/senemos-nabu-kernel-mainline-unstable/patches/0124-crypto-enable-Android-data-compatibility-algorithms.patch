@@ -1,0 +1,31 @@
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 03:20:00 +0300
+Subject: [PATCH] crypto: enable Android data compatibility algorithms on Nabu
+
+Android userdata from older and newer platform generations may use Adiantum
+or HCTR2 even though Nabu's Android 16 profile normally uses AES-XTS and
+AES-CTS. Build both algorithms as modules so the data bridge can cover the
+full Android 9-17 compatibility matrix without increasing the boot-critical
+kernel image.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ senemos/configs/nabu-minimal.config | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index b120fbf9f..8a9780d5a 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -40,6 +40,9 @@ CONFIG_DM_DEFAULT_KEY=y
+ CONFIG_FS_ENCRYPTION=y
+ CONFIG_FS_ENCRYPTION_ALGS=y
+ CONFIG_FS_ENCRYPTION_INLINE_CRYPT=y
++# Android 9-17 userdata compatibility beyond Nabu's normal AES-XTS/CTS path.
++CONFIG_CRYPTO_ADIANTUM=m
++CONFIG_CRYPTO_HCTR2=m
+ CONFIG_F2FS_FS=m
+ CONFIG_F2FS_FS_XATTR=y
+ CONFIG_F2FS_FS_POSIX_ACL=y
+-- 
+2.55.0

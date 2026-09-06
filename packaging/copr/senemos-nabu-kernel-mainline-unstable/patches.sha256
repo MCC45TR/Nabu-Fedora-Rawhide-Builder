@@ -121,3 +121,4 @@ e221fc429ae852cfd8c092b6c045fbef569e21bef99b23021e7d30c3afb9500b  0115-media-qco
 89af24689e17d9e628689c2175c89ace58d1dfc5a150e9c2f63d0b2f42d2448d  0121-media-qcom-remove-Nabu-camera-bring-up-logging.patch
 41e00b1f776084d0d72709d5ec831eded0e837d4314e010b11cfd71a5a4fcb97  0122-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
 9e33be05620ce2f7cf03e1010e6c923da68c0301dbf2a8b997c3a5ca514f9602  0123-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
+a395a3d434848795b46b961d6ea78e8fed315bbe6b69f4aafbafc6fff94c0b8f  0124-crypto-enable-Android-data-compatibility-algorithms.patch

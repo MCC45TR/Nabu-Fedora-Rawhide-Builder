@@ -140,6 +140,7 @@ Patch0120:      0120-media-connect-Nabu-rear-flash-to-camera.patch
 Patch0121:      0121-media-qcom-remove-Nabu-camera-bring-up-logging.patch
 Patch0122:      0122-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
 Patch0123:      0123-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
+Patch0124:      0124-crypto-enable-Android-data-compatibility-algorithms.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -297,6 +298,8 @@ grep -Fxq 'CONFIG_DM_DEFAULT_KEY=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_DM_CRYPT=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_FS_ENCRYPTION=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_FS_ENCRYPTION_INLINE_CRYPT=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_CRYPTO_ADIANTUM=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_CRYPTO_HCTR2=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_F2FS_FS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_F2FS_FS_SECURITY=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_QCOM_INLINE_CRYPTO_ENGINE=y' %{buildroot}/boot/config-%{uname_r}
@@ -389,6 +392,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Enable modular Adiantum and HCTR2 for the Android 9-17 userdata matrix.
+- Keep Nabu's boot-critical AES-XTS/CTS, fscrypt and wrapped-key path unchanged.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Preserve Xiaomi's Nabu-wide UFS reference-clock settling interval.
 - Give WDC and SanDisk storage the longer interval used by Android.
