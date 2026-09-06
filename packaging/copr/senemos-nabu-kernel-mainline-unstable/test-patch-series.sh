@@ -57,6 +57,13 @@ grep -Fq 'case HFI_BUFFER_INTERNAL_SCRATCH_2:' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c"
 grep -Fq 'exact_firmware_size = inst->core->iris_platform_data->legacy_vpu5' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_buffer.c"
+grep -Fq 'ADC5_USB_IN_V_16 describes the hardware divider.' \
+    "$work/linux-$version/drivers/power/supply/qcom_smbx.c"
+if grep -Fq 'val->intval *= 16;' \
+    "$work/linux-$version/drivers/power/supply/qcom_smbx.c"; then
+    printf 'ERROR: SMB5 USB voltage is still scaled twice\n' >&2
+    exit 1
+fi
 test -s "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts"
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
