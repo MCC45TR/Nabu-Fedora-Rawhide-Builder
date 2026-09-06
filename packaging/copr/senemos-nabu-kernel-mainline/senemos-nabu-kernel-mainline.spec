@@ -3,7 +3,7 @@
 %global nabu_build_stamp 0000000000
 %global uname_r %{version}-nabu-senemos-mainline
 
-Name:           senemos-nabu-mainline
+Name:           senemos-nabu-kernel-mainline
 Version:        7.2.3
 Release:        1%{?dist}
 Summary:        Patch-layered Linux 7.2.y SENEMOS kernel for Xiaomi Pad 5
@@ -168,14 +168,13 @@ Requires(posttrans): coreutils
 Requires(postun): kmod
 Provides:       senemos-nabu-kernel-mainline-alpha = %{version}-%{release}
 Obsoletes:      senemos-nabu-kernel-mainline-alpha < 7.2.4
-Provides:       senemos-nabu-kernel-mainline-unstable = %{version}-%{release}
-Obsoletes:      senemos-nabu-kernel-mainline-unstable < 7.2.4
 
 %description
 Official Linux 7.2.y plus a checksum-locked, ordered Xiaomi Pad 5 (nabu)
 patch series. This is the stable mainline family with its own kernel ABI,
 RPM ownership, maintenance queue and SENEMOS7 UKI namespace. It can coexist
-with the 6.17 fallback and replaces the retired 7.2 alpha/development names.
+with the 6.17 fallback and the mainline-unstable development channel, while
+replacing the retired mainline-alpha package name.
 
 %prep
 [[ '%{nabu_build_stamp}' =~ ^[0-9]{10}$ ]]
@@ -398,7 +397,7 @@ fi
 %changelog
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-1
 - Promote the validated 7.2.3 Nabu payload to the clean mainline-stable name.
-- Migrate both retired 7.2 alpha/development package names during DNF update.
+- Migrate the retired mainline-alpha package name during a normal DNF update.
 
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Enable modular Adiantum and HCTR2 for the Android 9-17 userdata matrix.

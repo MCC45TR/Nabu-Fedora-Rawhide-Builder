@@ -4,7 +4,7 @@ set -Eeuo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 legacy=$root/../senemos-nabu-kernel-mainline-unstable
 top=${1:-$root/rpmbuild}
-spec=$root/senemos-nabu-mainline.spec
+spec=$root/senemos-nabu-kernel-mainline.spec
 version=$(sed -nE 's/^Version:[[:space:]]+([^[:space:]]+).*/\1/p' "$spec")
 archive=linux-$version.tar.xz
 url=https://cdn.kernel.org/pub/linux/kernel/v7.x/$archive
