@@ -20,7 +20,7 @@ printf 'plymouth %s\n' "$*" >>"$TEST_LOG"
 EOF
 chmod +x "$root/maintenance" "$root/plymouth"
 
-printf '7.2.2-nabu-senemos-mainline-unstable\n' >"$pending/mainline-unstable"
+printf '7.2.3-nabu-senemos-mainline\n' >"$pending/mainline"
 TEST_LOG=$log TEST_PENDING=$pending \
 NABU_OFFLINE_PENDING_DIR=$pending \
 NABU_OFFLINE_MAINTENANCE=$root/maintenance \

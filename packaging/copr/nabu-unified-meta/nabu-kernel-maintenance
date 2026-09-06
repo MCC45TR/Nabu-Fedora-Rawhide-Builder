@@ -24,18 +24,14 @@ if [[ -r $compatible_path ]] && ! grep -aq 'xiaomi,nabu' "$compatible_path"; the
 fi
 
 declare -Ar selector=(
-    [stable]=senemos-nabu-kernel
-    [alpha]=senemos-nabu-kernel-alpha
-    [mainline]=senemos-nabu-kernel-mainline-alpha
+    [kernel]=senemos-nabu-kernel
+    [mainline]=senemos-nabu-kernel-mainline
     [mainline-unstable]=senemos-nabu-kernel-mainline-unstable
-    [lts]=senemos-nabu-kernel-lts
 )
 declare -Ar efi_family=(
-    [stable]=SENEMOS6
-    [alpha]=SENEMOS6
+    [kernel]=SENEMOS6
     [mainline]=SENEMOS7
     [mainline-unstable]=SENEMOS7U
-    [lts]=SENEMOS6LTS
 )
 
 identity_is_newer() {
@@ -53,7 +49,7 @@ identity_is_newer() {
 install -d -m0755 "$state_dir" "$pending_dir" "$prepared_dir"
 declare -A selected_kernel=() selected_identity=() selected_channel=()
 installed_count=0
-for channel in stable alpha mainline mainline-unstable lts; do
+for channel in kernel mainline mainline-unstable; do
     rpm -q "${selector[$channel]}" >/dev/null 2>&1 || continue
     installed_count=$((installed_count + 1))
     package_nevra=$(rpm -q --qf '%{NEVRA}\n' "${selector[$channel]}" | tail -n1)
@@ -92,10 +88,14 @@ for channel in stable alpha mainline mainline-unstable lts; do
 done
 (( installed_count > 0 )) || { printf 'No managed Nabu kernel family is installed.\n' >&2; exit 2; }
 
-preferred=alpha
+preferred=mainline
 if [[ -r $config_file ]]; then
-    configured=$(sed -nE 's/^preferred=(stable|alpha|mainline|mainline-unstable|lts)$/\1/p' "$config_file" | tail -n1)
-    [[ -z $configured ]] || preferred=$configured
+    configured=$(sed -nE 's/^preferred=([^[:space:]]+)$/\1/p' "$config_file" | tail -n1)
+    case $configured in
+        kernel|stable|lts) preferred=kernel ;;
+        mainline|alpha|mainline-alpha) preferred=mainline ;;
+        mainline-unstable|unstable) preferred=mainline-unstable ;;
+    esac
 fi
 preferred_family=${efi_family[$preferred]}
 if [[ -z ${selected_kernel[$preferred_family]:-} ]]; then
@@ -146,7 +146,7 @@ for family in "${ordered_families[@]}" "$preferred_family"; do
         chmod 0644 "$temporary"
         mv -f "$temporary" "$prepared_file"
     fi
-    for channel in stable alpha mainline mainline-unstable lts; do
+    for channel in kernel mainline mainline-unstable; do
         [[ ${efi_family[$channel]} == "$family" ]] && rm -f -- "$pending_dir/$channel"
     done
 done

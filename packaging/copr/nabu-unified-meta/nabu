@@ -5,25 +5,28 @@ export PATH
 
 readonly PROGRAM=${0##*/}
 readonly CONFIG=/etc/nabu/kernel.conf
-readonly -a FAMILIES=(alpha stable mainline mainline-unstable lts)
+readonly -a FAMILIES=(kernel mainline mainline-unstable)
 
 selector_for() {
     case ${1:-} in
-        alpha) printf '%s\n' senemos-nabu-kernel-alpha ;;
-        stable) printf '%s\n' senemos-nabu-kernel ;;
-        mainline) printf '%s\n' senemos-nabu-kernel-mainline-alpha ;;
+        kernel|stable|lts) printf '%s\n' senemos-nabu-kernel ;;
+        mainline|alpha|mainline-alpha) printf '%s\n' senemos-nabu-kernel-mainline ;;
         mainline-unstable|unstable) printf '%s\n' senemos-nabu-kernel-mainline-unstable ;;
-        lts) printf '%s\n' senemos-nabu-kernel-lts ;;
         *) return 2 ;;
     esac
 }
 
 preferred_family() {
-    local value=alpha
+    local value=mainline
     if [[ -r $CONFIG ]]; then
-        value=$(sed -nE 's/^preferred=(alpha|stable|mainline|mainline-unstable|lts)$/\1/p' "$CONFIG" | tail -n1)
+        value=$(sed -nE 's/^preferred=([^[:space:]]+)$/\1/p' "$CONFIG" | tail -n1)
     fi
-    printf '%s\n' "${value:-alpha}"
+    case ${value:-mainline} in
+        kernel|stable|lts) printf '%s\n' kernel ;;
+        mainline|alpha|mainline-alpha) printf '%s\n' mainline ;;
+        mainline-unstable|unstable) printf '%s\n' mainline-unstable ;;
+        *) printf '%s\n' mainline ;;
+    esac
 }
 
 installed_families() {
@@ -46,9 +49,9 @@ usage() {
 Usage:
   nabu kernel status
   nabu kernel list
-  nabu kernel use alpha|stable|mainline|mainline-unstable|lts
-  nabu kernel add alpha|stable|mainline|mainline-unstable|lts
-  nabu branch [status|list|alpha|stable|unstable]
+  nabu kernel use kernel|mainline|mainline-unstable
+  nabu kernel add kernel|mainline|mainline-unstable
+  nabu branch [status|list|kernel|mainline|unstable]
 
 At least one Nabu kernel family is always required by nabu-core-meta. "use"
 installs a family and makes it the preferred UKI target; "add" installs an
@@ -80,7 +83,11 @@ list_families() {
 
 install_family() {
     local mode=$1 family=$2 selector temporary
-    [[ $family == unstable ]] && family=mainline-unstable
+    case $family in
+        stable|lts) family=kernel ;;
+        alpha|mainline-alpha) family=mainline ;;
+        unstable) family=mainline-unstable ;;
+    esac
     selector=$(selector_for "$family") || {
         printf '%s: unknown kernel family: %s\n' "$PROGRAM" "$family" >&2
         return 2
@@ -123,7 +130,7 @@ main() {
             case $action in
                 status) show_status ;;
                 list) list_families ;;
-                alpha|stable|unstable|mainline|mainline-unstable|lts) install_family use "$action" ;;
+                kernel|stable|lts|alpha|mainline-alpha|unstable|mainline|mainline-unstable) install_family use "$action" ;;
                 help|-h|--help) usage ;;
                 *) usage >&2; return 2 ;;
             esac
