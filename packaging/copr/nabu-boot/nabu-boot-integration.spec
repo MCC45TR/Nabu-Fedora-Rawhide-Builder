@@ -138,7 +138,7 @@ grep -Fqx 'compress="zstd -15 -q -T2"' payload/usr/lib/dracut/dracut.conf.d/91-n
 grep -Fq 'zstd -T2 -15 -q -o "$normalized"' payload/usr/libexec/senemos-nabu/sanitize-initramfs
 bash tests/test-kernel-build-identity.sh
 grep -Fq 'managed_uki_family' manager/nabu-configure-boot-manager
-grep -Fq 'SENEMOS[0-9]+(LTS|U)?' manager/nabu-configure-boot-manager
+grep -Fq 'SENEMOS6|SENEMOS7|SENEMOS7U' manager/nabu-configure-boot-manager
 grep -Fq 'SENEMOS7U' tests/test-boot-manager.sh
 grep -Fq 'refind-local.conf' manager/nabu-configure-boot-manager
 grep -Fqx "            echo 'scanfor manual'" manager/nabu-configure-boot-manager
@@ -346,6 +346,8 @@ fi
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-37.test
 - Publish boot integration and the scale-independent Plymouth theme from one
   COPR source family while preserving every existing binary RPM name.
+- Retire the legacy LTS EFI family and converge updates to SENEMOS6, SENEMOS7
+  and SENEMOS7U with at most one current UKI for each family.
 
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-36.test
 - Keep exactly one loader manifest per SENEMOS family without a duplicate

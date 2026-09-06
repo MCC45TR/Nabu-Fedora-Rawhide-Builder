@@ -34,7 +34,7 @@ tree_manifest() {
 
 managed_uki_family() {
     local name=$1
-    if [[ $name =~ ^(SENEMOS[0-9]+(LTS|U)?)-([0-9]{10}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]; then
+    if [[ $name =~ ^(SENEMOS6|SENEMOS7|SENEMOS7U)-([0-9]{10}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]; then
         printf '%s\n' "${BASH_REMATCH[1]}"
         return 0
     fi
@@ -43,7 +43,7 @@ managed_uki_family() {
 
 managed_uki_identity() {
     local name=$1
-    if [[ $name =~ ^SENEMOS[0-9]+(LTS|U)?-([0-9]{10}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]; then
+    if [[ $name =~ ^(SENEMOS6|SENEMOS7|SENEMOS7U)-([0-9]{10}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]; then
         printf '%s\n' "${BASH_REMATCH[2]}"
         return 0
     fi
@@ -190,7 +190,7 @@ if [[ -z $default_uki && -r $esp/loader/entries/senemos.conf ]]; then
     [[ -z $previous_family ]] || default_uki=${family_uki[$previous_family]:-}
 fi
 if [[ -z $default_uki && -r $esp/loader/loader.conf ]]; then
-    previous_entry=$(sed -nE 's/^default[[:space:]]+senemos-(SENEMOS[0-9]+(LTS|U)?)[.]conf$/\1/p' \
+    previous_entry=$(sed -nE 's/^default[[:space:]]+senemos-(SENEMOS6|SENEMOS7|SENEMOS7U)[.]conf$/\1/p' \
         "$esp/loader/loader.conf" | head -n1)
     [[ -z $previous_entry ]] || default_uki=${family_uki[$previous_entry]:-}
 fi
@@ -329,6 +329,12 @@ for legacy_image_uki in "$linux_dir"/fedora-rawhide-*-system-*.efi \
                         "$linux_dir"/fedora-rawhide-*.efi; do
     [[ -e $legacy_image_uki ]] || continue
     rm -f -- "$legacy_image_uki"
+done
+# LTS was a retired fourth project-owned channel.  Remove its old UKIs so an
+# existing installation converges to the three supported kernel families.
+for retired_lts_uki in "$linux_dir"/SENEMOS[0-9]*LTS-*.efi; do
+    [[ -e $retired_lts_uki ]] || continue
+    rm -f -- "$retired_lts_uki"
 done
 # Remove stale manager-owned loader manifests after the selected family set is
 # committed. Android and unrelated user manifests are retained.

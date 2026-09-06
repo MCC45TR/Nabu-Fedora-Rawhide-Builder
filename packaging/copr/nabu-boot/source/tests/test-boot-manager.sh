@@ -39,7 +39,6 @@ test ! -e "$esp/loader/entries/senemos.conf"
 grep -Fxq 'efi /EFI/fedora/SENEMOS6-2608291500.efi' "$esp/loader/entries/senemos-SENEMOS6.conf"
 grep -Fxq 'efi /EFI/fedora/SENEMOS7-2608291400.efi' "$esp/loader/entries/senemos-SENEMOS7.conf"
 grep -Fxq 'efi /EFI/fedora/SENEMOS7U-2608291600.efi' "$esp/loader/entries/senemos-SENEMOS7U.conf"
-grep -Fxq 'efi /EFI/fedora/SENEMOS6LTS-2608291300.efi' "$esp/loader/entries/senemos-SENEMOS6LTS.conf"
 grep -Fxq 'efi     /EFI/android/Reboot2Android.efi' "$esp/loader/entries/android.conf"
 test "$(sha256sum "$esp/EFI/android/Reboot2Android.efi" | cut -d' ' -f1)" = "$android_before"
 test ! -e "$esp/EFI/SENEMOS"
@@ -49,7 +48,7 @@ test ! -e "$esp/EFI/fedora/SENEMOS7U-2608270100.efi"
 test ! -e "$esp/EFI/fedora/fedora-rawhide-mainline-unstable-2608280100.efi"
 test -e "$esp/EFI/fedora/SENEMOS7-2608291400.efi"
 test -e "$esp/EFI/fedora/SENEMOS7U-2608291600.efi"
-test -e "$esp/EFI/fedora/SENEMOS6LTS-2608291300.efi"
+test ! -e "$esp/EFI/fedora/SENEMOS6LTS-2608291300.efi"
 test "$(sha256sum "$esp/EFI/fedora/MyCustomKernel.efi" | cut -d' ' -f1)" = "$custom_before"
 test "$(sha256sum "$esp/loader/entries/fallback.conf" | cut -d' ' -f1)" = "$fallback_entry_before"
 
@@ -80,11 +79,10 @@ grep -Fq 'include themes/refind-theme-regular-nabu-2x-v1/theme.conf' "$esp/EFI/B
 grep -Fxq 'icons_dir themes/refind-theme-regular-nabu-2x-v1/icons/256-96' "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/theme.conf"
 grep -Fxq 'font themes/refind-theme-regular-nabu-2x-v1/fonts/source-code-pro-extralight-28.png' "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/theme.conf"
 grep -Fxq 'default_selection "SENEMOS6-2608291500.efi"' "$esp/EFI/BOOT/refind.conf"
-test "$(grep -c '^menuentry ' "$esp/EFI/BOOT/refind.conf")" -eq 5
+test "$(grep -c '^menuentry ' "$esp/EFI/BOOT/refind.conf")" -eq 4
 grep -Fq 'loader /EFI/fedora/SENEMOS6-2608291500.efi' "$esp/EFI/BOOT/refind.conf"
 grep -Fq 'loader /EFI/fedora/SENEMOS7-2608291400.efi' "$esp/EFI/BOOT/refind.conf"
 grep -Fq 'loader /EFI/fedora/SENEMOS7U-2608291600.efi' "$esp/EFI/BOOT/refind.conf"
-grep -Fq 'loader /EFI/fedora/SENEMOS6LTS-2608291300.efi' "$esp/EFI/BOOT/refind.conf"
 grep -Fq 'loader /EFI/android/Reboot2Android.efi' "$esp/EFI/BOOT/refind.conf"
 fedora_inode=$(stat -c %i "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/icons/256-96/os_fedora.png")
 android_inode=$(stat -c %i "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/icons/256-96/os_android.png")
@@ -95,7 +93,7 @@ test -z "$(find "$esp/loader/entries" -maxdepth 1 -type f -name 'senemos-SENEMOS
 test ! -e "$esp/EFI/fedora/SENEMOS6-2608280000.efi"
 test -e "$esp/EFI/fedora/SENEMOS7-2608291400.efi"
 test -e "$esp/EFI/fedora/SENEMOS7U-2608291600.efi"
-test -e "$esp/EFI/fedora/SENEMOS6LTS-2608291300.efi"
+test ! -e "$esp/EFI/fedora/SENEMOS6LTS-2608291300.efi"
 test "$(sha256sum "$esp/EFI/fedora/MyCustomKernel.efi" | cut -d' ' -f1)" = "$custom_before"
 test "$(sha256sum "$esp/loader/entries/fallback.conf" | cut -d' ' -f1)" = "$fallback_entry_before"
 
