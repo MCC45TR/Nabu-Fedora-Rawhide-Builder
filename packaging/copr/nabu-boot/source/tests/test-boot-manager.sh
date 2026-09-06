@@ -78,7 +78,7 @@ grep -Fxq 'rotation 3' "$esp/EFI/BOOT/refind.conf"
 grep -Fq 'include themes/refind-theme-regular-nabu-2x-v1/theme.conf' "$esp/EFI/BOOT/refind.conf"
 grep -Fxq 'icons_dir themes/refind-theme-regular-nabu-2x-v1/icons/256-96' "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/theme.conf"
 grep -Fxq 'font themes/refind-theme-regular-nabu-2x-v1/fonts/source-code-pro-extralight-28.png' "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/theme.conf"
-grep -Fxq 'default_selection "SENEMOS6-2608291500.efi"' "$esp/EFI/BOOT/refind.conf"
+grep -Fxq 'default_selection "Fedora Rawhide (SENEMOS6 2608291500)"' "$esp/EFI/BOOT/refind.conf"
 test "$(grep -c '^menuentry ' "$esp/EFI/BOOT/refind.conf")" -eq 4
 grep -Fq 'loader /EFI/fedora/SENEMOS6-2608291500.efi' "$esp/EFI/BOOT/refind.conf"
 grep -Fq 'loader /EFI/fedora/SENEMOS7-7.2.3.efi' "$esp/EFI/BOOT/refind.conf"

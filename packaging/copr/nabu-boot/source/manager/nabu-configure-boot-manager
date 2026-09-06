@@ -276,7 +276,11 @@ case "$selected" in
             echo 'rotation 3'
             printf 'include themes/%s/theme.conf\n' "$refind_theme_id"
             [[ ! -r $refind_root/refind-local.conf ]] || echo 'include refind-local.conf'
-            printf 'default_selection "%s"\n' "$default_uki"
+            # rEFInd matches default_selection against the displayed loader
+            # title, not a manual stanza's loader basename.  Use the unique
+            # generated title so multiple installed kernel families still
+            # honor /etc/nabu/kernel.conf.
+            printf 'default_selection "%s"\n' "$(title_for_uki "$default_uki")"
             for family in "${ordered_families[@]}"; do
                 name=${family_uki[$family]}
                 printf 'menuentry "%s" {\n' "$(title_for_uki "$name")"
