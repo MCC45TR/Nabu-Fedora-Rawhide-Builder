@@ -22,10 +22,16 @@ elif [[ $kver =~ ^([0-9]+[.][0-9]+[.][0-9]+)- ]]; then
         "$rpm_command" -qf --qf '%{RELEASE}\n' "$boot_dir/vmlinuz-$kver" 2>/dev/null || :
     )
     build_stamp=$(sed -nE 's/^([0-9]{10})([.]|$).*/\1/p' <<<"$package_release")
-    [[ $build_stamp =~ ^[0-9]{10}$ ]] || {
-        printf 'Kernel package release has no timestamp identity: %s\n' "$kver" >&2
-        exit 1
-    }
+    if [[ ! $build_stamp =~ ^[0-9]{10}$ ]]; then
+        package_version=$(
+            "$rpm_command" -qf --qf '%{VERSION}\n' "$boot_dir/vmlinuz-$kver" 2>/dev/null || :
+        )
+        [[ $package_version =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]] || {
+            printf 'Kernel package has no timestamp or semantic identity: %s\n' "$kver" >&2
+            exit 1
+        }
+        build_stamp=$package_version
+    fi
 else
     printf 'Unsupported timestamped kernel identity: %s\n' "$kver" >&2
     exit 1

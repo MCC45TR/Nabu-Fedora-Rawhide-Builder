@@ -23,8 +23,12 @@ done
 
 cat >"$test_root/rpm" <<EOF
 #!/usr/bin/bash
-[[ \$1 == -qf && \$2 == --qf && \$3 == '%{RELEASE}\\n' ]]
-printf '%s.alpha.fc46\\n' '$stamp'
+[[ \$1 == -qf && \$2 == --qf ]]
+case \$3 in
+    '%{RELEASE}\\n') printf '%s.alpha.fc46\\n' '$stamp' ;;
+    '%{VERSION}\\n') printf '7.2.3\\n' ;;
+    *) exit 2 ;;
+esac
 EOF
 chmod +x "$test_root/rpm"
 fixed_mainline=7.2.0-nabu-senemos-mainline-alpha
@@ -39,6 +43,22 @@ for field_and_expected in \
         "$tool" "--field=$identity_field" "$fixed_mainline")
     test "$actual" = "$expected"
 done
+
+cat >"$test_root/rpm-stable" <<'EOF'
+#!/usr/bin/bash
+[[ $1 == -qf && $2 == --qf ]]
+case $3 in
+    '%{RELEASE}\n') printf '1.fc46\n' ;;
+    '%{VERSION}\n') printf '7.2.3\n' ;;
+    *) exit 2 ;;
+esac
+EOF
+chmod +x "$test_root/rpm-stable"
+stable_mainline=7.2.3-nabu-senemos-mainline
+test "$(NABU_KERNEL_IDENTITY_RPM="$test_root/rpm-stable" \
+    "$tool" --field=stamp "$stable_mainline")" = 7.2.3
+test "$(NABU_KERNEL_IDENTITY_RPM="$test_root/rpm-stable" \
+    "$tool" --field=efi-name "$stable_mainline")" = SENEMOS7-7.2.3.efi
 
 if NABU_KERNEL_IDENTITY_RPM=/bin/false "$tool" --field=stamp 7.2.0-v0.0.9.2; then
     printf 'Legacy product version was accepted as a timestamp identity.\n' >&2

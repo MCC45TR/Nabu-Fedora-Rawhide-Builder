@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        37.test%{?dist}
+Release:        38.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -343,6 +343,11 @@ fi
 %{_datadir}/plymouth/themes/senemos-nabu/
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-38.test
+- Accept semantic identities such as 7.2.3 for the timestamp-free stable
+  mainline kernel and keep its UKI in the distinct SENEMOS7 family.
+- Treat the original 0000000000 stable marker as a compatibility sentinel.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-37.test
 - Publish boot integration and the scale-independent Plymouth theme from one
   COPR source family while preserving every existing binary RPM name.

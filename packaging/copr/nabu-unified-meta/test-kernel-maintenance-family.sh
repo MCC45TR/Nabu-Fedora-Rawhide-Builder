@@ -57,7 +57,7 @@ cat >"$fakebin/kernel-build-identity" <<'EOF'
 [[ $1 == --field=stamp && $# -eq 2 ]]
 case $2 in
     6.17.0-*) printf '2609061218\n' ;;
-    7.2.3-*) printf '2609061219\n' ;;
+    7.2.3-*) printf '7.2.3\n' ;;
     7.3.0-*) printf '2609061220\n' ;;
     *) exit 1 ;;
 esac
@@ -68,7 +68,7 @@ cat >"$fakebin/regenerate" <<'EOF'
 family=$2
 case $family in
     SENEMOS6) stamp=2609061218 ;;
-    SENEMOS7) stamp=2609061219 ;;
+    SENEMOS7) stamp=7.2.3 ;;
     SENEMOS7U) stamp=2609061220 ;;
     *) exit 2 ;;
 esac
@@ -78,7 +78,7 @@ EOF
 cat >"$fakebin/configure" <<'EOF'
 #!/usr/bin/bash
 [[ -s $TEST_ESP/EFI/fedora/SENEMOS6-2609061218.efi ]]
-[[ -s $TEST_ESP/EFI/fedora/SENEMOS7-2609061219.efi ]]
+[[ -s $TEST_ESP/EFI/fedora/SENEMOS7-7.2.3.efi ]]
 [[ -s $TEST_ESP/EFI/fedora/SENEMOS7U-2609061220.efi ]]
 printf 'configure %s\n' "$*" >>"$TEST_LOG"
 EOF
@@ -105,7 +105,7 @@ run_maintenance
 grep -Fxq 'regenerate SENEMOS6 6.17.0-nabu-senemos-kernel' "$log"
 grep -Fxq 'regenerate SENEMOS7 7.2.3-nabu-senemos-mainline' "$log"
 grep -Fxq 'regenerate SENEMOS7U 7.3.0-nabu-senemos-mainline-unstable' "$log"
-tail -n1 "$log" | grep -Fxq 'configure --sync-only --uki SENEMOS7-2609061219.efi'
+tail -n1 "$log" | grep -Fxq 'configure --sync-only --uki SENEMOS7-7.2.3.efi'
 
 run_maintenance
 [[ $(grep -c '^regenerate ' "$log") -eq 3 ]]

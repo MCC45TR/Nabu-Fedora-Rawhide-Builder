@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        68%{?dist}
+Release:        69%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -474,6 +474,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-69
+- Let kernel maintenance select semantic identities for the timestamp-free
+  mainline-stable package while retaining timestamped unstable identities.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-68
 - Require the consolidated boot, sensor and platform-runtime family payloads.
 - Retire the old alpha and LTS package names during an ordinary DNF update.
