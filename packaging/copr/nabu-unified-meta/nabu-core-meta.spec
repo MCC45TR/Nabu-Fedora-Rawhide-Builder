@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        73%{?dist}
+Release:        75%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -316,6 +316,9 @@ grep -Fq 'node.hidden = true' %{SOURCE29}
 (cd system-integration && bash tests/test-update-recovery-policy.sh)
 bash -n system-integration/runtime/senemos-nabu-status
 udevadm verify %{buildroot}%{_udevrulesdir}/99-libinput-calibration-matrix.rules
+udevadm verify %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
+grep -Fxq 'TAG-="systemd"' %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
+! grep -Fq 'ID_PART_ENTRY_NAME' %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
 test ! -e %{buildroot}%{_udevrulesdir}/81-nabu-sensor-orientation.rules
 test ! -e %{buildroot}%{_libexecdir}/nabu-import-mount-matrix
 test "$(readlink %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf)" = /dev/null
@@ -410,6 +413,7 @@ fi
 %{_udevrulesdir}/81-nabu-suspend-wake.rules
 %{_udevrulesdir}/99-libinput-calibration-matrix.rules
 %{_udevrulesdir}/99-nabu-rtc.rules
+%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
 %{_prefix}/lib/dracut/dracut.conf.d/90-nabu-unneeded-storage.conf
 %{_udevhwdbdir}/90-nabu-mcc45tr.hwdb
 %attr(2755,root,feedbackd) %{_libexecdir}/nabu-flashlight
@@ -477,6 +481,15 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-75
+- Exclude every dependency-free, non-filesystem Nabu UFS partition from
+  systemd device enumeration instead of limiting the login fix to A/B slots.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-74
+- Release the graphical startup gate as soon as a valid sensor sample arrives.
+- Keep raw UFS firmware slots out of systemd device enumeration while retaining
+  all block nodes, persistent links and Linux storage dependencies.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-73
 - Disable feedbackd role loopbacks through the main profile from the
   higher-priority host configuration layer; same-name fragment masking is not

@@ -17,6 +17,7 @@ monitor_sensor_bin=${NABU_SENSOR_GATE_MONITOR_SENSOR:-/usr/bin/monitor-sensor}
 ssccli_bin=${NABU_SENSOR_GATE_SSCCLI:-/usr/bin/ssccli}
 systemctl_bin=${NABU_SENSOR_GATE_SYSTEMCTL:-/usr/bin/systemctl}
 timeout_bin=${NABU_SENSOR_GATE_TIMEOUT:-/usr/bin/timeout}
+stdbuf_bin=${NABU_SENSOR_GATE_STDBUF:-/usr/bin/stdbuf}
 sleep_bin=${NABU_SENSOR_GATE_SLEEP:-/usr/bin/sleep}
 ssc_attempts=${NABU_SENSOR_GATE_SSC_ATTEMPTS:-6}
 proxy_attempts=${NABU_SENSOR_GATE_PROXY_ATTEMPTS:-12}
@@ -24,10 +25,31 @@ interval=${NABU_SENSOR_GATE_INTERVAL:-0.25}
 recovery_attempts=${NABU_SENSOR_GATE_RECOVERY_ATTEMPTS:-16}
 slpi_state=${NABU_SENSOR_GATE_SLPI_STATE:-/sys/class/remoteproc/remoteproc0/state}
 
+first_sample() {
+	local duration=$1 pattern=$2 line sample_pid sample_fd result=1
+	shift 2
+	# A pipeline/command substitution waits for the producer even after grep
+	# finds a sample. Read line-buffered output and stop only our own bounded
+	# monitor once a valid sample arrives; timeout forwards TERM to its child.
+	coproc gate_sample { exec env LC_ALL=C "${timeout_bin}" "$duration" \
+		"${stdbuf_bin}" -oL "$@" 2>/dev/null; }
+	sample_pid=$gate_sample_PID
+	exec {sample_fd}<&"${gate_sample[0]}"
+	while IFS= read -r -u "$sample_fd" line; do
+		if [[ $line =~ $pattern ]]; then
+			result=0
+			break
+		fi
+	done
+	kill -TERM "$sample_pid" 2>/dev/null || :
+	wait "$sample_pid" 2>/dev/null || :
+	exec {sample_fd}<&-
+	return "$result"
+}
+
 ssc_ready() {
-	LC_ALL=C "${timeout_bin}" 2 "${ssccli_bin}" \
-		--sensor accelerometer --timeout 1 2>/dev/null |
-		"${grep_bin}" -qm1 '^Accelerometer sensor measurement:'
+	first_sample 2 '^Accelerometer sensor measurement:' \
+		"${ssccli_bin}" --sensor accelerometer --timeout 1
 }
 
 sensor_ready() {
@@ -37,15 +59,10 @@ sensor_ready() {
 }
 
 proxy_sample_ready() {
-	local sample
-
-	# Keep the D-Bus claim alive while waiting for SensorProxy's initial sample.
-	# timeout releases the claim after the bounded warm-up window.
-	sample=$(LC_ALL=C "${timeout_bin}" 4 "${monitor_sensor_bin}" \
-		--accel 2>/dev/null || :)
-	printf '%s\n' "${sample}" | "${grep_bin}" -qm1 \
-		-e '^=== Has accelerometer ' \
-		-e '^    Accelerometer orientation changed:'
+	# A flat tablet can have undefined orientation but a valid face-up/down
+	# tilt. Accept either measured property, but not presence alone.
+	first_sample 4 '^(=== Has accelerometer \(orientation: (normal|bottom-up|left-up|right-up),|=== Has accelerometer \(orientation: [^,]+, tilt: (face-up|face-down|tilted-up|tilted-down)\)|    Accelerometer orientation changed: (normal|bottom-up|left-up|right-up)$|    Tilt changed: (face-up|face-down|tilted-up|tilted-down)$)' \
+		"${monitor_sensor_bin}" --accel
 }
 
 wait_until() {

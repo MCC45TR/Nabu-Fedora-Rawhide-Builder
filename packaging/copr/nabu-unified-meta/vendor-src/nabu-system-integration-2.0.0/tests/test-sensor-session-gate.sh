@@ -145,4 +145,31 @@ grep -Fxq 'start hexagonrpcd-sdsp.service' "${test_root}/systemctl.log"
 grep -Fxq 'start iio-sensor-proxy.service' "${test_root}/systemctl.log"
 grep -Fq 'SSC recovered after one bounded SLPI cycle' "${test_root}/slpi-recovery.log"
 grep -Fq 'delivered an accelerometer sample before the graphical session' "${test_root}/slpi-recovery.log"
+# Exercise real long-running producers: the old command substitution waited
+# four seconds even when the very first line was already a valid sample.
+source <(sed '/^if ! wait_until ssc_ready/,$d' "${helper}")
+started=$EPOCHREALTIME
+first_sample 4 '^sample$' bash -c 'echo sample; exec sleep 10'
+elapsed=$(awk -v start="$started" -v end="$EPOCHREALTIME" 'BEGIN {print end-start}')
+awk -v elapsed="$elapsed" 'BEGIN {exit !(elapsed < 2)}'
+if first_sample 0.2 '^sample$' bash -c 'echo undefined; exec sleep 10'; then
+    echo 'Accepted an invalid sample' >&2
+    exit 1
+fi
+first_sample 2 '^sample$' bash -c 'echo undefined; sleep 0.1; echo sample; exec sleep 10'
+monitor_sensor_bin=${test_root}/monitor-sensor
+cat >"${monitor_sensor_bin}" <<'EOF'
+#!/usr/bin/bash
+echo '=== Has accelerometer (orientation: undefined, tilt: undefined)'
+EOF
+if proxy_sample_ready; then
+    echo 'Accepted sensor presence without valid orientation' >&2
+    exit 1
+fi
+cat >"${monitor_sensor_bin}" <<'EOF'
+#!/usr/bin/bash
+echo '=== Has accelerometer (orientation: undefined, tilt: face-up)'
+exec sleep 10
+EOF
+proxy_sample_ready
 echo 'sensor session gate tests passed'
