@@ -130,10 +130,10 @@ cp -a nabu/schemas nabu/locale \
 install -Dm0755 nabu/integration/nabu-gnome-extension-enable \
     %{buildroot}%{_libexecdir}/nabu-gnome-extension-enable
 install -Dm0644 nabu/integration/nabu-gnome-extension-enable.service \
-    %{buildroot}%{_userunitdir}/nabu-gnome-extension-enable.service
-install -d %{buildroot}%{_userunitdir}/graphical-session.target.wants
+    %{buildroot}%{_prefix}/lib/systemd/user/nabu-gnome-extension-enable.service
+install -d %{buildroot}%{_prefix}/lib/systemd/user/graphical-session.target.wants
 ln -s ../nabu-gnome-extension-enable.service \
-    %{buildroot}%{_userunitdir}/graphical-session.target.wants/nabu-gnome-extension-enable.service
+    %{buildroot}%{_prefix}/lib/systemd/user/graphical-session.target.wants/nabu-gnome-extension-enable.service
 install -Dpm0644 %{SOURCE4} %{buildroot}%{_docdir}/gnome-extension-group/README.md
 
 fastfetch=senemos-fastfetch-config-1.3.0
@@ -188,8 +188,8 @@ test "$(readlink %{buildroot}%{_sysconfdir}/xdg/fastfetch/config.jsonc)" = \
 %license nabu/LICENSE
 %{_datadir}/gnome-shell/extensions/nabulinuxproject@mcc45tr
 %{_libexecdir}/nabu-gnome-extension-enable
-%{_userunitdir}/nabu-gnome-extension-enable.service
-%{_userunitdir}/graphical-session.target.wants/nabu-gnome-extension-enable.service
+%{_prefix}/lib/systemd/user/nabu-gnome-extension-enable.service
+%{_prefix}/lib/systemd/user/graphical-session.target.wants/nabu-gnome-extension-enable.service
 
 %files -n senemos-fastfetch-config
 %license senemos-fastfetch-config-1.3.0/LICENSE
