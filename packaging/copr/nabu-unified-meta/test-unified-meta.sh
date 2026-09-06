@@ -47,7 +47,7 @@ core="$root/nabu-core-meta.spec"
 grep -Fqx 'RefuseManualStop=yes' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/systemd/system/ath10k-shutdown.service" || fail "ath10k shutdown helper can be restarted by RPM transactions"
 grep -Fqx 'softdep snd_soc_sm8150 pre: snd_soc_wcd934x' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/modprobe.d/80-nabu-audio.conf" || fail "WCD934x codec is not ordered before the SM8150 sound card"
 grep -Fq 'monitor_sensor_bin' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/nabu-sensor-session-gate" || fail "SensorProxy is not warmed before graphical login"
-grep -Fq 'Source11:       nabu-sar-service-0.2.3.tar.zst' "$core" || fail "SAR 0.2.3 source missing"
+grep -Fq 'Source11:       nabu-sar-service-0.2.4.tar.zst' "$core" || fail "SAR 0.2.4 source missing"
 grep -Fq '%{_libexecdir}/nabu-sar-control' "$core" || fail "SAR control helper not packaged"
 grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge unit not packaged"
 grep -Fq '%{_prefix}/lib/modules-load.d/nabu-cct-iio.conf' "$core" || fail "CCT module policy not packaged"
@@ -151,8 +151,8 @@ for retired in nabu-system-integration nabu-kde-integration nabu-kde-config nabu
 done
 
 (cd "$root/vendor" && sha256sum -c SHA256SUMS >/dev/null) || fail "vendored source checksum"
-sar_archive="$root/vendor/nabu-sar-service-0.2.3.tar.zst"
-sar_prefix="nabu-sar-service-0.2.3"
+sar_archive="$root/vendor/nabu-sar-service-0.2.4.tar.zst"
+sar_prefix="nabu-sar-service-0.2.4"
 tar --zstd -xOf "$sar_archive" \
     "$sar_prefix/src/nabu-cct-iio-bridge.c" \
     | grep -Fq '#define CCT_INVALID_WARNING_USEC (30 * G_USEC_PER_SEC)' \
@@ -169,7 +169,12 @@ grep -Fxq 'ReleasedThreshold=0' <<<"$sar_config" || fail "uncalibrated SAR relea
 sar_service=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/src/nabu-sar-service.c")
 grep -Fq 'service->classifier.channel_mask = 0;' <<<"$sar_service" \
     || fail "SAR classifier embeds an uncalibrated channel selection"
+grep -Fq 'if (service->classifier.enabled &&' <<<"$sar_service" \
+    || fail "disabled SAR mapping is still reported as invalid"
 ! grep -Fq 'ProximityNear' <<<"$sar_service" || fail "SAR leaked into screen proximity API"
+sar_capture=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/tools/nabu-sar-capture")
+grep -Fq 'export LC_ALL=C' <<<"$sar_capture" \
+    || fail "SAR capture validation remains locale dependent"
 grep -Fq 'BuildRequires:  libssc-nabu-devel >= 0.4.4-9.nabu8.test' "$core" \
     || fail "typed TCS3701 libssc build dependency missing"
 
