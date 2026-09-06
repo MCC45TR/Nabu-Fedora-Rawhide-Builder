@@ -5,6 +5,8 @@ locale_file=${NABU_LOCALE_FILE:-/etc/locale.conf}
 setup_marker=${NABU_SETUP_MARKER:-/etc/plasma-setup-done}
 state_dir=${NABU_LOCALE_STATE_DIR:-/var/lib/senemos-nabu}
 dnf5_bin=${NABU_DNF5:-/usr/bin/dnf5}
+rpm_bin=${NABU_RPM:-/usr/bin/rpm}
+root_prefix=${NABU_ROOT_PREFIX:-}
 lock_file=${NABU_LOCALE_LOCK:-/run/nabu-locale-packages.lock}
 
 # Plasma Setup owns the language choice.  Never guess before it has completed.
@@ -32,7 +34,8 @@ esac
 
 /usr/bin/mkdir -p "$state_dir"
 stamp="$state_dir/locale-packages.stamp"
-if [ -r "$stamp" ] && [ "$(/usr/bin/cat "$stamp")" = "$locale_value" ]; then
+stamp_value="v2:$locale_value"
+if [ -r "$stamp" ] && [ "$(/usr/bin/cat "$stamp")" = "$stamp_value" ]; then
     exit 0
 fi
 
@@ -52,9 +55,41 @@ if [ -z "$package" ]; then
     exit 0
 fi
 
-if ! /usr/bin/rpm -q "$package" >/dev/null 2>&1; then
+if ! "$rpm_bin" -q "$package" >/dev/null 2>&1; then
     /usr/bin/flock -n "$lock_file" \
         "$dnf5_bin" -y install "$package" || exit 0
 fi
 
-printf '%s\n' "$locale_value" >"$stamp"
+# Images built before the complete ext4 payload gate can have RPM-owned
+# translation catalogs missing from disk even though their packages are
+# installed.  Repair only packages that own a missing catalog for the locale
+# selected during setup.  This is a one-time migration and never forces a
+# maintainer language or forks a KDE package.
+repair_manifest=$(/usr/bin/mktemp "$state_dir/locale-repair.XXXXXX") || exit 0
+trap '/usr/bin/rm -f -- "$repair_manifest"' EXIT
+current_package=
+while IFS= read -r record; do
+    case "$record" in
+        PKG:*) current_package=${record#PKG:}; continue ;;
+    esac
+    [ -n "$current_package" ] || continue
+    case "$record" in
+        /usr/share/locale/"$language"/LC_MESSAGES/*.mo|\
+        /usr/share/locale/"$locale_value"/LC_MESSAGES/*.mo|\
+        /usr/share/qt5/translations/*_"$language".qm|\
+        /usr/share/qt5/translations/*_"$locale_value".qm|\
+        /usr/share/qt6/translations/*_"$language".qm|\
+        /usr/share/qt6/translations/*_"$locale_value".qm)
+            [ -e "$root_prefix$record" ] || printf '%s\n' "$current_package" >>"$repair_manifest"
+            ;;
+    esac
+done < <("$rpm_bin" -qa --qf 'PKG:%{NAME}\n[%{FILENAMES}\n]')
+
+/usr/bin/sort -u -o "$repair_manifest" "$repair_manifest"
+if [ -s "$repair_manifest" ]; then
+    mapfile -t repair_packages <"$repair_manifest"
+    /usr/bin/flock -n "$lock_file" \
+        "$dnf5_bin" -y reinstall "${repair_packages[@]}" || exit 0
+fi
+
+printf '%s\n' "$stamp_value" >"$stamp"
