@@ -53,6 +53,10 @@ grep -Fxq 'CONFIG_V4L2_FLASH_LED_CLASS=m' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fq 'flash-leds = <&nabu_rear_flash>;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi"
+grep -Fq 'case HFI_BUFFER_INTERNAL_SCRATCH_2:' \
+    "$work/linux-$version/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c"
+grep -Fq 'exact_firmware_size = inst->core->iris_platform_data->legacy_vpu5' \
+    "$work/linux-$version/drivers/media/platform/qcom/iris/iris_buffer.c"
 test -s "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts"
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"

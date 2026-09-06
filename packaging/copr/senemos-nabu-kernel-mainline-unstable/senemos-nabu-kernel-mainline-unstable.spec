@@ -142,6 +142,7 @@ Patch0122:      0122-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
 Patch0123:      0123-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
 Patch0124:      0124-crypto-enable-Android-data-compatibility-algorithms.patch
 Patch0125:      0125-soc-qcom-ice-support-legacy-Keymaster-wrapped-keys.patch
+Patch0126:      0126-media-qcom-iris-use-VPU5-firmware-encoder-buffer-sizes.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -393,6 +394,9 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Use VIDEO.IR.1.2 firmware requirements for all VPU5 encoder scratch buffers.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Add opt-in legacy Keymaster wrapped-key support for Nabu's pre-HWKM ICE.
 - Keep raw and wrapped key profiles mutually exclusive and fail closed on

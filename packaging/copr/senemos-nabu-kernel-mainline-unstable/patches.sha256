@@ -123,3 +123,4 @@ e221fc429ae852cfd8c092b6c045fbef569e21bef99b23021e7d30c3afb9500b  0115-media-qco
 9e33be05620ce2f7cf03e1010e6c923da68c0301dbf2a8b997c3a5ca514f9602  0123-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
 a395a3d434848795b46b961d6ea78e8fed315bbe6b69f4aafbafc6fff94c0b8f  0124-crypto-enable-Android-data-compatibility-algorithms.patch
 a95a92ea6f04f60d0a66299eea125aeebb21094effeeb55fdbf26b5d0b7fc9cb  0125-soc-qcom-ice-support-legacy-Keymaster-wrapped-keys.patch
+22f356d3a93210a82b71088f95f5e4f720db9b0562157d383ca7af6f72eb9de1  0126-media-qcom-iris-use-VPU5-firmware-encoder-buffer-sizes.patch
