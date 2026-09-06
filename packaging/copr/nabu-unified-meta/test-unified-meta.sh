@@ -53,6 +53,8 @@ grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge u
 grep -Fq '%{_prefix}/lib/modules-load.d/nabu-cct-iio.conf' "$core" || fail "CCT module policy not packaged"
 grep -Fq 'Requires:       senemos-nabu-kernel-mainline >= 7.2.3-1' "$core" || fail "mainline stable migration requirement"
 grep -Fq 'Recommends:     senemos-fastfetch-config >= 1.2.0-1' "$core" || fail "optional Fastfetch configuration recommendation"
+grep -Fqx 'Requires:       alsa-ucm-utils' "$core" || fail "UCM diagnostic tools are missing from CORE"
+grep -Fqx 'Requires:       pipewire-alsa' "$core" || fail "ALSA-to-PipeWire playback integration is missing from CORE"
 ! grep -Eq '^Requires:[[:space:]]+senemos-fastfetch-config([[:space:]]|$)' "$core" || fail "Fastfetch configuration became mandatory"
 ! grep -Fq '%{_sysconfdir}/xdg/fastfetch/config.jsonc' "$core" || fail "CORE still owns the optional Fastfetch configuration"
 fastfetch_spec="$root/../nabu-core-meta/senemos-fastfetch-config/senemos-fastfetch-config.spec"

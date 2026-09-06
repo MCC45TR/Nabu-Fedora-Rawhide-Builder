@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        75%{?dist}
+Release:        76%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -81,6 +81,7 @@ Requires:       NetworkManager-wifi
 Requires:       NetworkManager-bluetooth
 Requires:       openssh-server
 Requires:       alsa-ucm
+Requires:       alsa-ucm-utils
 Requires:       atheros-firmware
 Requires:       bash
 Requires:       bluez
@@ -96,6 +97,7 @@ Requires:       libcanberra-backend-pulse
 Requires:       libcanberra
 %endif
 Requires:       policycoreutils
+Requires:       pipewire-alsa
 Requires:       pipewire-pulseaudio
 Requires:       polkit
 Requires:       qcom-firmware
@@ -481,6 +483,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-76
+- Require the UCM command-line tools and ALSA-to-PipeWire plugin used by the
+  Nabu four-channel hardware playback and diagnostic path.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-75
 - Exclude every dependency-free, non-filesystem Nabu UFS partition from
   systemd device enumeration instead of limiting the login fix to A/B slots.
