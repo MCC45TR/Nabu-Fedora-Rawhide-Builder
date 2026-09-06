@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        70%{?dist}
+Release:        71%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -36,7 +36,7 @@ Source25:       nabu-locale-packages.path
 Source26:       nabu-locale-packages.timer
 Source27:       91-nabu-locale-packages.preset
 Source28:       test-locale-packages.sh
-Source29:       91-nabu-microphone-noise-cancel.conf
+Source29:       95-nabu-audio-visibility.conf
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  meson
@@ -112,7 +112,6 @@ Requires:       tuned-ppd
 Requires:       upower
 Requires:       util-linux-core
 Requires:       wpa_supplicant
-Requires:       webrtc-audio-processing
 Requires:       zram-generator
 
 Provides:       nabu-release-manifest = 3
@@ -222,7 +221,7 @@ install -Dm0644 %{SOURCE24} %{buildroot}%{_unitdir}/nabu-locale-packages.service
 install -Dm0644 %{SOURCE25} %{buildroot}%{_unitdir}/nabu-locale-packages.path
 install -Dm0644 %{SOURCE26} %{buildroot}%{_unitdir}/nabu-locale-packages.timer
 install -Dm0644 %{SOURCE27} %{buildroot}%{_presetdir}/91-nabu-locale-packages.preset
-install -Dm0644 %{SOURCE29} %{buildroot}%{_datadir}/pipewire/pipewire-pulse.conf.d/91-nabu-microphone-noise-cancel.conf
+install -Dm0644 %{SOURCE29} %{buildroot}%{_datadir}/wireplumber/wireplumber.conf.d/95-nabu-audio-visibility.conf
 install -d %{buildroot}%{_sysconfdir}/systemd/system
 ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.timer
 
@@ -309,8 +308,10 @@ grep -Fq -- '--sensor accelerometer --timeout 1' \
 (cd system-integration && bash tests/test-selinux-label-preparation.sh)
 (cd system-integration && bash tests/test-suspend-user-slice-policy.sh)
 (cd system-integration && bash tests/test-slpi-suspend.sh)
-grep -Fq "node.pause-on-idle=true node.passive=true" %{SOURCE29}
-test "$(grep -o 'module-echo-cancel' %{SOURCE29} | wc -l)" -eq 1
+grep -Fq 'policy.linking.role-based.loopbacks = disabled' %{SOURCE29}
+grep -Fq 'node.name = "alsa_output.platform-sound.HiFi__Speaker__sink"' %{SOURCE29}
+grep -Fq 'node.hidden = true' %{SOURCE29}
+! grep -Fq 'module-echo-cancel' %{SOURCE29}
 (cd system-integration && bash tests/test-ssh-host-key-guard.sh)
 (cd system-integration && bash tests/test-update-recovery-policy.sh)
 bash -n system-integration/runtime/senemos-nabu-status
@@ -364,7 +365,7 @@ fi
 %{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
 %config(noreplace) %{_sysconfdir}/pulse/daemon.conf.d/89-xiaomi_nabu.conf
 %config(noreplace) %{_sysconfdir}/pulse/default.pa.d/nabu.pa
-%{_datadir}/pipewire/pipewire-pulse.conf.d/91-nabu-microphone-noise-cancel.conf
+%{_datadir}/wireplumber/wireplumber.conf.d/95-nabu-audio-visibility.conf
 %config(noreplace) %{_sysconfdir}/NetworkManager/conf.d/20-nabu-wifi-wowlan.conf
 %config(noreplace) %{_sysconfdir}/nabu-sar.conf
 %{_prefix}/lib/modprobe.d/80-nabu-audio.conf
@@ -474,6 +475,12 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-71
+- Remove the optional WebRTC echo-cancel graph because it makes the built-in
+  microphones sound robotic and exposes an unnecessary virtual sink.
+- Disable phone-oriented feedbackd role loopbacks on Nabu and hide the raw
+  ALSA speaker target behind the orientation-aware built-in speaker node.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-70
 - Repair missing RPM-owned translation catalogs once for the locale selected
   during setup, without imposing Turkish or replacing any Fedora KDE package.
