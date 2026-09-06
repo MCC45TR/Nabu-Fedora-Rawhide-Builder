@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        65%{?dist}
+Release:        67%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -48,11 +48,11 @@ BuildRequires:  pkgconfig(Qt6DBus)
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  systemd-udev
 
-# One ESP-supported kernel family is mandatory. Alpha is the normal release
-# line and mainline-unstable is the explicit comparison line; the other COPR
-# packages may remain installed but do not consume the constrained Nabu ESP.
-Requires:       (senemos-nabu-kernel-alpha or senemos-nabu-kernel-mainline-unstable)
-Recommends:     senemos-nabu-kernel-alpha
+# Mainline 7.2.3 is the default release kernel. The 6.17 fallback and the
+# development channel remain optional, independently updatable families.
+# Requiring the renamed package makes a normal DNF update migrate installations
+# from both retired 7.2 package names through its Provides/Obsoletes contract.
+Requires:       senemos-nabu-kernel-mainline >= 7.2.3-1
 Recommends:     senemos-fastfetch-config >= 1.2.0-1
 
 # Hardware, boot, firmware and service payloads remain independently built
@@ -65,14 +65,15 @@ Requires:       python3-ssc-nabu >= 0.4.4-9.nabu8.test
 Requires:       iio-sensor-proxy-nabu
 Requires:       xiaomi-nabu-firmware
 Requires:       senemos-nabu-plymouth >= 1.0.0-5.test
-# The Nabu camera kernel graph is exercised through the stock Fedora media
-# stack.  Keep it in CORE so every supported desktop receives the same V4L2,
-# libcamera, PipeWire and GStreamer integration without another Nabu RPM.
+# Keep the hardware-facing camera stack in CORE so every supported desktop
+# receives the same V4L2, libcamera, PipeWire and GStreamer integration. GUI
+# camera applications remain desktop-owned Fedora packages and are not forked
+# or required by the hardware profile.
 Requires:       gstreamer1-plugins-bad-free
 Requires:       libcamera
 Requires:       libcamera-gstreamer
-Requires:       libcamera-qcam
 Requires:       libcamera-tools
+Requires:       nabu-camera-support
 Requires:       pipewire-plugin-libcamera
 Requires:       v4l-utils
 Requires:       NetworkManager-wifi
@@ -472,6 +473,16 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-67
+- Make senemos-nabu-kernel-mainline 7.2.3 the release kernel and migrate existing
+  alpha/development installations through a normal DNF update.
+- Limit kernel maintenance to kernel, mainline and mainline-unstable families.
+- Keep exactly one package/UKI per family while preserving the Android entry.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-66
+- Keep QCam and other graphical camera applications out of the CORE contract.
+- Require the consolidated nabu-camera hardware and tuning support instead.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-65
 - Remove every uncalibrated ADUX1050 channel selection and threshold default.
 - Keep all three raw SAR/grip channels available without mapping them to a
