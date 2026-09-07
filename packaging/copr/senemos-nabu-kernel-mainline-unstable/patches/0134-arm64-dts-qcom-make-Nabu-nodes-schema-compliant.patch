@@ -1,0 +1,143 @@
+From 14cab84172c96c94f34917f713578902bfecc803 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Mon, 7 Sep 2026 21:53:56 +0300
+Subject: [PATCH 5/5] arm64: dts: qcom: make Nabu nodes schema compliant
+
+---
+ arch/arm64/boot/dts/qcom/pm8150.dtsi          |  3 +-
+ .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      | 32 ++++++++-----------
+ 2 files changed, 16 insertions(+), 19 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/pm8150.dtsi b/arch/arm64/boot/dts/qcom/pm8150.dtsi
+index 51a745045eb0..18958b719bcc 100644
+--- a/arch/arm64/boot/dts/qcom/pm8150.dtsi
++++ b/arch/arm64/boot/dts/qcom/pm8150.dtsi
+@@ -125,11 +125,12 @@ pm8150_rtc: rtc@6000 {
+ 			interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
+ 		};
+ 
+-		pm8150_sdam_2: sdam@b100 {
++		pm8150_sdam_2: nvram@b100 {
+ 			compatible = "qcom,spmi-sdam";
+ 			reg = <0xb100>;
+ 			#address-cells = <1>;
+ 			#size-cells = <1>;
++			ranges = <0 0xb100 0x100>;
+ 			status = "disabled";
+ 		};
+ 
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index c547f69d6a42..3c7e60ecdbff 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -794,7 +794,7 @@ &pm8150b_charger {
+ 
+ &{/thermal-zones/cpu0-thermal} {
+ 	cooling-maps {
+-		nabu-charge-map {
++		map-nabu-charge {
+ 			trip = <&cpu0_alert0>;
+ 			cooling-device = <&pm8150b_charger 1 15>;
+ 		};
+@@ -803,7 +803,7 @@ nabu-charge-map {
+ 
+ &{/thermal-zones/cpu4-top-thermal} {
+ 	cooling-maps {
+-		nabu-charge-map {
++		map-nabu-charge {
+ 			trip = <&cpu4_top_alert0>;
+ 			cooling-device = <&pm8150b_charger 1 15>;
+ 		};
+@@ -812,7 +812,7 @@ nabu-charge-map {
+ 
+ &{/thermal-zones/gpu-top-thermal} {
+ 	cooling-maps {
+-		nabu-charge-map {
++		map-nabu-charge {
+ 			trip = <&gpu_top_alert0>;
+ 			cooling-device = <&pm8150b_charger 1 15>;
+ 		};
+@@ -821,7 +821,7 @@ nabu-charge-map {
+ 
+ &{/thermal-zones/pm8150b-thermal} {
+ 	cooling-maps {
+-		nabu-charge-map {
++		map-nabu-charge {
+ 			trip = <&pm8150b_trip0>;
+ 			cooling-device = <&pm8150b_charger 8 15>;
+ 		};
+@@ -1112,48 +1112,46 @@ rx-pins {
+ 	};
+ 
+ 	qup_uart13_sleep: qup-uart13-sleep-state {
+-		pinmux {
+-			pins = "gpio43", "gpio44",
+-			       "gpio45", "gpio46";
+-			function = "gpio";
+-		};
+-
+-		pinconf-cts {
++		cts-pins {
+ 			/*
+ 			 * Configure a pull-down on CTS to match the pull of
+ 			 * the Bluetooth module.
+ 			 */
+ 			pins = "gpio43";
++			function = "gpio";
+ 			bias-pull-down;
+ 		};
+ 
+-		pinconf-rts {
++		rts-pins {
+ 			/*
+ 			 * Configure pull-down on RTS. As RTS is active low
+ 			 * signal, pull it low to indicate the BT SoC that it
+ 			 * can wakeup the system anytime from suspend state by
+ 			 * pulling RX low (by sending wakeup bytes).
+ 			 */
+-			 pins = "gpio44";
+-			 bias-pull-down;
++			pins = "gpio44";
++			function = "gpio";
++			bias-pull-down;
+ 		};
+ 
+-		pinconf-tx {
++		tx-pins {
+ 			/*
+ 			 * Configure pull-up on TX when it isn't actively driven
+ 			 * to prevent BT SoC from receiving garbage during sleep.
+ 			 */
+ 			pins = "gpio45";
++			function = "gpio";
+ 			bias-pull-up;
+ 		};
+ 
+-		pinconf-rx {
++		rx-pins {
+ 			/*
+ 			 * Configure a pull-up on RX. This is needed to avoid
+ 			 * garbage data when the TX pin of the Bluetooth module
+ 			 * is floating which may cause spurious wakeups.
+ 			 */
+ 			pins = "gpio46";
++			function = "gpio";
+ 			bias-pull-up;
+ 		};
+ 	};
+@@ -1179,7 +1177,6 @@ detect-pins {
+ 			function = "gpio";
+ 			drive-strength = <2>;
+ 			bias-pull-up;
+-			input-enable;
+ 		};
+ 	};
+ 
+@@ -1196,7 +1193,6 @@ detect-pins {
+ 			function = "gpio";
+ 			drive-strength = <2>;
+ 			bias-pull-up;
+-			input-enable;
+ 		};
+ 	};
+ 

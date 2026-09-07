@@ -146,6 +146,11 @@ Patch0126:      0126-media-qcom-iris-use-VPU5-firmware-encoder-buffer-sizes.patc
 Patch0127:      0127-power-supply-qcom_smbx-fix-SMB5-USB-voltage-reporting.patch
 Patch0128:      0128-media-qcom-iris-keep-VPU5-decoder-counts-sequence-safe.patch
 Patch0129:      0129-media-qcom-iris-reinitialize-legacy-VPU5-across-s2idle.patch
+Patch0130:      0130-dt-bindings-eeprom-add-Belling-BL24SA64.patch
+Patch0131:      0131-dt-bindings-i2c-add-SM8150-CCI-compatible.patch
+Patch0132:      0132-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
+Patch0133:      0133-arm64-dts-qcom-expose-Nabu-camera-calibration-EEPROM.patch
+Patch0134:      0134-arm64-dts-qcom-make-Nabu-nodes-schema-compliant.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -267,6 +272,7 @@ grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_I2C_QCOM_CCI=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_EEPROM_AT24=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SM_CAMCC_8150=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SM_VIDEOCC_8150=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_DMABUF_HEAPS_SYSTEM=y' %{buildroot}/boot/config-%{uname_r}
@@ -347,12 +353,29 @@ grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 ! grep -Fq 'mod_delayed_work(system_wq, &chip->thermal_work' \
     drivers/power/supply/qcom_smbx.c
+grep -Fq 'belling,bl24sa64' \
+    Documentation/devicetree/bindings/eeprom/at24.yaml
+grep -Fq 'qcom,sm8150-cci' \
+    Documentation/devicetree/bindings/i2c/qcom,i2c-cci.yaml
+grep -Fq 'static DEVICE_ATTR_RO(panel_revision);' \
+    drivers/gpu/drm/panel/panel-novatek-nt36523.c
+grep -Fq '/panel_revision' \
+    Documentation/ABI/testing/sysfs-driver-panel-novatek-nt36523
+grep -A7 -F 'rear_camera_eeprom: eeprom@51' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi \
+    | grep -Fq 'read-only;'
+grep -A7 -F 'front_camera_eeprom: eeprom@50' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi \
+    | grep -Fq 'read-only;'
+! grep -Fq 'SM8150_MMCX>, <&rpmhpd SM8150_MX' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
+grep -Fq 'ranges = <0 0xb100 0x100>;' arch/arm64/boot/dts/qcom/pm8150.dtsi
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' %{buildroot}/boot/config-%{uname_r}
 test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
 # Built-in platform prerequisites (I2C_QCOM_CCI, SM_CAMCC_8150 and DMA-BUF
 # heaps) are validated through the config checks above.  Only loadable camera
 # and sensor drivers have module payloads to verify here.
-for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 qcom-ssc-cct \
+for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 at24 qcom-ssc-cct \
     f2fs dm-crypt; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
@@ -397,6 +420,11 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Expose both read-only Nabu camera calibration EEPROMs through at24.
+- Report the physical panel revision for automatic per-variant ICC selection.
+- Make the Nabu camera, PMIC NVRAM, thermal and pinctrl DT nodes schema-clean.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Quiesce idle legacy VPU5 firmware before s2idle and initialize it lazily.
 - Reject suspend with an open codec session instead of corrupting its state.

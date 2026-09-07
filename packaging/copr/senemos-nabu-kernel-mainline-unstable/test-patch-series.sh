@@ -51,8 +51,28 @@ grep -Fq '.get_selection = ov8856_get_selection' \
     "$work/linux-$version/drivers/media/i2c/ov8856.c"
 grep -Fxq 'CONFIG_V4L2_FLASH_LED_CLASS=m' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_EEPROM_AT24=m' \
+    "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fq 'flash-leds = <&nabu_rear_flash>;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi"
+camera_dtsi="$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi"
+grep -A7 -F 'rear_camera_eeprom: eeprom@51' "$camera_dtsi" \
+    | grep -Fq 'compatible = "belling,bl24sa64", "atmel,24c64";'
+grep -A7 -F 'front_camera_eeprom: eeprom@50' "$camera_dtsi" \
+    | grep -Fq 'compatible = "puya,p24c64f", "atmel,24c64";'
+grep -A7 -F 'rear_camera_eeprom: eeprom@51' "$camera_dtsi" \
+    | grep -Fq 'read-only;'
+grep -A7 -F 'front_camera_eeprom: eeprom@50' "$camera_dtsi" \
+    | grep -Fq 'read-only;'
+! grep -Fq 'SM8150_MMCX>, <&rpmhpd SM8150_MX' "$camera_dtsi"
+grep -Fq 'static DEVICE_ATTR_RO(panel_revision);' \
+    "$work/linux-$version/drivers/gpu/drm/panel/panel-novatek-nt36523.c"
+grep -Fq 'belling,bl24sa64' \
+    "$work/linux-$version/Documentation/devicetree/bindings/eeprom/at24.yaml"
+grep -Fq 'qcom,sm8150-cci' \
+    "$work/linux-$version/Documentation/devicetree/bindings/i2c/qcom,i2c-cci.yaml"
+grep -Fq 'ranges = <0 0xb100 0x100>;' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/pm8150.dtsi"
 grep -Fq 'case HFI_BUFFER_INTERNAL_SCRATCH_2:' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c"
 grep -Fq 'exact_firmware_size = inst->core->iris_platform_data->legacy_vpu5' \
@@ -112,6 +132,7 @@ for setting in \
 	'CONFIG_VIDEO_QCOM_CAMSS=m' \
 	'CONFIG_V4L2_FLASH_LED_CLASS=m' \
 	'CONFIG_I2C_QCOM_CCI=y' \
+	'CONFIG_EEPROM_AT24=m' \
 	'CONFIG_SM_CAMCC_8150=y' \
 	'CONFIG_SM_VIDEOCC_8150=y' \
 	'CONFIG_DMABUF_HEAPS_SYSTEM=y' \
