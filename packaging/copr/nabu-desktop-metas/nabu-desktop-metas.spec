@@ -3,7 +3,7 @@
 
 Name:           nabu-desktop-metas
 Version:        3.0.0
-Release:        100%{?dist}
+Release:        101%{?dist}
 Summary:        Unified desktop profile family for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-or-later AND BSD-2-Clause AND CC0-1.0
 URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder
@@ -457,6 +457,7 @@ install -Dm0644 kde-integration/man/senemos-nabu-color-profile.1 %{buildroot}%{_
 install -d %{buildroot}%{_datadir}/color/icc/senemos/nabu
 install -m0644 kde-integration/kde/color/icc/senemos/nabu/*.icc %{buildroot}%{_datadir}/color/icc/senemos/nabu/
 install -Dm0644 kde-integration/kde/nabu-audio-orientation.service %{buildroot}%{_userunitdir}/nabu-audio-orientation.service
+install -Dm0644 kde-integration/kde/nabu-color-profile-auto.service %{buildroot}%{_userunitdir}/nabu-color-profile-auto.service
 install -Dm0644 kde-integration/kde/90-nabu-kde.preset %{buildroot}%{_userpresetdir}/90-nabu-kde.preset
 install -Dm0644 kde-integration/kde/90-senemos-nabu-startupsound.conf %{buildroot}%{_userunitdir}/plasma-startupsound.service.d/90-senemos-nabu.conf
 install -Dm0644 kde-integration/kde/kwinoutputconfig.json %{buildroot}%{_sysconfdir}/xdg/kwinoutputconfig.json
@@ -568,7 +569,7 @@ touch /var/lib/nabu-gnome-mobile-sync/pending
 %{_userunitdir}/org.gnome.Shell@initial-setup.service.d/20-nabu-mobile-user-mode.conf
 
 %post -n kde-plasma-nabu-meta
-%systemd_user_post nabu-audio-orientation.service
+%systemd_user_post nabu-audio-orientation.service nabu-color-profile-auto.service
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable sddm.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
@@ -595,10 +596,10 @@ if [ -x /usr/bin/systemctl ]; then
 fi
 
 %preun -n kde-plasma-nabu-meta
-%systemd_user_preun nabu-audio-orientation.service
+%systemd_user_preun nabu-audio-orientation.service nabu-color-profile-auto.service
 
 %postun -n kde-plasma-nabu-meta
-%systemd_user_postun_with_restart nabu-audio-orientation.service
+%systemd_user_postun_with_restart nabu-audio-orientation.service nabu-color-profile-auto.service
 
 %files -n kde-plasma-nabu-meta
 %{_presetdir}/95-nabu-plasma-login.preset
@@ -618,6 +619,7 @@ fi
 %dir %{_datadir}/color/icc/senemos/nabu
 %{_datadir}/color/icc/senemos/nabu/*.icc
 %{_userunitdir}/nabu-audio-orientation.service
+%{_userunitdir}/nabu-color-profile-auto.service
 %{_userpresetdir}/90-nabu-kde.preset
 %dir %{_userunitdir}/plasma-startupsound.service.d
 %{_userunitdir}/plasma-startupsound.service.d/90-senemos-nabu.conf
@@ -639,7 +641,7 @@ fi
 %{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 %post -n kde-plasma-mobile-nabu-meta
-%systemd_user_post nabu-audio-orientation.service
+%systemd_user_post nabu-audio-orientation.service nabu-color-profile-auto.service
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable sddm.service >/dev/null 2>&1 || :
     /usr/bin/systemctl disable plasma-setup.service >/dev/null 2>&1 || :
@@ -665,10 +667,10 @@ if [ -x /usr/bin/systemctl ]; then
 fi
 
 %preun -n kde-plasma-mobile-nabu-meta
-%systemd_user_preun nabu-audio-orientation.service
+%systemd_user_preun nabu-audio-orientation.service nabu-color-profile-auto.service
 
 %postun -n kde-plasma-mobile-nabu-meta
-%systemd_user_postun_with_restart nabu-audio-orientation.service
+%systemd_user_postun_with_restart nabu-audio-orientation.service nabu-color-profile-auto.service
 
 %files -n kde-plasma-mobile-nabu-meta
 %dir %{_datadir}/nabu-plasma-mobile
@@ -695,6 +697,7 @@ fi
 %dir %{_datadir}/color/icc/senemos/nabu
 %{_datadir}/color/icc/senemos/nabu/*.icc
 %{_userunitdir}/nabu-audio-orientation.service
+%{_userunitdir}/nabu-color-profile-auto.service
 %{_userpresetdir}/90-nabu-kde.preset
 %dir %{_userunitdir}/plasma-startupsound.service.d
 %{_userunitdir}/plasma-startupsound.service.d/90-senemos-nabu.conf
@@ -725,6 +728,10 @@ fi
 %{_sysconfdir}/rpm/macros.nabu-languages
 
 %changelog
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-101
+- Select the factory-derived ICC automatically for each Nabu panel and user.
+- Preserve user-selected profiles and the accurate KWin ICC pipeline.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-100
 - Build all five desktop manifests from one COPR source family.
 - Preserve the existing binary names and stock Fedora/KDE package policy.

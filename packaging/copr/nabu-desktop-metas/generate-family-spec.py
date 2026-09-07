@@ -134,7 +134,7 @@ out = [
     "",
     "Name:           nabu-desktop-metas",
     "Version:        3.0.0",
-    "Release:        100%{?dist}",
+    "Release:        101%{?dist}",
     "Summary:        Unified desktop profile family for Xiaomi Pad 5",
     "License:        MIT AND GPL-2.0-or-later AND GPL-3.0-or-later AND BSD-2-Clause AND CC0-1.0",
     "URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder",
@@ -180,6 +180,10 @@ for profile in PROFILES:
 
 out.extend([
     "%changelog",
+    "* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-101",
+    "- Select the factory-derived ICC automatically for each Nabu panel and user.",
+    "- Preserve user-selected profiles and the accurate KWin ICC pipeline.",
+    "",
     "* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-100",
     "- Build all five desktop manifests from one COPR source family.",
     "- Preserve the existing binary names and stock Fedora/KDE package policy.",

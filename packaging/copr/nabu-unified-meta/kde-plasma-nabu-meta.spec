@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        20%{?dist}
+Release:        21%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -146,6 +146,7 @@ install -Dm0644 kde-integration/man/senemos-nabu-color-profile.1 %{buildroot}%{_
 install -d %{buildroot}%{_datadir}/color/icc/senemos/nabu
 install -m0644 kde-integration/kde/color/icc/senemos/nabu/*.icc %{buildroot}%{_datadir}/color/icc/senemos/nabu/
 install -Dm0644 kde-integration/kde/nabu-audio-orientation.service %{buildroot}%{_userunitdir}/nabu-audio-orientation.service
+install -Dm0644 kde-integration/kde/nabu-color-profile-auto.service %{buildroot}%{_userunitdir}/nabu-color-profile-auto.service
 install -Dm0644 kde-integration/kde/90-nabu-kde.preset %{buildroot}%{_userpresetdir}/90-nabu-kde.preset
 install -Dm0644 kde-integration/kde/90-senemos-nabu-startupsound.conf %{buildroot}%{_userunitdir}/plasma-startupsound.service.d/90-senemos-nabu.conf
 install -Dm0644 kde-integration/kde/kwinoutputconfig.json %{buildroot}%{_sysconfdir}/xdg/kwinoutputconfig.json
@@ -195,6 +196,7 @@ grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 %dir %{_datadir}/color/icc/senemos/nabu
 %{_datadir}/color/icc/senemos/nabu/*.icc
 %{_userunitdir}/nabu-audio-orientation.service
+%{_userunitdir}/nabu-color-profile-auto.service
 %{_userpresetdir}/90-nabu-kde.preset
 %dir %{_userunitdir}/plasma-startupsound.service.d
 %{_userunitdir}/plasma-startupsound.service.d/90-senemos-nabu.conf
@@ -216,7 +218,7 @@ grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 %{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 %post
-%systemd_user_post nabu-audio-orientation.service
+%systemd_user_post nabu-audio-orientation.service nabu-color-profile-auto.service
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable sddm.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
@@ -242,11 +244,15 @@ if [ -x /usr/bin/systemctl ]; then
     fi
 fi
 %preun
-%systemd_user_preun nabu-audio-orientation.service
+%systemd_user_preun nabu-audio-orientation.service nabu-color-profile-auto.service
 %postun
-%systemd_user_postun_with_restart nabu-audio-orientation.service
+%systemd_user_postun_with_restart nabu-audio-orientation.service nabu-color-profile-auto.service
 
 %changelog
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-21
+- Select the factory-derived ICC automatically for each Nabu panel revision
+  and each Plasma user while preserving later user profile choices.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-20
 - Expose the four physical speakers separately in Plasma's Built-in Audio test.
 - Migrate restored two-channel volume state without leaving rear speakers muted.

@@ -47,6 +47,17 @@ core="$root/nabu-core-meta.spec"
 grep -Fqx 'RefuseManualStop=yes' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/systemd/system/ath10k-shutdown.service" || fail "ath10k shutdown helper can be restarted by RPM transactions"
 grep -Fqx 'softdep snd_soc_sm8150 pre: snd_soc_wcd934x' "$root/vendor-src/nabu-system-integration-2.0.0/payload/usr/lib/modprobe.d/80-nabu-audio.conf" || fail "WCD934x codec is not ordered before the SM8150 sound card"
 grep -Fq 'monitor_sensor_bin' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/nabu-sensor-session-gate" || fail "SensorProxy is not warmed before graphical login"
+python3 "$root/vendor-src/nabu-system-integration-2.0.0/tests/test-tuned-profiles.py" || fail "Nabu TuneD profile contract"
+grep -Fq '%{_unitdir}/tuned-ppd.service.d/90-senemos-nabu-profiles.conf' "$core" || fail "tuned-ppd Nabu drop-in is not packaged"
+grep -Fq '%{_prefix}/lib/tuned/profiles/senemos-nabu-performance/' "$core" || fail "Nabu TuneD profiles are not packaged"
+grep -Fq 'try-restart tuned-ppd.service' "$core" || fail "tuned-ppd is not refreshed after installing Nabu profiles"
+flashlight_archive="$root/vendor/nabu-flashlight-integration-1.0.0.tar.gz"
+flashlight_source=$(tar -xOf "$flashlight_archive" \
+    nabu-flashlight-integration-1.0.0/src/nabu-flashlight.c)
+grep -Fq 'V4L2_CID_FLASH_TORCH_INTENSITY' <<<"$flashlight_source" \
+    || fail "flashlight V4L2 torch fallback missing"
+grep -Fq 'mode == V4L2_FLASH_LED_MODE_FLASH' <<<"$flashlight_source" \
+    || fail "flashlight helper can steal a camera-armed strobe"
 grep -Fq 'Source11:       nabu-sar-service-0.2.5.tar.zst' "$core" || fail "SAR 0.2.5 source missing"
 grep -Fq '%{_libexecdir}/nabu-sar-control' "$core" || fail "SAR control helper not packaged"
 grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge unit not packaged"
@@ -106,8 +117,19 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
     grep -Fq '%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf' "$kde_spec" || fail "Nabu DSI PowerDevil policy missing in $kde_spec"
+    grep -Fq '%{_userunitdir}/nabu-color-profile-auto.service' "$kde_spec" || fail "per-user panel ICC selector missing in $kde_spec"
 done
 grep -Fxq 'POWERDEVIL_NO_DDCUTIL=1' "$root/90-nabu-powerdevil.conf" || fail "PowerDevil DDC probe is not disabled for Nabu DSI"
+
+color_archive="$root/vendor/nabu-kde-integration-1.4.0.1.tar.gz"
+color_service=$(tar -xOf "$color_archive" \
+    nabu-kde-integration-1.4.0.1/kde/nabu-color-profile-auto.service)
+grep -Fq 'ExecStart=/usr/bin/senemos-nabu-color-profile auto' <<<"$color_service" \
+    || fail "panel-variant ICC service command missing"
+color_preset=$(tar -xOf "$color_archive" \
+    nabu-kde-integration-1.4.0.1/kde/90-nabu-kde.preset)
+grep -Fxq 'enable nabu-color-profile-auto.service' <<<"$color_preset" \
+    || fail "panel-variant ICC service is not enabled for every user"
 
 widget_archive="$root/vendor/nabu-kde-widgets-debug-1.0.1.tar.zst"
 weather_service=$(tar --zstd -xOf "$widget_archive" \
