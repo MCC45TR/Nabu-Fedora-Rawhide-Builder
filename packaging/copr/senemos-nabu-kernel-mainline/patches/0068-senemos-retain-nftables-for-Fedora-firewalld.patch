@@ -1,0 +1,52 @@
+From 8f837bacdaf09a72db219292b2ff085852eefa1c Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 13:12:55 +0300
+Subject: [PATCH] senemos: retain nftables for Fedora firewalld
+
+---
+ senemos/configs/nabu-minimal.config | 29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index ea7b2f35e96a..cc26a9c5da73 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -88,6 +88,35 @@ CONFIG_ATH10K=m
+ CONFIG_ATH10K_SNOC=m
+ CONFIG_BT=m
+ CONFIG_BT_QCA=m
++
++# Fedora firewalld uses the nftables backend. Keep the compact, known-good
++# 6.17 ruleset surface so filtering, rejection and NAT work after pruning.
++CONFIG_NETFILTER=y
++CONFIG_NETFILTER_NETLINK=y
++CONFIG_NF_CONNTRACK=m
++CONFIG_NF_CONNTRACK_MARK=y
++CONFIG_NF_TABLES=m
++CONFIG_NF_TABLES_INET=y
++CONFIG_NF_TABLES_IPV4=y
++CONFIG_NF_TABLES_IPV6=y
++CONFIG_NFT_COMPAT=m
++CONFIG_NFT_CT=m
++CONFIG_NFT_FIB=m
++CONFIG_NFT_FIB_INET=m
++CONFIG_NFT_FIB_IPV4=m
++CONFIG_NFT_FIB_IPV6=m
++CONFIG_NFT_LIMIT=m
++CONFIG_NFT_LOG=m
++CONFIG_NFT_MASQ=m
++CONFIG_NFT_NAT=m
++CONFIG_NFT_REJECT=m
++CONFIG_NFT_REJECT_INET=m
++CONFIG_NFT_REJECT_IPV4=m
++CONFIG_NFT_REJECT_IPV6=m
++CONFIG_NF_NAT=m
++CONFIG_NF_REJECT_IPV4=m
++CONFIG_NF_REJECT_IPV6=m
++
+ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_PMSG=y
+-- 
+2.55.0
+

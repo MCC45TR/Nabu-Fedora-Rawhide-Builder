@@ -1,0 +1,35 @@
+From 67d51f8b374eb062386b294fd385fa2bb31228f6 Mon Sep 17 00:00:00 2001
+From: MCC45TR <mursitcancihan@gmail.com>
+Date: Sat, 29 Aug 2026 19:11:21 +0300
+Subject: [PATCH 43/64] ASoC: cs35l41: defer accepted Nabu PDN timeout logging
+
+---
+ sound/soc/codecs/cs35l41-lib.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/codecs/cs35l41-lib.c b/sound/soc/codecs/cs35l41-lib.c
+index 37c273876770..c105ac240844 100644
+--- a/sound/soc/codecs/cs35l41-lib.c
++++ b/sound/soc/codecs/cs35l41-lib.c
+@@ -1274,7 +1274,9 @@ int cs35l41_global_enable(struct device *dev, struct regmap *regmap, enum cs35l4
+ 		ret = regmap_read_poll_timeout(regmap, CS35L41_IRQ1_STATUS1,
+ 					int_status, int_status & pup_pdn_mask,
+ 					1000, 100000);
+-		if (ret)
++		if (ret && (ret != -ETIMEDOUT || enable ||
++		    !device_property_read_bool(dev,
++					       "cirrus,allow-missing-pdn-done")))
+ 			dev_err(dev, "Enable(%d) failed: %d\n", enable, ret);
+ 
+ 		/* Clear PUP/PDN status */
+@@ -1291,7 +1293,9 @@ int cs35l41_global_enable(struct device *dev, struct regmap *regmap, enum cs35l4
+ 		ret = regmap_read_poll_timeout(regmap, CS35L41_IRQ1_STATUS1,
+ 					int_status, int_status & pup_pdn_mask,
+ 					1000, 100000);
+-		if (ret)
++		if (ret && (ret != -ETIMEDOUT || enable ||
++		    !device_property_read_bool(dev,
++					       "cirrus,allow-missing-pdn-done")))
+ 			dev_err(dev, "Enable(%d) failed: %d\n", enable, ret);
+ 
+ 		/* Clear PUP/PDN status */

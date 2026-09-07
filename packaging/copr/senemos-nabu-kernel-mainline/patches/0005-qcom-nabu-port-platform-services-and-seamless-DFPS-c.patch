@@ -1,0 +1,2317 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: MCC45TR <mcc45tr@users.noreply.github.com>
+Date: Tue, 25 Aug 2026 17:29:52 +0300
+Subject: [PATCH 05/21] qcom: nabu: port platform services and seamless DFPS
+ core to 7.2
+
+---
+ .../arch/arm64/qcom/nabu-power-enablement.rst |  71 +++
+ .../bindings/misc/qcom,fastrpc.yaml           |   9 +
+ .../bindings/remoteproc/qcom,sm8150-pas.yaml  |   3 +
+ .../soc/qcom/qcom,smp2p-sleep-state.yaml      |  49 ++
+ .../bindings/soc/qcom/qcom,smp2p.yaml         |   2 +-
+ .../sm8150-xiaomi-nabu-power-scaffold.dtsi    | 199 ++++++++
+ .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      |  98 +++-
+ arch/arm64/boot/dts/qcom/sm8150.dtsi          |  87 +++-
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c   |   3 +
+ .../gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h  |   1 +
+ .../drm/msm/disp/dpu1/dpu_encoder_phys_vid.c  |  19 +
+ drivers/gpu/drm/msm/dsi/dsi.h                 |  11 +-
+ drivers/gpu/drm/msm/dsi/dsi_host.c            | 137 ++++-
+ drivers/gpu/drm/msm/dsi/dsi_manager.c         |  65 +++
+ drivers/gpu/drm/msm/msm_atomic.c              | 234 ++++++++-
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c |  47 +-
+ drivers/misc/fastrpc.c                        |  47 +-
+ drivers/remoteproc/qcom_q6v5_pas.c            |  22 +
+ drivers/slimbus/qcom-ngd-ctrl.c               |  14 +-
+ drivers/soc/qcom/Makefile                     |   1 +
+ drivers/soc/qcom/smp2p_sleep_state.c          | 156 ++++++
+ include/drm/drm_crtc.h                        |   9 +
+ sound/soc/qcom/sm8150.c                       | 483 ++++++++++++++++++
+ 23 files changed, 1737 insertions(+), 30 deletions(-)
+ create mode 100644 Documentation/arch/arm64/qcom/nabu-power-enablement.rst
+ create mode 100644 Documentation/devicetree/bindings/soc/qcom/qcom,smp2p-sleep-state.yaml
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-power-scaffold.dtsi
+ create mode 100644 drivers/soc/qcom/smp2p_sleep_state.c
+ create mode 100644 sound/soc/qcom/sm8150.c
+
+diff --git a/Documentation/arch/arm64/qcom/nabu-power-enablement.rst b/Documentation/arch/arm64/qcom/nabu-power-enablement.rst
+new file mode 100644
+index 000000000000..cab877df04d2
+--- /dev/null
++++ b/Documentation/arch/arm64/qcom/nabu-power-enablement.rst
+@@ -0,0 +1,71 @@
++Xiaomi Pad 5 high-power charging enablement
++============================================
++
++Current state
++-------------
++
++The Xiaomi downstream kernel describes a PM8150B charger, one of two possible
++external charge-pump variants, Xiaomi QC/PD policy drivers, and several board
++thermistors.  The corresponding Nabu Linux Device Tree keeps the optional
++components in ``sm8150-xiaomi-nabu-power-scaffold.dtsi``.  All nodes in that
++file are disabled and must remain disabled in production images until the
++requirements below have been met.
++
++The base PM8150B charger and fuel gauge are independent of this scaffold.  The
++scaffold does not change their current, voltage, Type-C, or power-supply
++configuration.
++
++Downstream reference
++--------------------
++
++The downstream board file is
++``arch/arm64/boot/dts/qcom/xiaomi/overlay/nabu/nabu-sm8150.dtsi``.  It contains:
++
++* a ``ti,bq2597x-standalone`` device at I2C address 0x66;
++* a ``lionsemi,ln8000`` device at I2C address 0x51;
++* ``xiaomi,cp-qc30`` and ``xiaomi,usbpd-pm`` policy nodes;
++* PM8150, PM8150B, and PM8150L ADC channels for the charger, connector,
++  wireless-power area, and other board temperatures.
++
++The two I2C descriptions represent alternate hardware populations.  They are
++not evidence that both devices are fitted to one tablet.
++
++Driver gaps
++-----------
++
++The generic mainline ``bq25980`` driver does not bind the downstream
++``ti,bq2597x-standalone`` compatible.  This kernel also has no LN8000, Xiaomi
++QC/PD policy, or SMB1390 charger driver matching the downstream implementation.
++Enabling a Device Tree node before these gaps are resolved would not provide a
++safe or complete charging path.
++
++Activation gates
++----------------
++
++Before enabling any charge-pump or board-thermal node:
++
++#. Identify the fitted charge-pump by read-only I2C probing and a documented
++   chip-identification register; never probe both variants by writing control
++   registers.
++#. Port or upstream a driver with reviewed register limits and error handling.
++#. Validate every thermistor at ambient temperature, with bounded warm and cool
++   tests, and verify plausible polarity after suspend and resume.
++#. Confirm standard USB charging and Type-C role handling before testing higher
++   power modes.
++#. Use an external USB-C power meter and a current-limited source for the first
++   activation tests.
++#. Add conservative thermal mitigation and over-voltage/over-current limits
++   before enabling QC, PD, or PPS policy.
++#. Re-test cable removal, charger removal, suspend, resume, and reboot.
++
++The downstream maximum current and voltage values are deliberately not copied
++into an active Linux policy.  They are implementation inputs, not safe defaults
++without the matching downstream driver, battery policy, and thermal feedback.
++
++GNSS
++----
++
++No onboard GNSS path is described by the Nabu downstream board Device Tree.
++The generic Linux GNSS subsystem only provides a framework; enabling it does
++not create a receiver.  External USB or Bluetooth GNSS receivers can be
++supported separately without adding a fictitious onboard Device Tree node.
+diff --git a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
+index 2876fdd7c6e6..c230a5713d1f 100644
+--- a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
++++ b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
+@@ -43,6 +43,12 @@ properties:
+     description:
+       Phandle to a node describing memory to be used for remote heap CMA.
+ 
++  mount-matrix:
++    description:
++      Optional 3x3 mounting rotation matrix for an accelerometer delivered
++      through a sensor DSP FastRPC domain. The driver exports this metadata
++      through the FastRPC misc device for sensor middleware.
++
+   qcom,glink-channels:
+     description:
+       A list of channels tied to this function, used for matching
+@@ -132,6 +138,9 @@ examples:
+             compatible = "qcom,fastrpc";
+             qcom,glink-channels = "fastrpcglink-apps-dsp";
+             label = "sdsp";
++            mount-matrix = "1", "0", "0",
++                           "0", "1", "0",
++                           "0", "0", "1";
+             qcom,non-secure-domain;
+             #address-cells = <1>;
+             #size-cells = <0>;
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml
+index a8cddf7e2fe1..836115ca8583 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml
+@@ -31,6 +31,7 @@ properties:
+           - qcom,sm8150-adsp-pas
+           - qcom,sm8150-cdsp-pas
+           - qcom,sm8150-mpss-pas
++          - qcom,sm8150-nabu-slpi-pas
+           - qcom,sm8150-slpi-pas
+           - qcom,sm8250-adsp-pas
+           - qcom,sm8250-cdsp-pas
+@@ -78,6 +79,7 @@ allOf:
+               - qcom,sc8180x-slpi-pas
+               - qcom,sm8150-adsp-pas
+               - qcom,sm8150-cdsp-pas
++              - qcom,sm8150-nabu-slpi-pas
+               - qcom,sm8150-slpi-pas
+               - qcom,sm8250-adsp-pas
+               - qcom,sm8250-cdsp-pas
+@@ -136,6 +138,7 @@ allOf:
+         compatible:
+           enum:
+             - qcom,sc8180x-slpi-pas
++            - qcom,sm8150-nabu-slpi-pas
+             - qcom,sm8150-slpi-pas
+             - qcom,sm8250-adsp-pas
+             - qcom,sm8250-slpi-pas
+diff --git a/Documentation/devicetree/bindings/soc/qcom/qcom,smp2p-sleep-state.yaml b/Documentation/devicetree/bindings/soc/qcom/qcom,smp2p-sleep-state.yaml
+new file mode 100644
+index 000000000000..75eb1e6efdf2
+--- /dev/null
++++ b/Documentation/devicetree/bindings/soc/qcom/qcom,smp2p-sleep-state.yaml
+@@ -0,0 +1,49 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/soc/qcom/qcom,smp2p-sleep-state.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Qualcomm SMP2P application processor sleep state
++
++maintainers:
++  - MCC45TR <mursitcancihan@gmail.com>
++
++description:
++  Publishes application-processor awake state to Qualcomm remote firmware and
++  receives the corresponding state-change interrupt. Some downstream sensor
++  firmware requires this handshake around system suspend.
++
++properties:
++  compatible:
++    const: qcom,smp2p-sleep-state
++
++  qcom,smem-states:
++    $ref: /schemas/types.yaml#/definitions/phandle-array
++    maxItems: 1
++
++  interrupt-parent: true
++
++  interrupts:
++    maxItems: 1
++
++  interrupt-names:
++    const: state-change
++
++required:
++  - compatible
++  - qcom,smem-states
++  - interrupts
++  - interrupt-names
++
++additionalProperties: false
++
++examples:
++  - |
++    sleep-state {
++        compatible = "qcom,smp2p-sleep-state";
++        qcom,smem-states = <&sleepstate_out 0>;
++        interrupt-parent = <&sleepstate_in>;
++        interrupts = <0 1>;
++        interrupt-names = "state-change";
++    };
+diff --git a/Documentation/devicetree/bindings/soc/qcom/qcom,smp2p.yaml b/Documentation/devicetree/bindings/soc/qcom/qcom,smp2p.yaml
+index f91276822858..32cba3254a2d 100644
+--- a/Documentation/devicetree/bindings/soc/qcom/qcom,smp2p.yaml
++++ b/Documentation/devicetree/bindings/soc/qcom/qcom,smp2p.yaml
+@@ -60,7 +60,7 @@ properties:
+       Two identifiers of the inbound and outbound smem items used for this edge.
+ 
+ patternProperties:
+-  "^master-kernel|slave-kernel|ipa-ap-to-modem|ipa-modem-to-ap|wlan-ap-to-wpss|wlan-wpss-to-ap$":
++  "^master-kernel|slave-kernel|ipa-ap-to-modem|ipa-modem-to-ap|wlan-ap-to-wpss|wlan-wpss-to-ap|sleepstate-(in|out)$":
+     type: object
+     description:
+       Each SMP2P pair contain a set of inbound and outbound entries, these are
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-power-scaffold.dtsi b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-power-scaffold.dtsi
+new file mode 100644
+index 000000000000..86106254767e
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-power-scaffold.dtsi
+@@ -0,0 +1,199 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Copyright (c) 2026 Nabu Linux contributors
++ *
++ * Inactive board description for the optional high-power charging path and
++ * board thermistors found in the downstream Xiaomi kernel.  Every node in
++ * this file is disabled until the hardware variant and Linux driver
++ * support have been verified on a physical device.
++ */
++
++&i2c4 {
++	bq25970_charge_pump: charge-pump@66 {
++		compatible = "ti,bq2597x-standalone";
++		reg = <0x66>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <36 IRQ_TYPE_LEVEL_LOW>;
++		status = "disabled";
++	};
++
++	ln8000_charge_pump: charge-pump@51 {
++		compatible = "lionsemi,ln8000";
++		reg = <0x51>;
++		status = "disabled";
++	};
++};
++
++/* Platform policy drivers are not part of a memory-mapped bus. */
++/ {
++	nabu_qc_charge_policy: charge-policy-qc {
++		compatible = "xiaomi,cp-qc30";
++		status = "disabled";
++	};
++
++	nabu_pd_charge_policy: charge-policy-pd {
++		compatible = "xiaomi,usbpd-pm";
++		status = "disabled";
++	};
++};
++
++&pm8150_adc {
++	channel@4c {
++		reg = <ADC5_XO_THERM_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,pre-scaling = <1 1>;
++		label = "xo_therm";
++		status = "disabled";
++	};
++
++	channel@4d {
++		reg = <ADC5_AMUX_THM1_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,pre-scaling = <1 1>;
++		label = "quiet_therm";
++		status = "disabled";
++	};
++
++	channel@4e {
++		reg = <ADC5_AMUX_THM2_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,pre-scaling = <1 1>;
++		label = "charger_therm0";
++		status = "disabled";
++	};
++};
++
++&pm8150b_adc {
++	channel@4d {
++		reg = <ADC5_AMUX_THM1_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,pre-scaling = <1 1>;
++		label = "wp_therm";
++		status = "disabled";
++	};
++
++	channel@4f {
++		reg = <ADC5_AMUX_THM3_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,pre-scaling = <1 1>;
++		label = "conn_therm";
++		status = "disabled";
++	};
++};
++
++&pm8150l_adc {
++	channel@54 {
++		reg = <ADC5_GPIO3_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,pre-scaling = <1 1>;
++		label = "backlight_therm";
++		status = "disabled";
++	};
++};
++
++&pm8150_adc_tm {
++	xo-therm@0 {
++		reg = <0>;
++		io-channels = <&pm8150_adc ADC5_XO_THERM_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++		status = "disabled";
++	};
++
++	quiet-therm@1 {
++		reg = <1>;
++		io-channels = <&pm8150_adc ADC5_AMUX_THM1_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++		status = "disabled";
++	};
++
++	charger-therm0@2 {
++		reg = <2>;
++		io-channels = <&pm8150_adc ADC5_AMUX_THM2_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++		status = "disabled";
++	};
++};
++
++&pm8150b_adc_tm {
++	wp-therm@0 {
++		reg = <0>;
++		io-channels = <&pm8150b_adc ADC5_AMUX_THM1_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++		status = "disabled";
++	};
++
++	conn-therm@1 {
++		reg = <1>;
++		io-channels = <&pm8150b_adc ADC5_AMUX_THM3_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++		status = "disabled";
++	};
++};
++
++&pm8150l_adc_tm {
++	backlight-therm@0 {
++		reg = <0>;
++		io-channels = <&pm8150l_adc ADC5_GPIO3_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++		status = "disabled";
++	};
++};
++
++&{/thermal-zones} {
++	nabu-charger-thermal {
++		polling-delay-passive = <0>;
++		polling-delay = <0>;
++		thermal-sensors = <&pm8150_adc_tm 2>;
++		status = "disabled";
++
++		trips {
++			nabu_charger_alert: charger-alert {
++				temperature = <125000>;
++				hysteresis = <1000>;
++				type = "passive";
++			};
++		};
++	};
++
++	nabu-connector-thermal {
++		polling-delay-passive = <0>;
++		polling-delay = <0>;
++		thermal-sensors = <&pm8150b_adc_tm 1>;
++		status = "disabled";
++
++		trips {
++			nabu_connector_alert: connector-alert {
++				temperature = <125000>;
++				hysteresis = <1000>;
++				type = "passive";
++			};
++		};
++	};
++
++	nabu-backlight-thermal {
++		polling-delay-passive = <0>;
++		polling-delay = <0>;
++		thermal-sensors = <&pm8150l_adc_tm 0>;
++		status = "disabled";
++
++		trips {
++			nabu_backlight_alert: backlight-alert {
++				temperature = <125000>;
++				hysteresis = <1000>;
++				type = "passive";
++			};
++		};
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index 3d7a1ec7f212..2b65e5da205b 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -41,6 +41,21 @@ aliases {
+ 		wifi0 = &wifi;
+ 	};
+ 
++	slpi-sleep-state {
++		compatible = "qcom,smp2p-sleep-state";
++		qcom,smem-states = <&slpi_sleepstate_out 0>;
++		interrupt-parent = <&slpi_sleepstate_in>;
++		interrupts = <0 IRQ_TYPE_EDGE_RISING>;
++		interrupt-names = "state-change";
++		/*
++		 * The downstream SLPI firmware crashes sensor_process when Linux
++		 * toggles the sleepstate bit during system suspend.  Keep the node
++		 * documented but disabled until the complete downstream SLPI power
++		 * lifecycle is available; remoteproc and FastRPC remain enabled.
++		 */
++		status = "disabled";
++	};
++
+ 	reserved-memory {
+ 		#address-cells = <2>;
+ 		#size-cells = <2>;
+@@ -96,11 +111,6 @@ cdsp_mem: memory@99100000 {
+ 			no-map;
+ 		};
+ 
+-		cdsp_sec_mem: memory@a4c00000 {
+-			reg = <0x0 0xa4c00000 0x0 0x3c00000>;
+-			no-map;
+-		};
+-
+ 		ramoops@b0000000 {
+ 			compatible = "ramoops";
+ 			reg = <0x0 0xb0000000 0x0 0x400000>;
+@@ -753,11 +763,85 @@ &remoteproc_mpss {
+ };
+ 
+ &remoteproc_slpi {
+-	compatible = "qcom,sm8150-slpi-pas";
++	compatible = "qcom,sm8150-nabu-slpi-pas";
+ 	status = "okay";
+ 	firmware-name = "qcom/sm8150/xiaomi/nabu/slpi_nb.mbn";
+ };
+ 
++&adsp_fastrpc {
++	mount-matrix = "-1", "0", "0",
++		       "0", "-1", "0",
++		       "0", "0", "1";
++};
++
++&slpi_fastrpc {
++	mount-matrix = "-1", "0", "0",
++		       "0", "-1", "0",
++		       "0", "0", "1";
++};
++
++&sound {
++	compatible = "qcom,sm8150-sndcard";
++	pinctrl-0 = <&quat_tdm_active
++		&quat_tdm_sd1_active>;
++	pinctrl-names = "default";
++	model = "Xiaomi Pad 5";
++
++	audio-routing =	"RX_BIAS", "MCLK",
++		"AMIC1", "MIC BIAS3",
++		"AMIC3", "MIC BIAS4",
++		"MultiMedia1 Playback", "BR SPK",
++		"MultiMedia1 Playback", "TR SPK",
++		"MultiMedia1 Playback", "BL SPK",
++		"MultiMedia1 Playback", "TL SPK";
++
++	mm1-dai-link {
++		link-name = "MultiMedia1";
++		cpu {
++			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
++		};
++	};
++
++	mm2-dai-link {
++		link-name = "MultiMedia2";
++		cpu {
++			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA2>;
++		};
++	};
++
++	speaker-dai-link {
++		link-name = "Speaker Playback";
++		cpu {
++			sound-dai = <&q6afedai QUATERNARY_TDM_RX_0>;
++		};
++
++		platform {
++			sound-dai = <&q6routing>;
++		};
++
++		codec {
++			sound-dai = <&cs35l41_br 0>, <&cs35l41_tr 0>,
++				<&cs35l41_bl 0>, <&cs35l41_tl 0>;
++		};
++	};
++
++	//Bottom & Top internal microphones
++	slimcap-dai-link {
++		link-name = "SLIM Capture 1";
++		cpu {
++			sound-dai = <&q6afedai SLIMBUS_0_TX>;
++		};
++
++		platform {
++			sound-dai = <&q6routing>;
++		};
++
++		codec {
++			sound-dai = <&wcd9340 1>; /* AIF1_CAP */
++		};
++	};
++};
++
+ &spi18 {
+ 	status = "okay";
+ 
+@@ -1085,3 +1169,5 @@ idtp9418: idtp9418@3b {
+                 boost-enable-gpios = <&tlmm 47 GPIO_ACTIVE_HIGH>;
+         };
+ };
++
++#include "sm8150-xiaomi-nabu-power-scaffold.dtsi"
+diff --git a/arch/arm64/boot/dts/qcom/sm8150.dtsi b/arch/arm64/boot/dts/qcom/sm8150.dtsi
+index 0e101096209a..fe0fe9ee6400 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8150.dtsi
+@@ -792,6 +792,14 @@ qseecom_mem: memory@9e400000 {
+ 			reg = <0x0 0x9e400000 0x0 0x1400000>;
+ 			no-map;
+ 		};
++
++		fastrpc_mem: fastrpc {
++			compatible = "shared-dma-pool";
++			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
++			alignment = <0x0 0x400000>;
++			size = <0x0 0x1000000>;
++			reusable;
++		};
+ 	};
+ 
+ 	smem {
+@@ -894,6 +902,17 @@ slpi_smp2p_in: slave-kernel {
+ 			interrupt-controller;
+ 			#interrupt-cells = <2>;
+ 		};
++
++		slpi_sleepstate_out: sleepstate-out {
++			qcom,entry-name = "sleepstate";
++			#qcom,smem-state-cells = <1>;
++		};
++
++		slpi_sleepstate_in: sleepstate-in {
++			qcom,entry-name = "sleepstate_see";
++			interrupt-controller;
++			#interrupt-cells = <2>;
++		};
+ 	};
+ 
+ 	soc: soc@0 {
+@@ -2181,9 +2200,9 @@ tcsr_regs_1: syscon@1f60000 {
+ 			reg = <0x0 0x01f60000 0x0 0x20000>;
+ 		};
+ 
+-		remoteproc_slpi: remoteproc@2400000 {
++		remoteproc_slpi: remoteproc@5c00000 {
+ 			compatible = "qcom,sm8150-slpi-pas";
+-			reg = <0x0 0x02400000 0x0 0x4040>;
++			reg = <0x0 0x05c00000 0x0 0x4000>;
+ 
+ 			interrupts-extended = <&intc GIC_SPI 494 IRQ_TYPE_EDGE_RISING>,
+ 					      <&slpi_smp2p_in 0 IRQ_TYPE_EDGE_RISING>,
+@@ -2211,15 +2230,18 @@ remoteproc_slpi: remoteproc@2400000 {
+ 
+ 			glink-edge {
+ 				interrupts = <GIC_SPI 170 IRQ_TYPE_EDGE_RISING>;
+-				label = "dsps";
++				label = "slpi";
+ 				qcom,remote-pid = <3>;
+ 				mboxes = <&apss_shared 24>;
+ 
+-				fastrpc {
++				slpi_fastrpc: fastrpc {
+ 					compatible = "qcom,fastrpc";
+ 					qcom,glink-channels = "fastrpcglink-apps-dsp";
+ 					label = "sdsp";
+ 					qcom,non-secure-domain;
++					qcom,vmids = <QCOM_SCM_VMID_HLOS QCOM_SCM_VMID_MSS_MSA
++						      QCOM_SCM_VMID_SSC_Q6 QCOM_SCM_VMID_ADSP_Q6>;
++					memory-region = <&fastrpc_mem>;
+ 					#address-cells = <1>;
+ 					#size-cells = <0>;
+ 
+@@ -2227,19 +2249,22 @@ compute-cb@1 {
+ 						compatible = "qcom,fastrpc-compute-cb";
+ 						reg = <1>;
+ 						iommus = <&apps_smmu 0x05a1 0x0>;
++						dma-coherent;
+ 					};
+ 
+ 					compute-cb@2 {
+ 						compatible = "qcom,fastrpc-compute-cb";
+ 						reg = <2>;
+ 						iommus = <&apps_smmu 0x05a2 0x0>;
++						dma-coherent;
+ 					};
+ 
+ 					compute-cb@3 {
+ 						compatible = "qcom,fastrpc-compute-cb";
+ 						reg = <3>;
+ 						iommus = <&apps_smmu 0x05a3 0x0>;
+-						/* note: shared-cb = <4> in downstream */
++						qcom,nsessions = <4>;
++						dma-coherent;
+ 					};
+ 				};
+ 			};
+@@ -4357,7 +4382,57 @@ glink-edge {
+ 				qcom,remote-pid = <2>;
+ 				mboxes = <&apss_shared 8>;
+ 
+-				fastrpc {
++				apr {
++					compatible = "qcom,apr-v2";
++					qcom,glink-channels = "apr_audio_svc";
++					qcom,domain = <APR_DOMAIN_ADSP>;
++					#address-cells = <1>;
++					#size-cells = <0>;
++
++					apr-service@3 {
++						reg = <APR_SVC_ADSP_CORE>;
++						compatible = "qcom,q6core";
++					};
++
++					q6afe: apr-service@4 {
++						compatible = "qcom,q6afe";
++						reg = <APR_SVC_AFE>;
++						q6afedai: dais {
++							compatible = "qcom,q6afe-dais";
++							#address-cells = <1>;
++							#size-cells = <0>;
++							#sound-dai-cells = <1>;
++						};
++
++						q6afecc: cc {
++							compatible = "qcom,q6afe-clocks";
++							#clock-cells = <2>;
++						};
++					};
++
++					q6asm: apr-service@7 {
++						compatible = "qcom,q6asm";
++						reg = <APR_SVC_ASM>;
++						q6asmdai: dais {
++							compatible = "qcom,q6asm-dais";
++							#address-cells = <1>;
++							#size-cells = <0>;
++							#sound-dai-cells = <1>;
++							iommus = <&apps_smmu 0x1b21 0x0>;
++						};
++					};
++
++					q6adm: apr-service@8 {
++						compatible = "qcom,q6adm";
++						reg = <APR_SVC_ADM>;
++						q6routing: routing {
++							compatible = "qcom,q6adm-routing";
++							#sound-dai-cells = <0>;
++						};
++					};
++				};
++
++				adsp_fastrpc: fastrpc {
+ 					compatible = "qcom,fastrpc";
+ 					qcom,glink-channels = "fastrpcglink-apps-dsp";
+ 					label = "adsp";
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+index 778e231d4967..fb7e2482b467 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+@@ -1270,6 +1270,9 @@ static void dpu_encoder_virt_atomic_mode_set(struct drm_encoder *drm_enc,
+ 		phys->cached_mode = crtc_state->adjusted_mode;
+ 		if (phys->ops.atomic_mode_set)
+ 			phys->ops.atomic_mode_set(phys, crtc_state, conn_state);
++		if (crtc_state->seamless_dfps &&
++		    phys->ops.seamless_mode_set)
++			phys->ops.seamless_mode_set(phys);
+ 	}
+ }
+ 
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h
+index 61b22d949454..b1b26c82629c 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h
+@@ -98,6 +98,7 @@ struct dpu_encoder_phys_ops {
+ 	void (*atomic_mode_set)(struct dpu_encoder_phys *encoder,
+ 			struct drm_crtc_state *crtc_state,
+ 			struct drm_connector_state *conn_state);
++	void (*seamless_mode_set)(struct dpu_encoder_phys *encoder);
+ 	void (*enable)(struct dpu_encoder_phys *encoder);
+ 	void (*disable)(struct dpu_encoder_phys *encoder);
+ 	int (*control_vblank_irq)(struct dpu_encoder_phys *enc, bool enable);
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
+index ba810f26ea30..e199568a6040 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
+@@ -332,6 +332,24 @@ static void dpu_encoder_phys_vid_setup_timing_engine(
+ 	programmable_fetch_config(phys_enc, &timing_params);
+ }
+ 
++static bool dpu_encoder_phys_vid_needs_single_flush(
++		struct dpu_encoder_phys *phys_enc);
++
++static void dpu_encoder_phys_vid_seamless_mode_set(
++		struct dpu_encoder_phys *phys_enc)
++{
++	struct dpu_hw_ctl *ctl = phys_enc->hw_ctl;
++
++	dpu_encoder_phys_vid_setup_timing_engine(phys_enc);
++
++	/* The bonded slave shares the master's CTL flush on older hardware. */
++	if (dpu_encoder_phys_vid_needs_single_flush(phys_enc) &&
++	    !dpu_encoder_phys_vid_is_master(phys_enc))
++		return;
++
++	ctl->ops.update_pending_flush_intf(ctl, phys_enc->hw_intf->idx);
++}
++
+ static void dpu_encoder_phys_vid_vblank_irq(void *arg)
+ {
+ 	struct dpu_encoder_phys *phys_enc = arg;
+@@ -740,6 +758,7 @@ static void dpu_encoder_phys_vid_init_ops(struct dpu_encoder_phys_ops *ops)
+ {
+ 	ops->is_master = dpu_encoder_phys_vid_is_master;
+ 	ops->atomic_mode_set = dpu_encoder_phys_vid_atomic_mode_set;
++	ops->seamless_mode_set = dpu_encoder_phys_vid_seamless_mode_set;
+ 	ops->enable = dpu_encoder_phys_vid_enable;
+ 	ops->disable = dpu_encoder_phys_vid_disable;
+ 	ops->control_vblank_irq = dpu_encoder_phys_vid_control_vblank_irq;
+diff --git a/drivers/gpu/drm/msm/dsi/dsi.h b/drivers/gpu/drm/msm/dsi/dsi.h
+index 93c028a122f3..c3b989809ca3 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi.h
++++ b/drivers/gpu/drm/msm/dsi/dsi.h
+@@ -43,6 +43,7 @@ struct msm_dsi {
+ 
+ 	struct device *phy_dev;
+ 	bool phy_enabled;
++	bool seamless_dfps_pending;
+ 
+ 	int id;
+ };
+@@ -55,6 +56,8 @@ bool msm_dsi_manager_cmd_xfer_trigger(int id, u32 dma_base, u32 len);
+ int msm_dsi_manager_register(struct msm_dsi *msm_dsi);
+ void msm_dsi_manager_unregister(struct msm_dsi *msm_dsi);
+ void msm_dsi_manager_tpg_enable(void);
++int msm_dsi_manager_stage_seamless_dfps(void);
++void msm_dsi_manager_complete_seamless_dfps(void);
+ 
+ /* dsi host */
+ struct msm_dsi_host;
+@@ -78,6 +81,13 @@ int msm_dsi_host_power_on(struct mipi_dsi_host *host,
+ int msm_dsi_host_power_off(struct mipi_dsi_host *host);
+ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
+ 				  const struct drm_display_mode *mode);
++int msm_dsi_host_set_display_mode_seamless(struct mipi_dsi_host *host,
++					   const struct drm_display_mode *mode,
++					   bool is_bonded_dsi);
++bool msm_dsi_host_seamless_ready(struct mipi_dsi_host *host);
++int msm_dsi_host_stage_seamless(struct mipi_dsi_host *host,
++					bool is_bonded_dsi);
++void msm_dsi_host_complete_seamless(struct mipi_dsi_host *host);
+ enum drm_mode_status msm_dsi_host_check_dsc(struct mipi_dsi_host *host,
+ 					    const struct drm_display_mode *mode);
+ unsigned long msm_dsi_host_get_mode_flags(struct mipi_dsi_host *host);
+@@ -152,4 +162,3 @@ void msm_dsi_phy_snapshot(struct msm_disp_state *disp_state, struct msm_dsi_phy
+ bool msm_dsi_phy_set_continuous_clock(struct msm_dsi_phy *phy, bool enable);
+ 
+ #endif /* __DSI_CONNECTOR_H__ */
+-
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 982abaaac00d..5081cdbc7ebe 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -97,7 +97,10 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
+ 		(DSI_CLK_CTRL_AHBS_HCLK_ON | DSI_CLK_CTRL_AHBM_SCLK_ON | \
+ 		DSI_CLK_CTRL_PCLK_ON | DSI_CLK_CTRL_DSICLK_ON | \
+ 		DSI_CLK_CTRL_BYTECLK_ON | DSI_CLK_CTRL_ESCCLK_ON | \
+-		DSI_CLK_CTRL_FORCE_ON_DYN_AHBM_HCLK)
++		 DSI_CLK_CTRL_FORCE_ON_DYN_AHBM_HCLK)
++
++/* DSI 6G v2.x timing shadow database used for porch-only DFPS updates. */
++#define REG_DSI_TIMING_DB_MODE			0x01e8
+ 
+ struct msm_dsi_host {
+ 	struct mipi_dsi_host base;
+@@ -165,6 +168,9 @@ struct msm_dsi_host {
+ 	struct regmap *sfpb;
+ 
+ 	struct drm_display_mode *mode;
++	/* Timing staged in the 6G shadow database, not active on the link yet. */
++	struct drm_display_mode *seamless_mode;
++	bool seamless_staged;
+ 	struct drm_dsc_config *dsc;
+ 
+ 	/* connected device info */
+@@ -2592,6 +2598,135 @@ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
+ 	return 0;
+ }
+ 
++int msm_dsi_host_set_display_mode_seamless(struct mipi_dsi_host *host,
++					   const struct drm_display_mode *mode,
++					   bool is_bonded_dsi)
++{
++	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
++	struct drm_display_mode *new_mode;
++	struct drm_display_mode *active_mode;
++	int ret = 0;
++
++	new_mode = drm_mode_duplicate(msm_host->dev, mode);
++	if (!new_mode)
++		return -ENOMEM;
++
++	mutex_lock(&msm_host->dev_mutex);
++	active_mode = msm_host->mode;
++	if (!active_mode || active_mode->clock != mode->clock ||
++	    active_mode->hdisplay != mode->hdisplay ||
++	    active_mode->hsync_start != mode->hsync_start ||
++	    active_mode->hsync_end != mode->hsync_end ||
++	    active_mode->htotal != mode->htotal ||
++	    active_mode->vdisplay != mode->vdisplay ||
++	    active_mode->vsync_end - active_mode->vsync_start !=
++		mode->vsync_end - mode->vsync_start ||
++	    active_mode->vtotal - active_mode->vsync_end !=
++		mode->vtotal - mode->vsync_end ||
++	    active_mode->vsync_start == mode->vsync_start) {
++		ret = -EOPNOTSUPP;
++		goto out_destroy;
++	}
++
++	if (msm_host->seamless_mode) {
++		ret = -EBUSY;
++		goto out_destroy;
++	}
++
++	if (!msm_host->power_on || !msm_host->enabled) {
++		ret = -EPIPE;
++		goto out_destroy;
++	}
++
++	/*
++	 * Queue the new timing only. The panel bridge follows this bridge in
++	 * drm_bridge_chain_mode_set() and must still issue its TDDI scan-rate
++	 * DCS commands while the normal video-done interrupt is live. The
++	 * shadow timing database is armed after the complete bridge chain.
++	 */
++	msm_host->seamless_mode = new_mode;
++	mutex_unlock(&msm_host->dev_mutex);
++
++	return 0;
++
++out_destroy:
++	mutex_unlock(&msm_host->dev_mutex);
++	drm_mode_destroy(msm_host->dev, new_mode);
++	return ret;
++}
++
++bool msm_dsi_host_seamless_ready(struct mipi_dsi_host *host)
++{
++	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
++	bool ready;
++
++	mutex_lock(&msm_host->dev_mutex);
++	ready = msm_host->power_on && msm_host->enabled &&
++		msm_host->seamless_mode && !msm_host->seamless_staged;
++	mutex_unlock(&msm_host->dev_mutex);
++
++	return ready;
++}
++
++int msm_dsi_host_stage_seamless(struct mipi_dsi_host *host,
++					bool is_bonded_dsi)
++{
++	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
++	struct drm_display_mode *active_mode;
++	int ret = 0;
++
++	mutex_lock(&msm_host->dev_mutex);
++	if (!msm_host->power_on || !msm_host->enabled ||
++	    !msm_host->seamless_mode) {
++		ret = -EPIPE;
++		goto out;
++	}
++	if (msm_host->seamless_staged) {
++		ret = -EBUSY;
++		goto out;
++	}
++
++	active_mode = msm_host->mode;
++	msm_host->mode = msm_host->seamless_mode;
++	dsi_write(msm_host, REG_DSI_TIMING_DB_MODE, 1);
++	dsi_timing_setup(msm_host, is_bonded_dsi);
++	msm_host->mode = active_mode;
++	wmb();
++	msm_host->seamless_staged = true;
++
++out:
++	mutex_unlock(&msm_host->dev_mutex);
++	return ret;
++}
++
++void msm_dsi_host_complete_seamless(struct mipi_dsi_host *host)
++{
++	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
++
++	mutex_lock(&msm_host->dev_mutex);
++	if (msm_host->power_on && msm_host->seamless_mode &&
++	    msm_host->seamless_staged) {
++		/*
++		 * The atomic commit tail has waited for a real CRTC vblank after
++		 * the DPU flush. Release the DSI timing database at that proven
++		 * frame boundary instead of relying on a refresh-rate-dependent
++		 * fixed delay.
++		 */
++		dsi_write(msm_host, REG_DSI_TIMING_DB_MODE, 0);
++		wmb();
++
++		drm_mode_destroy(msm_host->dev, msm_host->mode);
++		msm_host->mode = msm_host->seamless_mode;
++		msm_host->seamless_mode = NULL;
++		msm_host->seamless_staged = false;
++	} else if (msm_host->seamless_mode) {
++		drm_mode_destroy(msm_host->dev, msm_host->seamless_mode);
++		msm_host->seamless_mode = NULL;
++		msm_host->seamless_staged = false;
++	}
++	mutex_unlock(&msm_host->dev_mutex);
++}
++
+ enum drm_mode_status msm_dsi_host_check_dsc(struct mipi_dsi_host *host,
+ 					    const struct drm_display_mode *mode)
+ {
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_manager.c b/drivers/gpu/drm/msm/dsi/dsi_manager.c
+index 46faeaae9d94..10d905c8a8b9 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_manager.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_manager.c
+@@ -397,11 +397,76 @@ static void dsi_mgr_bridge_mode_set(struct drm_bridge *bridge,
+ 	if (is_bonded_dsi && !IS_MASTER_DSI_LINK(id))
+ 		return;
+ 
++	{
++		int ret;
++
++		ret = msm_dsi_host_set_display_mode_seamless(host,
++				adjusted_mode, is_bonded_dsi);
++		if (!ret && is_bonded_dsi && other_dsi)
++			ret = msm_dsi_host_set_display_mode_seamless(
++				other_dsi->host, adjusted_mode, is_bonded_dsi);
++
++		if (!ret) {
++			msm_dsi->seamless_dfps_pending = true;
++			return;
++		}
++
++		if (ret != -EOPNOTSUPP && ret != -EPIPE)
++			dev_err(&msm_dsi->pdev->dev,
++				"seamless DFPS timing update failed: %d\n", ret);
++	}
++
+ 	msm_dsi_host_set_display_mode(host, adjusted_mode);
+ 	if (is_bonded_dsi && other_dsi)
+ 		msm_dsi_host_set_display_mode(other_dsi->host, adjusted_mode);
+ }
+ 
++int msm_dsi_manager_stage_seamless_dfps(void)
++{
++	struct msm_dsi *master =
++		dsi_mgr_get_dsi(msm_dsim_glb.master_dsi_link_id);
++	struct msm_dsi *slave = dsi_mgr_get_other_dsi(
++		msm_dsim_glb.master_dsi_link_id);
++	bool is_bonded_dsi = IS_BONDED_DSI();
++	int ret;
++
++	if (!master || !master->seamless_dfps_pending)
++		return 0;
++
++	/* Validate both links before changing either shadow database. */
++	if (!msm_dsi_host_seamless_ready(master->host) ||
++	    (is_bonded_dsi && slave &&
++	     !msm_dsi_host_seamless_ready(slave->host)))
++		return -EPIPE;
++
++	ret = msm_dsi_host_stage_seamless(master->host, is_bonded_dsi);
++	if (ret)
++		return ret;
++
++	if (is_bonded_dsi && slave)
++		ret = msm_dsi_host_stage_seamless(slave->host,
++						  is_bonded_dsi);
++
++	return ret;
++}
++
++void msm_dsi_manager_complete_seamless_dfps(void)
++{
++	struct msm_dsi *master =
++		dsi_mgr_get_dsi(msm_dsim_glb.master_dsi_link_id);
++	struct msm_dsi *slave = dsi_mgr_get_other_dsi(
++		msm_dsim_glb.master_dsi_link_id);
++
++	if (!master || !master->seamless_dfps_pending)
++		return;
++
++	msm_dsi_host_complete_seamless(master->host);
++	if (IS_BONDED_DSI() && slave)
++		msm_dsi_host_complete_seamless(slave->host);
++
++	master->seamless_dfps_pending = false;
++}
++
+ static enum drm_mode_status dsi_mgr_bridge_mode_valid(struct drm_bridge *bridge,
+ 						      const struct drm_display_info *info,
+ 						      const struct drm_display_mode *mode)
+diff --git a/drivers/gpu/drm/msm/msm_atomic.c b/drivers/gpu/drm/msm/msm_atomic.c
+index a8babf1dbe0d..786759bdf7c0 100644
+--- a/drivers/gpu/drm/msm/msm_atomic.c
++++ b/drivers/gpu/drm/msm/msm_atomic.c
+@@ -5,12 +5,15 @@
+  */
+ 
+ #include <drm/drm_atomic_uapi.h>
++#include <drm/drm_bridge.h>
++#include <drm/drm_connector.h>
+ #include <drm/drm_vblank.h>
+ 
+ #include "msm_atomic_trace.h"
+ #include "msm_drv.h"
+ #include "msm_gem.h"
+ #include "msm_kms.h"
++#include "dsi/dsi.h"
+ 
+ /*
+  * Helpers to control vblanks while we flush.. basically just to ensure
+@@ -181,6 +184,211 @@ static unsigned get_crtc_mask(struct drm_atomic_commit *state)
+ 	return mask;
+ }
+ 
++static bool msm_dfps_mode_compatible(const struct drm_display_mode *old,
++				     const struct drm_display_mode *new)
++{
++	return old->clock == new->clock &&
++		old->hdisplay == new->hdisplay &&
++		old->hsync_start == new->hsync_start &&
++		old->hsync_end == new->hsync_end &&
++		old->htotal == new->htotal &&
++		old->vdisplay == new->vdisplay &&
++		(old->vsync_end - old->vsync_start) ==
++			(new->vsync_end - new->vsync_start) &&
++		(old->vtotal - old->vsync_end) ==
++			(new->vtotal - new->vsync_end) &&
++		old->vsync_start != new->vsync_start;
++}
++
++static bool msm_crtc_has_dsi_connector(struct drm_atomic_commit *state,
++				       struct drm_crtc *crtc)
++{
++	struct drm_connector_state *conn_state;
++	struct drm_connector *connector;
++	struct drm_connector_list_iter conn_iter;
++	bool found = false;
++
++	drm_connector_list_iter_begin(state->dev, &conn_iter);
++	drm_for_each_connector_iter(connector, &conn_iter) {
++		conn_state = drm_atomic_get_new_connector_state(state, connector);
++		if (!conn_state)
++			conn_state = connector->state;
++		if (conn_state->crtc == crtc &&
++		    connector->connector_type == DRM_MODE_CONNECTOR_DSI) {
++			found = true;
++			break;
++		}
++	}
++	drm_connector_list_iter_end(&conn_iter);
++
++	return found;
++}
++
++static void msm_atomic_mark_seamless_dfps(struct drm_atomic_commit *state)
++{
++	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
++	struct drm_crtc *crtc;
++	int i;
++
++	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state,
++				      new_crtc_state, i) {
++		new_crtc_state->seamless_dfps = false;
++		if (!old_crtc_state->active || !new_crtc_state->active ||
++		    !new_crtc_state->mode_changed ||
++		    new_crtc_state->active_changed ||
++		    new_crtc_state->connectors_changed ||
++		    !msm_crtc_has_dsi_connector(state, crtc) ||
++		    !msm_dfps_mode_compatible(&old_crtc_state->adjusted_mode,
++					      &new_crtc_state->adjusted_mode))
++			continue;
++
++		new_crtc_state->seamless_dfps = true;
++	}
++}
++
++static bool msm_atomic_has_seamless_dfps(struct drm_atomic_commit *state)
++{
++	struct drm_crtc_state *new_crtc_state;
++	struct drm_crtc *crtc;
++	int i;
++
++	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
++		if (new_crtc_state->seamless_dfps &&
++		    new_crtc_state->mode_changed)
++			return true;
++	}
++
++	return false;
++}
++
++static void msm_atomic_wait_seamless_dfps_vblank(
++		struct drm_atomic_commit *state)
++{
++	struct drm_crtc_state *new_crtc_state;
++	struct drm_crtc *crtc;
++	int i;
++
++	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
++		if (new_crtc_state->seamless_dfps &&
++		    new_crtc_state->mode_changed)
++			drm_crtc_wait_one_vblank(crtc);
++	}
++}
++
++static void msm_atomic_mask_seamless_modesets(struct drm_atomic_commit *state,
++					       bool mask)
++{
++	struct drm_crtc_state *new_crtc_state;
++	struct drm_crtc *crtc;
++	int i;
++
++	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
++		if (new_crtc_state->seamless_dfps)
++			new_crtc_state->mode_changed = !mask;
++	}
++}
++
++static void msm_atomic_commit_seamless_modesets(struct drm_atomic_commit *state)
++{
++	struct drm_connector_state *conn_state;
++	struct drm_connector *connector;
++	struct drm_connector_list_iter conn_iter;
++
++	drm_connector_list_iter_begin(state->dev, &conn_iter);
++	drm_for_each_connector_iter(connector, &conn_iter) {
++		const struct drm_encoder_helper_funcs *funcs;
++		struct drm_bridge *bridge;
++		struct drm_crtc_state *crtc_state;
++		struct drm_encoder *encoder;
++
++		conn_state = drm_atomic_get_new_connector_state(state, connector);
++		if (!conn_state)
++			conn_state = connector->state;
++
++		if (!conn_state->crtc || !conn_state->best_encoder)
++			continue;
++
++		crtc_state = drm_atomic_get_new_crtc_state(state,
++							 conn_state->crtc);
++		if (!crtc_state || !crtc_state->seamless_dfps)
++			continue;
++
++		encoder = conn_state->best_encoder;
++		funcs = encoder->helper_private;
++		if (funcs && funcs->atomic_mode_set)
++			funcs->atomic_mode_set(encoder, crtc_state, conn_state);
++
++		/*
++		 * Program only the MSM DSI bridge here.  The downstream panel
++		 * bridge may send TDDI refresh-rate commands from mode_set().
++		 * Sending those commands before the DSI and DPU vertical timing
++		 * update is committed leaves a dual-DSI video panel temporarily
++		 * running with two different frame periods.  On nabu that can
++		 * corrupt the scanout and force the Novatek touch controller to
++		 * recover its firmware.
++		 */
++		bridge = drm_bridge_chain_get_first_bridge(encoder);
++		if (bridge && bridge->funcs->mode_set)
++			bridge->funcs->mode_set(bridge, &crtc_state->mode,
++						&crtc_state->adjusted_mode);
++	}
++	drm_connector_list_iter_end(&conn_iter);
++
++#if IS_ENABLED(CONFIG_DRM_MSM_DSI)
++	/*
++	 * Stage the new DSI vertical timing after its bridge has queued the
++	 * pending mode.  The DPU interface timing is latched by the following
++	 * atomic flush at the same commit boundary.
++	 */
++	if (msm_dsi_manager_stage_seamless_dfps())
++		DRM_ERROR("failed to stage seamless DSI timing update\n");
++#endif
++}
++
++static void
++msm_atomic_commit_seamless_downstream_modesets(struct drm_atomic_commit *state)
++{
++	struct drm_connector_state *conn_state;
++	struct drm_connector *connector;
++	struct drm_connector_list_iter conn_iter;
++
++	drm_connector_list_iter_begin(state->dev, &conn_iter);
++	drm_for_each_connector_iter(connector, &conn_iter) {
++		struct drm_crtc_state *crtc_state;
++		struct drm_encoder *encoder;
++		struct drm_bridge *bridge;
++
++		conn_state = drm_atomic_get_new_connector_state(state, connector);
++		if (!conn_state)
++			conn_state = connector->state;
++
++		if (!conn_state->crtc || !conn_state->best_encoder)
++			continue;
++
++		crtc_state = drm_atomic_get_new_crtc_state(state,
++							 conn_state->crtc);
++		if (!crtc_state || !crtc_state->seamless_dfps)
++			continue;
++
++		encoder = conn_state->best_encoder;
++		bridge = drm_bridge_chain_get_first_bridge(encoder);
++		if (!bridge ||
++		    list_is_last(&bridge->chain_node, &encoder->bridge_chain))
++			continue;
++
++		/*
++		 * The DSI timing database has now been released on the new frame
++		 * period.  Run panel and any later bridge mode_set callbacks only
++		 * now, so their DCS command insertion observes a live video-done
++		 * boundary for the new mode.
++		 */
++		bridge = list_next_entry(bridge, chain_node);
++		drm_bridge_chain_mode_set(bridge, &crtc_state->mode,
++					  &crtc_state->adjusted_mode);
++	}
++	drm_connector_list_iter_end(&conn_iter);
++}
++
+ int msm_atomic_check(struct drm_device *dev, struct drm_atomic_commit *state)
+ {
+ 	struct msm_drm_private *priv = dev->dev_private;
+@@ -207,7 +415,11 @@ int msm_atomic_check(struct drm_device *dev, struct drm_atomic_commit *state)
+ 	if (ret)
+ 		return ret;
+ 
+-	return drm_atomic_helper_check(dev, state);
++	ret = drm_atomic_helper_check(dev, state);
++	if (!ret)
++		msm_atomic_mark_seamless_dfps(state);
++
++	return ret;
+ }
+ 
+ void msm_atomic_commit_tail(struct drm_atomic_commit *state)
+@@ -244,9 +456,14 @@ void msm_atomic_commit_tail(struct drm_atomic_commit *state)
+ 	/*
+ 	 * Push atomic updates down to hardware:
+ 	 */
++	msm_atomic_mask_seamless_modesets(state, true);
+ 	drm_atomic_helper_commit_modeset_disables(dev, state);
++	msm_atomic_mask_seamless_modesets(state, false);
++	msm_atomic_commit_seamless_modesets(state);
+ 	drm_atomic_helper_commit_planes(dev, state, 0);
++	msm_atomic_mask_seamless_modesets(state, true);
+ 	drm_atomic_helper_commit_modeset_enables(dev, state);
++	msm_atomic_mask_seamless_modesets(state, false);
+ 
+ 	if (async) {
+ 		struct msm_pending_timer *timer =
+@@ -310,6 +527,21 @@ void msm_atomic_commit_tail(struct drm_atomic_commit *state)
+ 	kms->funcs->wait_flush(kms, crtc_mask);
+ 	trace_msm_atomic_wait_flush_finish(crtc_mask);
+ 
++#if IS_ENABLED(CONFIG_DRM_MSM_DSI)
++	if (msm_atomic_has_seamless_dfps(state)) {
++		/*
++		 * The DPU interface timing is part of the preceding atomic flush,
++		 * while the bonded DSI timing is still held in its shadow database.
++		 * Wait for the actual CRTC frame boundary before releasing both DSI
++		 * links. A fixed microsecond delay is invalid across 60/90/120 Hz and
++		 * can overflow the DPU frame-event queue during repeated DFPS.
++		 */
++		msm_atomic_wait_seamless_dfps_vblank(state);
++		msm_dsi_manager_complete_seamless_dfps();
++		msm_atomic_commit_seamless_downstream_modesets(state);
++	}
++#endif
++
+ 	vblank_put(kms, crtc_mask);
+ 
+ 	lock_crtcs(kms, crtc_mask);
+diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+index c27fed19d482..aed02f1875e9 100644
+--- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
++++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+@@ -1118,30 +1118,40 @@ static const struct drm_display_mode elish_csot_modes[] = {
+ 
+ static const struct drm_display_mode nabu_csot_modes[] = {
+ 	{
+-		/*
+-		 * The downstream driver keeps the 120 Hz pixel clock and lowers
+-		 * the refresh rate by extending VFP from 26 to 2784 lines.
+-		 */
+-		.clock = (1600 + 88 + 40 + 40) * (2560 + 2784 + 4 + 168) * 60 / 1000,
++		/* Native mode first: boot and compositor hand-off stay at 120 Hz. */
++		.clock = (1600 + 88 + 40 + 40) * (2560 + 26 + 4 + 168) * 120 / 1000,
+ 		.hdisplay = 1600,
+ 		.hsync_start = 1600 + 88,
+ 		.hsync_end = 1600 + 88 + 40,
+ 		.htotal = 1600 + 88 + 40 + 40,
+ 		.vdisplay = 2560,
+-		.vsync_start = 2560 + 2784,
+-		.vsync_end = 2560 + 2784 + 4,
+-		.vtotal = 2560 + 2784 + 4 + 168,
++		.vsync_start = 2560 + 26,
++		.vsync_end = 2560 + 26 + 4,
++		.vtotal = 2560 + 26 + 4 + 168,
+ 	},
+ 	{
++		/* 90.01 Hz: same link clock, VFP-only dynamic-FPS timing. */
+ 		.clock = (1600 + 88 + 40 + 40) * (2560 + 26 + 4 + 168) * 120 / 1000,
+ 		.hdisplay = 1600,
+ 		.hsync_start = 1600 + 88,
+ 		.hsync_end = 1600 + 88 + 40,
+ 		.htotal = 1600 + 88 + 40 + 40,
+ 		.vdisplay = 2560,
+-		.vsync_start = 2560 + 26,
+-		.vsync_end = 2560 + 26 + 4,
+-		.vtotal = 2560 + 26 + 4 + 168,
++		.vsync_start = 2560 + 945,
++		.vsync_end = 2560 + 945 + 4,
++		.vtotal = 2560 + 945 + 4 + 168,
++	},
++	{
++		/* Stock 60 Hz DFPS mode: preserve clock, extend VFP to 2784. */
++		.clock = (1600 + 88 + 40 + 40) * (2560 + 26 + 4 + 168) * 120 / 1000,
++		.hdisplay = 1600,
++		.hsync_start = 1600 + 88,
++		.hsync_end = 1600 + 88 + 40,
++		.htotal = 1600 + 88 + 40 + 40,
++		.vdisplay = 2560,
++		.vsync_start = 2560 + 2784,
++		.vsync_end = 2560 + 2784 + 4,
++		.vtotal = 2560 + 2784 + 4 + 168,
+ 	},
+ };
+ 
+@@ -1248,13 +1258,15 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo)
+ 	struct mipi_dsi_device *dsi1 = pinfo->dsi[1];
+ 	struct mipi_dsi_multi_context dsi_ctx = { .dsi = NULL };
+ 
+-	if (pinfo->refresh_rate != 60 && pinfo->refresh_rate != 120)
++	if (pinfo->refresh_rate != 60 && pinfo->refresh_rate != 90 &&
++	    pinfo->refresh_rate != 120)
+ 		return dev_err_probe(pinfo->panel.dev, -EINVAL,
+ 				     "no pen synchronization command for %u Hz\n",
+ 				     pinfo->refresh_rate);
+ 
+ 	/* Xiaomi's downstream panel commands synchronize the TDDI scan rate. */
+ 	mipi_dsi_dual_dcs_write_seq_multi(dsi_ctx, dsi0, dsi1, 0xff, 0x2a);
++	mipi_dsi_dual_dcs_write_seq_multi(dsi_ctx, dsi0, dsi1, 0xfb, 0x01);
+ 	if (pinfo->refresh_rate == 60)
+ 		mipi_dsi_dual_dcs_write_seq_multi(dsi_ctx, dsi0, dsi1,
+ 						  0x23, 0x0c);
+@@ -1281,6 +1293,17 @@ static void nt36523_mode_set(struct drm_panel *panel,
+ 	struct panel_info *pinfo = to_panel_info(panel);
+ 
+ 	pinfo->refresh_rate = drm_mode_vrefresh(mode);
++
++	/*
++	 * Do not insert vendor TDDI DCS commands into an active dual-DSI video
++	 * stream.  The MSM host cannot complete those transfers at the live
++	 * video boundary on nabu: all four commands time out and the stalled
++	 * stream repeats scanlines, most visibly when switching to 60 Hz.
++	 *
++	 * The host and DPU VFP update remains seamless.  nt36523_prepare()
++	 * still programs the TDDI scan band after panel initialization, where
++	 * command transfer is reliable and cannot corrupt active scanout.
++	 */
+ }
+ 
+ static int nt36523_prepare(struct drm_panel *panel)
+diff --git a/drivers/misc/fastrpc.c b/drivers/misc/fastrpc.c
+index eb6c2a78d3c7..8ce02f494f44 100644
+--- a/drivers/misc/fastrpc.c
++++ b/drivers/misc/fastrpc.c
+@@ -285,6 +285,7 @@ struct fastrpc_channel_ctx {
+ 	bool unsigned_support;
+ 	u64 dma_mask;
+ 	const struct fastrpc_soc_data *soc_data;
++	char *accel_mount_matrix;
+ };
+ 
+ struct fastrpc_device {
+@@ -493,6 +494,7 @@ static void fastrpc_channel_ctx_free(struct kref *ref)
+ 	cctx = container_of(ref, struct fastrpc_channel_ctx, refcount);
+ 
+ 	idr_destroy(&cctx->ctx_idr);
++	kfree(cctx->accel_mount_matrix);
+ 	kfree(cctx);
+ }
+ 
+@@ -2312,6 +2314,22 @@ static struct platform_driver fastrpc_cb_driver = {
+ 	},
+ };
+ 
++static ssize_t mount_matrix_show(struct device *dev,
++				 struct device_attribute *attr, char *buf)
++{
++	struct miscdevice *miscdev = dev_get_drvdata(dev);
++	struct fastrpc_device *fdev = miscdev_to_fdevice(miscdev);
++
++	return sysfs_emit(buf, "%s\n", fdev->cctx->accel_mount_matrix);
++}
++static DEVICE_ATTR_RO(mount_matrix);
++
++static struct attribute *fastrpc_sensor_attrs[] = {
++	&dev_attr_mount_matrix.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(fastrpc_sensor);
++
+ static int fastrpc_device_register(struct device *dev, struct fastrpc_channel_ctx *cctx,
+ 				   bool is_secured, const char *domain)
+ {
+@@ -2326,6 +2344,8 @@ static int fastrpc_device_register(struct device *dev, struct fastrpc_channel_ct
+ 	fdev->cctx = cctx;
+ 	fdev->miscdev.minor = MISC_DYNAMIC_MINOR;
+ 	fdev->miscdev.fops = &fastrpc_fops;
++	if (cctx->accel_mount_matrix)
++		fdev->miscdev.groups = fastrpc_sensor_groups;
+ 	fdev->miscdev.name = devm_kasprintf(dev, GFP_KERNEL, "fastrpc-%s%s",
+ 					    domain, is_secured ? "-secure" : "");
+ 	if (!fdev->miscdev.name)
+@@ -2374,8 +2394,9 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+ {
+ 	struct device *rdev = &rpdev->dev;
+ 	struct fastrpc_channel_ctx *data;
+-	int i, err, domain_id = -1, vmcount;
++	int i, err, domain_id = -1, matrix_count, vmcount;
+ 	const char *domain;
++	const char *matrix[9];
+ 	bool secure_dsp;
+ 	unsigned int vmids[FASTRPC_MAX_VMIDS];
+ 	const struct fastrpc_soc_data *soc_data;
+@@ -2409,6 +2430,29 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+ 	if (!data)
+ 		return -ENOMEM;
+ 
++	matrix_count = of_property_count_strings(rdev->of_node, "mount-matrix");
++	if (matrix_count != -EINVAL) {
++		if (matrix_count != ARRAY_SIZE(matrix)) {
++			err = dev_err_probe(rdev, -EINVAL,
++					    "mount-matrix must contain nine values\n");
++			goto err_free_data;
++		}
++
++		err = of_property_read_string_array(rdev->of_node, "mount-matrix",
++						    matrix, ARRAY_SIZE(matrix));
++		if (err < 0)
++			goto err_free_data;
++
++		data->accel_mount_matrix = kasprintf(GFP_KERNEL,
++			"%s, %s, %s; %s, %s, %s; %s, %s, %s",
++			matrix[0], matrix[1], matrix[2], matrix[3], matrix[4],
++			matrix[5], matrix[6], matrix[7], matrix[8]);
++		if (!data->accel_mount_matrix) {
++			err = -ENOMEM;
++			goto err_free_data;
++		}
++	}
++
+ 	if (vmcount) {
+ 		data->vmcount = vmcount;
+ 		for (i = 0; i < data->vmcount; i++) {
+@@ -2489,6 +2533,7 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+ 		misc_deregister(&data->secure_fdevice->miscdev);
+ 
+ err_free_data:
++	kfree(data->accel_mount_matrix);
+ 	kfree(data);
+ 	return err;
+ }
+diff --git a/drivers/remoteproc/qcom_q6v5_pas.c b/drivers/remoteproc/qcom_q6v5_pas.c
+index 808e9609988d..242f873dfe14 100644
+--- a/drivers/remoteproc/qcom_q6v5_pas.c
++++ b/drivers/remoteproc/qcom_q6v5_pas.c
+@@ -1309,6 +1309,27 @@ static const struct qcom_pas_data sdm845_slpi_resource_init = {
+ 	.ssctl_id = 0x16,
+ };
+ 
++/*
++ * Nabu needs SLPI before the graphical session starts so the IIO sensor
++ * devices are available deterministically.  Keep the separate compatible so
++ * board-specific startup policy does not change other SM8150 devices.
++ */
++static const struct qcom_pas_data sm8150_nabu_slpi_resource = {
++	.crash_reason_smem = 424,
++	.firmware_name = "slpi.mdt",
++	.pas_id = 12,
++	.auto_boot = true,
++	.proxy_pd_names = (char *[]){
++		"lcx",
++		"lmx",
++		NULL
++	},
++	.load_state = "slpi",
++	.ssr_name = "dsps",
++	.sysmon_name = "slpi",
++	.ssctl_id = 0x16,
++};
++
+ static const struct qcom_pas_data wcss_resource_init = {
+ 	.crash_reason_smem = 421,
+ 	.firmware_name = "wcnss.mdt",
+@@ -1628,6 +1649,7 @@ static const struct of_device_id qcom_pas_of_match[] = {
+ 	{ .compatible = "qcom,sm8150-adsp-pas", .data = &sm8150_adsp_resource },
+ 	{ .compatible = "qcom,sm8150-cdsp-pas", .data = &sm8150_cdsp_resource },
+ 	{ .compatible = "qcom,sm8150-mpss-pas", .data = &mpss_resource_init },
++	{ .compatible = "qcom,sm8150-nabu-slpi-pas", .data = &sm8150_nabu_slpi_resource },
+ 	{ .compatible = "qcom,sm8150-slpi-pas", .data = &sdm845_slpi_resource_init },
+ 	{ .compatible = "qcom,sm8250-adsp-pas", .data = &sm8250_adsp_resource },
+ 	{ .compatible = "qcom,sm8250-cdsp-pas", .data = &sm8250_cdsp_resource },
+diff --git a/drivers/slimbus/qcom-ngd-ctrl.c b/drivers/slimbus/qcom-ngd-ctrl.c
+index 3071e46d03be..c2bf27678243 100644
+--- a/drivers/slimbus/qcom-ngd-ctrl.c
++++ b/drivers/slimbus/qcom-ngd-ctrl.c
+@@ -160,6 +160,7 @@ struct qcom_slim_ngd_ctrl {
+ 	struct work_struct m_work;
+ 	struct work_struct ngd_up_work;
+ 	struct workqueue_struct *mwq;
++	bool ngd_ready;
+ 	struct completion qmi_up;
+ 	spinlock_t tx_buf_lock;
+ 	struct mutex tx_lock;
+@@ -1468,6 +1469,10 @@ static void qcom_slim_ngd_up_worker(struct work_struct *work)
+ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
+ 					unsigned long action)
+ {
++	/* Child probe owns QMI readiness; ignore early SSR/PDR notifications. */
++	if (!READ_ONCE(ctrl->ngd_ready))
++		return NOTIFY_OK;
++
+ 	switch (action) {
+ 	case QCOM_SSR_BEFORE_SHUTDOWN:
+ 	case SERVREG_SERVICE_STATE_DOWN:
+@@ -1583,9 +1588,14 @@ static int qcom_slim_ngd_probe(struct platform_device *pdev)
+ 		dev_err(&pdev->dev, "QMI service registration failed:%d", ret);
+ 		pm_runtime_dont_use_autosuspend(dev);
+ 		pm_runtime_disable(dev);
++		return ret;
+ 	}
+ 
+-	return ret;
++	WRITE_ONCE(ctrl->ngd_ready, true);
++	/* Reconcile an UP notification which may have arrived during probe. */
++	schedule_work(&ctrl->ngd_up_work);
++
++	return 0;
+ }
+ 
+ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
+@@ -1696,6 +1706,8 @@ static void qcom_slim_ngd_remove(struct platform_device *pdev)
+ {
+ 	struct qcom_slim_ngd_ctrl *ctrl = platform_get_drvdata(pdev);
+ 
++	WRITE_ONCE(ctrl->ngd_ready, false);
++	cancel_work_sync(&ctrl->ngd_up_work);
+ 	pm_runtime_dont_use_autosuspend(&pdev->dev);
+ 	pm_runtime_disable(&pdev->dev);
+ 	qcom_slim_ngd_enable(ctrl, false);
+diff --git a/drivers/soc/qcom/Makefile b/drivers/soc/qcom/Makefile
+index b7f1d2a57367..9a707c990899 100644
+--- a/drivers/soc/qcom/Makefile
++++ b/drivers/soc/qcom/Makefile
+@@ -27,6 +27,7 @@ obj-$(CONFIG_QCOM_SMEM) +=	smem.o
+ obj-$(CONFIG_QCOM_SMEM_STATE) += smem_state.o
+ CFLAGS_smp2p.o := -I$(src)
+ obj-$(CONFIG_QCOM_SMP2P)	+= smp2p.o
++obj-$(CONFIG_QCOM_SMP2P)	+= smp2p_sleep_state.o
+ obj-$(CONFIG_QCOM_SMSM)	+= smsm.o
+ obj-$(CONFIG_QCOM_SOCINFO)	+= socinfo.o
+ obj-$(CONFIG_QCOM_SPM)		+= spm.o
+diff --git a/drivers/soc/qcom/smp2p_sleep_state.c b/drivers/soc/qcom/smp2p_sleep_state.c
+new file mode 100644
+index 000000000000..823d3e927e14
+--- /dev/null
++++ b/drivers/soc/qcom/smp2p_sleep_state.c
+@@ -0,0 +1,156 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Qualcomm SMP2P application-processor sleep-state notification
++ *
++ * Some downstream Qualcomm firmware expects bit 12 of the "sleepstate"
++ * SMP2P entry to describe whether the application processor is awake.  In
++ * particular, the Xiaomi Pad 5 SLPI firmware uses this handshake while
++ * preparing its sensor process for system suspend.
++ */
++
++#include <linux/bitops.h>
++#include <linux/delay.h>
++#include <linux/interrupt.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/pm_wakeup.h>
++#include <linux/soc/qcom/smem_state.h>
++#include <linux/suspend.h>
++
++#define QCOM_SMP2P_APPS_AWAKE_BIT	BIT(12)
++
++struct qcom_smp2p_sleep_state {
++	struct device *dev;
++	struct qcom_smem_state *state;
++	struct notifier_block pm_nb;
++};
++
++static int qcom_smp2p_sleep_state_notify(struct notifier_block *nb,
++					 unsigned long event, void *unused)
++{
++	struct qcom_smp2p_sleep_state *sleep_state =
++		container_of(nb, struct qcom_smp2p_sleep_state, pm_nb);
++	int ret;
++
++	switch (event) {
++	case PM_SUSPEND_PREPARE:
++		ret = qcom_smem_state_update_bits(sleep_state->state,
++						  QCOM_SMP2P_APPS_AWAKE_BIT, 0);
++		if (ret)
++			dev_warn(sleep_state->dev,
++				 "failed to announce suspend: %d\n", ret);
++
++		/* Xiaomi's downstream implementation allows for SMP2P latency. */
++		usleep_range(10000, 10500);
++		break;
++	case PM_POST_SUSPEND:
++		ret = qcom_smem_state_update_bits(sleep_state->state,
++						  QCOM_SMP2P_APPS_AWAKE_BIT,
++						  QCOM_SMP2P_APPS_AWAKE_BIT);
++		if (ret)
++			dev_warn(sleep_state->dev,
++				 "failed to announce resume: %d\n", ret);
++		break;
++	default:
++		break;
++	}
++
++	return NOTIFY_DONE;
++}
++
++static irqreturn_t qcom_smp2p_sleep_state_irq(int irq, void *data)
++{
++	struct qcom_smp2p_sleep_state *sleep_state = data;
++
++	pm_wakeup_event(sleep_state->dev, 200);
++	return IRQ_HANDLED;
++}
++
++static void qcom_smp2p_sleep_state_unregister(void *data)
++{
++	struct qcom_smp2p_sleep_state *sleep_state = data;
++
++	unregister_pm_notifier(&sleep_state->pm_nb);
++	qcom_smem_state_update_bits(sleep_state->state,
++				    QCOM_SMP2P_APPS_AWAKE_BIT,
++				    QCOM_SMP2P_APPS_AWAKE_BIT);
++}
++
++static int qcom_smp2p_sleep_state_probe(struct platform_device *pdev)
++{
++	struct qcom_smp2p_sleep_state *sleep_state;
++	unsigned int unused_bit;
++	int irq;
++	int ret;
++
++	sleep_state = devm_kzalloc(&pdev->dev, sizeof(*sleep_state), GFP_KERNEL);
++	if (!sleep_state)
++		return -ENOMEM;
++
++	sleep_state->dev = &pdev->dev;
++	sleep_state->state = devm_qcom_smem_state_get(&pdev->dev, NULL,
++						      &unused_bit);
++	if (IS_ERR(sleep_state->state))
++		return dev_err_probe(&pdev->dev, PTR_ERR(sleep_state->state),
++				     "failed to acquire sleep-state entry\n");
++
++	ret = qcom_smem_state_update_bits(sleep_state->state,
++					  QCOM_SMP2P_APPS_AWAKE_BIT,
++					  QCOM_SMP2P_APPS_AWAKE_BIT);
++	if (ret)
++		return dev_err_probe(&pdev->dev, ret,
++				     "failed to announce awake state\n");
++
++	sleep_state->pm_nb.notifier_call = qcom_smp2p_sleep_state_notify;
++	sleep_state->pm_nb.priority = INT_MAX;
++	ret = register_pm_notifier(&sleep_state->pm_nb);
++	if (ret)
++		return dev_err_probe(&pdev->dev, ret,
++				     "failed to register PM notifier\n");
++
++	ret = devm_add_action_or_reset(&pdev->dev,
++				       qcom_smp2p_sleep_state_unregister,
++				       sleep_state);
++	if (ret)
++		return ret;
++
++	irq = platform_get_irq_byname(pdev, "state-change");
++	if (irq < 0)
++		return irq;
++
++	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
++					qcom_smp2p_sleep_state_irq,
++					IRQF_ONESHOT | IRQF_TRIGGER_RISING,
++					dev_name(&pdev->dev), sleep_state);
++	if (ret)
++		return dev_err_probe(&pdev->dev, ret,
++				     "failed to request state-change IRQ\n");
++
++	ret = devm_device_init_wakeup(&pdev->dev);
++	if (ret)
++		return dev_err_probe(&pdev->dev, ret,
++				     "failed to initialize wakeup support\n");
++
++	dev_info(&pdev->dev, "application processor awake handshake enabled\n");
++
++	return 0;
++}
++
++static const struct of_device_id qcom_smp2p_sleep_state_of_match[] = {
++	{ .compatible = "qcom,smp2p-sleep-state" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, qcom_smp2p_sleep_state_of_match);
++
++static struct platform_driver qcom_smp2p_sleep_state_driver = {
++	.probe = qcom_smp2p_sleep_state_probe,
++	.driver = {
++		.name = "qcom-smp2p-sleep-state",
++		.of_match_table = qcom_smp2p_sleep_state_of_match,
++	},
++};
++module_platform_driver(qcom_smp2p_sleep_state_driver);
++
++MODULE_DESCRIPTION("Qualcomm SMP2P sleep-state notifier");
++MODULE_LICENSE("GPL");
+diff --git a/include/drm/drm_crtc.h b/include/drm/drm_crtc.h
+index c6dbe8b7db9e..f886458c0d11 100644
+--- a/include/drm/drm_crtc.h
++++ b/include/drm/drm_crtc.h
+@@ -311,6 +311,15 @@ struct drm_crtc_state {
+ 	 */
+ 	bool vrr_enabled;
+ 
++	/**
++	 * @seamless_dfps:
++	 *
++	 * Driver-internal marker for a constant-clock refresh-rate update where
++	 * only vertical front porch/vtotal changes.  Atomic helpers must keep the
++	 * active display link and panel powered while applying this transition.
++	 */
++	bool seamless_dfps;
++
+ 	/**
+ 	 * @self_refresh_active:
+ 	 *
+diff --git a/sound/soc/qcom/sm8150.c b/sound/soc/qcom/sm8150.c
+new file mode 100644
+index 000000000000..484d540e88c2
+--- /dev/null
++++ b/sound/soc/qcom/sm8150.c
+@@ -0,0 +1,483 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (c) 2022, The Linux Foundation. All rights reserved.
++ */
++
++#include <dt-bindings/sound/qcom,q6afe.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/of_device.h>
++#include <linux/soundwire/sdw.h>
++#include <sound/soc.h>
++#include <sound/soc-dapm.h>
++#include <sound/pcm.h>
++#include <sound/pcm_params.h>
++#include <sound/jack.h>
++#include <uapi/linux/input-event-codes.h>
++#include "qdsp6/q6afe.h"
++#include "common.h"
++
++#define DRIVER_NAME		"sm8150"
++
++#define SLIM_MAX_TX_PORTS 16
++#define SLIM_MAX_RX_PORTS 13
++#define WCD934X_DEFAULT_MCLK_RATE	9600000
++
++struct sm8150_snd_data {
++	struct snd_soc_jack jack;
++	bool jack_setup;
++	bool slim_port_setup;
++	bool stream_prepared[AFE_PORT_MAX];
++	struct snd_soc_card *card;
++	uint32_t quat_tdm_clk_count;
++	struct sdw_stream_runtime *sruntime[AFE_PORT_MAX];
++};
++
++static unsigned int tdm_slot_offset[8] = {0, 4, 8, 12, 16, 20, 24, 28};
++
++static const struct {
++	unsigned int rx[1];
++} cs35l41_tdm_channel_map[] = {
++	{.rx = {5}}, /* BR: right ASP channel */
++	{.rx = {5}}, /* TR: right ASP channel */
++	{.rx = {4}}, /* BL: left ASP channel */
++	{.rx = {4}}, /* TL: left ASP channel */
++};
++
++static int sm8150_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
++				     struct snd_pcm_hw_params *params)
++{
++	struct snd_interval *rate = hw_param_interval(params,
++					SNDRV_PCM_HW_PARAM_RATE);
++	struct snd_interval *channels = hw_param_interval(params,
++					SNDRV_PCM_HW_PARAM_CHANNELS);
++	struct snd_mask *fmt = hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT);
++
++	rate->min = rate->max = 48000;
++	channels->min = channels->max = 4;
++	snd_mask_none(fmt);
++	snd_mask_set_format(fmt, SNDRV_PCM_FORMAT_S24_LE);
++
++	return 0;
++}
++
++static int sm8150_slim_snd_hw_params(struct snd_pcm_substream *substream,
++				     struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++	struct snd_soc_dai *codec_dai;
++	struct sm8150_snd_data *pdata = snd_soc_card_get_drvdata(rtd->card);
++	u32 rx_ch[SLIM_MAX_RX_PORTS], tx_ch[SLIM_MAX_TX_PORTS];
++	struct sdw_stream_runtime *sruntime;
++	u32 rx_ch_cnt = 0, tx_ch_cnt = 0;
++	int ret = 0, i;
++
++	for_each_rtd_codec_dais(rtd, i, codec_dai) {
++		sruntime = snd_soc_dai_get_stream(codec_dai,
++						  substream->stream);
++		if (sruntime != ERR_PTR(-ENOTSUPP))
++			pdata->sruntime[cpu_dai->id] = sruntime;
++
++		ret = snd_soc_dai_get_channel_map(codec_dai,
++				&tx_ch_cnt, tx_ch, &rx_ch_cnt, rx_ch);
++
++		if (ret != 0 && ret != -ENOTSUPP) {
++			pr_err("failed to get codec chan map, err:%d\n", ret);
++			return ret;
++		} else if (ret == -ENOTSUPP) {
++			/* Ignore unsupported */
++			continue;
++		}
++
++		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
++			ret = snd_soc_dai_set_channel_map(cpu_dai, 0, NULL,
++							  rx_ch_cnt, rx_ch);
++		else
++			ret = snd_soc_dai_set_channel_map(cpu_dai, tx_ch_cnt,
++							  tx_ch, 0, NULL);
++	}
++
++	return 0;
++}
++
++static int sm8150_tdm_snd_hw_params(struct snd_pcm_substream *substream,
++					struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++	struct snd_soc_dai *codec_dai;
++	int ret = 0, j;
++	int channels, slot_width;
++	unsigned int slot_mask;
++
++	switch (params_format(params)) {
++	case SNDRV_PCM_FORMAT_S24_LE:
++		slot_width = 32;
++		break;
++	default:
++		dev_err(rtd->dev, "%s: invalid param format 0x%x\n",
++				__func__, params_format(params));
++		return -EINVAL;
++	}
++
++	channels = params_channels(params);
++	/* Keep the four-channel AFE format accepted by the Nabu ADSP.  Split the
++	 * amplifiers between ASP slot positions 4 and 5 so the direct-ASP route
++	 * can identify the two physical speaker pairs without the Android-only
++	 * protection DSP Channel Swap control.
++	 */
++	slot_mask = GENMASK(channels - 1, 0);
++	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
++		ret = snd_soc_dai_set_tdm_slot(cpu_dai, 0, slot_mask,
++				8, slot_width);
++		if (ret < 0) {
++			dev_err(rtd->dev, "%s: failed to set tdm slot, err:%d\n",
++					__func__, ret);
++			goto end;
++		}
++
++		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, NULL,
++				channels, tdm_slot_offset);
++		if (ret < 0) {
++			dev_err(rtd->dev, "%s: failed to set channel map, err:%d\n",
++					__func__, ret);
++			goto end;
++		}
++	} else {
++		ret = snd_soc_dai_set_tdm_slot(cpu_dai, slot_mask, 0,
++				8, slot_width);
++		if (ret < 0) {
++			dev_err(rtd->dev, "%s: failed to set tdm slot, err:%d\n",
++					__func__, ret);
++			goto end;
++		}
++
++		ret = snd_soc_dai_set_channel_map(cpu_dai, channels,
++				tdm_slot_offset, 0, NULL);
++		if (ret < 0) {
++			dev_err(rtd->dev, "%s: failed to set channel map, err:%d\n",
++					__func__, ret);
++			goto end;
++		}
++	}
++
++	for_each_rtd_codec_dais(rtd, j, codec_dai) {
++		/* call dai driver's set_sysclk() callback */
++		ret = snd_soc_dai_set_sysclk(codec_dai, 0,
++					     12288000, SND_SOC_CLOCK_IN);
++		if (ret < 0) {
++			dev_err(codec_dai->dev, "fail to set sysclk, ret %d\n",
++				ret);
++			return ret;
++		}
++
++		/* call component driver's set_sysclk() callback */
++		ret = snd_soc_component_set_sysclk(codec_dai->component,
++						   0, 0,
++						   12288000, SND_SOC_CLOCK_IN);
++		if (ret < 0) {
++			dev_err(codec_dai->dev, "fail to set component sysclk, ret %d\n",
++				ret);
++			return ret;
++		}
++
++		/* setup channel map */
++		ret = snd_soc_dai_set_channel_map(codec_dai, 0, NULL,
++						  ARRAY_SIZE(cs35l41_tdm_channel_map[j].rx),
++						  (unsigned int *)cs35l41_tdm_channel_map[j].rx);
++		if (ret < 0) {
++			dev_err(codec_dai->dev, "fail to set channel map, ret %d\n",
++				ret);
++			return ret;
++		}
++	}
++
++end:
++	return ret;
++}
++
++static int sm8150_snd_hw_params(struct snd_pcm_substream *substream,
++					struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++	int ret = 0;
++
++	switch (cpu_dai->id) {
++	case QUATERNARY_TDM_RX_0:
++	case QUATERNARY_TDM_TX_0:
++		ret = sm8150_tdm_snd_hw_params(substream, params);
++		break;
++	case SLIMBUS_0_RX...SLIMBUS_6_TX:
++		ret = sm8150_slim_snd_hw_params(substream, params);
++		break;
++	default:
++		pr_err("%s: invalid dai id 0x%x\n", __func__, cpu_dai->id);
++		break;
++	}
++	return ret;
++}
++
++static int sm8150_dai_init(struct snd_soc_pcm_runtime *rtd)
++{
++	struct snd_soc_card *card = rtd->card;
++	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++	struct sm8150_snd_data *pdata = snd_soc_card_get_drvdata(card);
++	struct snd_soc_dai_link *link = rtd->dai_link;
++	struct snd_jack *jack;
++	/*
++	 * Codec SLIMBUS configuration
++	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8, RX9, RX10, RX11, RX12, RX13
++	 * TX1, TX2, TX3, TX4, TX5, TX6, TX7, TX8, TX9, TX10, TX11, TX12, TX13
++	 * TX14, TX15, TX16
++	 */
++	unsigned int rx_ch[SLIM_MAX_RX_PORTS] = {144, 145, 146, 147, 148, 149,
++					150, 151, 152, 153, 154, 155, 156};
++	unsigned int tx_ch[SLIM_MAX_TX_PORTS] = {128, 129, 130, 131, 132, 133,
++					    134, 135, 136, 137, 138, 139,
++					    140, 141, 142, 143};
++	int rval, i;
++
++
++	if (!pdata->jack_setup) {
++		rval = snd_soc_card_jack_new(card, "Headset Jack",
++				SND_JACK_HEADSET |
++				SND_JACK_HEADPHONE |
++				SND_JACK_BTN_0 | SND_JACK_BTN_1 |
++				SND_JACK_BTN_2 | SND_JACK_BTN_3,
++				&pdata->jack);
++
++		if (rval < 0) {
++			dev_err(card->dev, "Unable to add Headphone Jack\n");
++			return rval;
++		}
++
++		jack = pdata->jack.jack;
++
++		snd_jack_set_key(jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
++		snd_jack_set_key(jack, SND_JACK_BTN_1, KEY_VOICECOMMAND);
++		snd_jack_set_key(jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
++		snd_jack_set_key(jack, SND_JACK_BTN_3, KEY_VOLUMEDOWN);
++		pdata->jack_setup = true;
++	}
++
++	switch (cpu_dai->id) {
++	case SLIMBUS_0_RX...SLIMBUS_6_TX:
++		/* setting up wcd multiple times for slim port is redundant */
++		if (pdata->slim_port_setup || !link->no_pcm)
++			return 0;
++
++		for_each_rtd_codec_dais(rtd, i, codec_dai) {
++			rval = snd_soc_dai_set_channel_map(codec_dai,
++							  ARRAY_SIZE(tx_ch),
++							  tx_ch,
++							  ARRAY_SIZE(rx_ch),
++							  rx_ch);
++			if (rval != 0 && rval != -ENOTSUPP)
++				return rval;
++
++			snd_soc_dai_set_sysclk(codec_dai, 0,
++					       WCD934X_DEFAULT_MCLK_RATE,
++					       SNDRV_PCM_STREAM_PLAYBACK);
++
++			rval = snd_soc_component_set_jack(codec_dai->component,
++							  &pdata->jack, NULL);
++			if (rval != 0 && rval != -ENOTSUPP) {
++				dev_warn(card->dev, "Failed to set jack: %d\n", rval);
++				return rval;
++			}
++		}
++
++		pdata->slim_port_setup = true;
++
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++
++static int sm8150_snd_startup(struct snd_pcm_substream *substream)
++{
++	unsigned int fmt = SND_SOC_DAIFMT_CBC_CFC;
++	unsigned int codec_dai_fmt = SND_SOC_DAIFMT_CBC_CFC;
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct snd_soc_card *card = rtd->card;
++	struct sm8150_snd_data *data = snd_soc_card_get_drvdata(card);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
++
++	switch (cpu_dai->id) {
++	case QUATERNARY_TDM_RX_0:
++		codec_dai_fmt |= SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_DSP_A;
++		if (++(data->quat_tdm_clk_count) == 1) {
++			snd_soc_dai_set_sysclk(cpu_dai,
++				Q6AFE_LPASS_CLK_ID_QUAD_TDM_IBIT,
++				12288000, SNDRV_PCM_STREAM_PLAYBACK);
++		}
++		snd_soc_dai_set_fmt(cpu_dai, fmt);
++		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
++		break;
++	case SLIMBUS_0_RX...SLIMBUS_6_TX:
++		break;
++	default:
++		pr_err("%s: invalid dai id 0x%x\n", __func__, cpu_dai->id);
++		break;
++	}
++	return 0;
++}
++
++static void sm8150_snd_shutdown(struct snd_pcm_substream *substream)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct snd_soc_card *card = rtd->card;
++	struct sm8150_snd_data *data = snd_soc_card_get_drvdata(card);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++
++	switch (cpu_dai->id) {
++	case QUATERNARY_TDM_RX_0:
++	case QUATERNARY_TDM_TX_0:
++		if (--(data->quat_tdm_clk_count) == 0) {
++			snd_soc_dai_set_sysclk(cpu_dai,
++				Q6AFE_LPASS_CLK_ID_QUAD_TDM_IBIT,
++				0, SNDRV_PCM_STREAM_PLAYBACK);
++		}
++		break;
++	case SLIMBUS_0_RX...SLIMBUS_6_TX:
++	case QUATERNARY_MI2S_RX:
++		break;
++	default:
++		pr_err("%s: invalid dai id 0x%x\n", __func__, cpu_dai->id);
++		break;
++	}
++}
++
++static int sm8150_snd_prepare(struct snd_pcm_substream *substream)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct sm8150_snd_data *data = snd_soc_card_get_drvdata(rtd->card);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++	struct sdw_stream_runtime *sruntime = data->sruntime[cpu_dai->id];
++	int ret;
++
++	if (!sruntime)
++		return 0;
++
++	if (data->stream_prepared[cpu_dai->id]) {
++		sdw_disable_stream(sruntime);
++		sdw_deprepare_stream(sruntime);
++		data->stream_prepared[cpu_dai->id] = false;
++	}
++
++	ret = sdw_prepare_stream(sruntime);
++	if (ret)
++		return ret;
++
++	/**
++	 * NOTE: there is a strict hw requirement about the ordering of port
++	 * enables and actual WSA881x PA enable. PA enable should only happen
++	 * after soundwire ports are enabled if not DC on the line is
++	 * accumulated resulting in Click/Pop Noise
++	 * PA enable/mute are handled as part of codec DAPM and digital mute.
++	 */
++
++	ret = sdw_enable_stream(sruntime);
++	if (ret) {
++		sdw_deprepare_stream(sruntime);
++		return ret;
++	}
++	data->stream_prepared[cpu_dai->id] = true;
++
++	return ret;
++}
++
++static int sm8150_snd_hw_free(struct snd_pcm_substream *substream)
++{
++	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
++	struct sm8150_snd_data *data = snd_soc_card_get_drvdata(rtd->card);
++	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
++	struct sdw_stream_runtime *sruntime = data->sruntime[cpu_dai->id];
++
++	if (sruntime && data->stream_prepared[cpu_dai->id]) {
++		sdw_disable_stream(sruntime);
++		sdw_deprepare_stream(sruntime);
++		data->stream_prepared[cpu_dai->id] = false;
++	}
++
++	return 0;
++}
++
++static const struct snd_soc_ops sm8150_be_ops = {
++	.hw_params = sm8150_snd_hw_params,
++	.hw_free = sm8150_snd_hw_free,
++	.prepare = sm8150_snd_prepare,
++	.startup = sm8150_snd_startup,
++	.shutdown = sm8150_snd_shutdown,
++};
++
++static void sm8150_add_be_ops(struct snd_soc_card *card)
++{
++	struct snd_soc_dai_link *link;
++	int i;
++
++	for_each_card_prelinks(card, i, link) {
++		if (link->no_pcm == 1) {
++			link->be_hw_params_fixup = sm8150_be_hw_params_fixup;
++			link->ops = &sm8150_be_ops;
++		}
++		link->init = sm8150_dai_init;
++	}
++}
++
++static int sm8150_platform_probe(struct platform_device *pdev)
++{
++	struct snd_soc_card *card;
++	struct sm8150_snd_data *data;
++	struct device *dev = &pdev->dev;
++	int ret;
++
++	card = devm_kzalloc(dev, sizeof(*card), GFP_KERNEL);
++	if (!card)
++		return -ENOMEM;
++
++	/* Allocate the private data */
++	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	card->driver_name = DRIVER_NAME;
++	card->dev = dev;
++	card->owner = THIS_MODULE;
++	dev_set_drvdata(dev, card);
++	ret = qcom_snd_parse_of(card);
++	if (ret)
++		return ret;
++
++	data->card = card;
++	snd_soc_card_set_drvdata(card, data);
++
++	sm8150_add_be_ops(card);
++	return devm_snd_soc_register_card(dev, card);
++}
++
++static const struct of_device_id snd_sm8150_dt_match[] = {
++	{.compatible = "qcom,sm8150-sndcard"},
++	{}
++};
++
++MODULE_DEVICE_TABLE(of, snd_sm8150_dt_match);
++
++static struct platform_driver snd_sm8150_driver = {
++	.probe  = sm8150_platform_probe,
++	.driver = {
++		.name = "snd-sm8150",
++		.of_match_table = snd_sm8150_dt_match,
++	},
++};
++module_platform_driver(snd_sm8150_driver);
++MODULE_AUTHOR("map220v <map220v300@gmail.com");
++MODULE_DESCRIPTION("SM8150 ASoC Machine Driver");
++MODULE_LICENSE("GPL v2");

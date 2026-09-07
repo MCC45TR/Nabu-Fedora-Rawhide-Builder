@@ -1,0 +1,137 @@
+From 9e9ab9cc04d3e85654f8c1cd234c2c92ed1a754b Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 12:02:15 +0300
+Subject: [PATCH] Input: derive Nabu computer mode from pogo edge protocol
+
+---
+ .../testing/sysfs-driver-xiaomi-nabu-keyboard |  5 +--
+ drivers/input/misc/xiaomi-nabu-keyboard.c     | 33 ++++++++-----------
+ 2 files changed, 17 insertions(+), 21 deletions(-)
+
+diff --git a/Documentation/ABI/testing/sysfs-driver-xiaomi-nabu-keyboard b/Documentation/ABI/testing/sysfs-driver-xiaomi-nabu-keyboard
+index 29b1e8c43814..0845026b615c 100644
+--- a/Documentation/ABI/testing/sysfs-driver-xiaomi-nabu-keyboard
++++ b/Documentation/ABI/testing/sysfs-driver-xiaomi-nabu-keyboard
+@@ -2,8 +2,9 @@ What:		/sys/bus/platform/drivers/xiaomi-nabu-keyboard/*/connected
+ Date:		August 2026
+ Contact:	MCC45TR <mcc45tr@users.noreply.github.com>
+ Description:
+-		Read-only physical keyboard-cover presence. The value is 1 when
+-		the active-low pogo-cover detect GPIO is asserted and 0 otherwise.
++		Read-only physical keyboard-cover presence reported by the pogo
++		controller's rising-edge event protocol. The value starts at 0 and
++		toggles for each debounced attach or detach event.
+ 
+ What:		/sys/bus/platform/drivers/xiaomi-nabu-keyboard/*/computer_mode
+ Date:		August 2026
+diff --git a/drivers/input/misc/xiaomi-nabu-keyboard.c b/drivers/input/misc/xiaomi-nabu-keyboard.c
+index eaac797dbbda..286075c23ade 100644
+--- a/drivers/input/misc/xiaomi-nabu-keyboard.c
++++ b/drivers/input/misc/xiaomi-nabu-keyboard.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ /* Xiaomi Pad 5 pogo keyboard-cover power, presence and mode controller. */
+ 
++#include <linux/atomic.h>
+ #include <linux/delay.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/interrupt.h>
+@@ -22,6 +23,7 @@ struct nabu_keyboard {
+ 	struct gpio_desc *detect;
+ 	struct delayed_work detect_work;
+ 	struct mutex lock;
++	atomic_t pending_edges;
+ 	int irq;
+ 	bool connected;
+ 	bool computer_mode;
+@@ -63,19 +65,18 @@ static void nabu_keyboard_publish_state(struct nabu_keyboard *keyboard,
+ static void nabu_keyboard_detect_work(struct work_struct *work)
+ {
+ 	struct nabu_keyboard *keyboard;
+-	int value;
++	bool connected;
+ 
+ 	keyboard = container_of(to_delayed_work(work), struct nabu_keyboard,
+ 				detect_work);
+-	value = gpiod_get_value_cansleep(keyboard->detect);
+-	if (value < 0) {
+-		dev_err_ratelimited(keyboard->dev,
+-				    "failed to read keyboard detect GPIO: %d\n",
+-				    value);
++	if (!(atomic_xchg(&keyboard->pending_edges, 0) & 1))
+ 		return;
+-	}
+ 
+-	nabu_keyboard_publish_state(keyboard, value, false);
++	mutex_lock(&keyboard->lock);
++	connected = !keyboard->connected;
++	keyboard->computer_mode = connected;
++	mutex_unlock(&keyboard->lock);
++	nabu_keyboard_publish_state(keyboard, connected, false);
+ }
+ 
+ static irqreturn_t nabu_keyboard_detect_irq(int irq, void *data)
+@@ -91,6 +92,7 @@ static irqreturn_t nabu_keyboard_detect_irq(int irq, void *data)
+ 	 */
+ 	if (READ_ONCE(keyboard->wake_enabled))
+ 		pm_wakeup_event(keyboard->dev, 500);
++	atomic_inc(&keyboard->pending_edges);
+ 	mod_delayed_work(system_percpu_wq, &keyboard->detect_work,
+ 			 msecs_to_jiffies(NABU_KEYBOARD_DEBOUNCE_MS));
+ 	return IRQ_HANDLED;
+@@ -172,7 +174,6 @@ static int nabu_keyboard_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 	struct nabu_keyboard *keyboard;
+-	int connected;
+ 	int ret;
+ 
+ 	keyboard = devm_kzalloc(dev, sizeof(*keyboard), GFP_KERNEL);
+@@ -198,6 +199,7 @@ static int nabu_keyboard_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, keyboard);
+ 	INIT_DELAYED_WORK(&keyboard->detect_work, nabu_keyboard_detect_work);
++	atomic_set(&keyboard->pending_edges, 0);
+ 
+ 	/* Power the internal USB controller and release its active-low reset. */
+ 	gpiod_set_value_cansleep(keyboard->vdd, 1);
+@@ -213,20 +215,14 @@ static int nabu_keyboard_probe(struct platform_device *pdev)
+ 
+ 	ret = devm_request_threaded_irq(dev, keyboard->irq, NULL,
+ 					nabu_keyboard_detect_irq,
+-					IRQF_TRIGGER_RISING |
+-					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
++					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+ 					dev_name(dev), keyboard);
+ 	if (ret)
+ 		goto err_power_off;
+ 
+ 	device_init_wakeup(dev,
+ 			   of_property_read_bool(dev->of_node, "wakeup-source"));
+-	connected = gpiod_get_value_cansleep(keyboard->detect);
+-	if (connected < 0) {
+-		ret = connected;
+-		goto err_power_off;
+-	}
+-	nabu_keyboard_publish_state(keyboard, connected, true);
++	nabu_keyboard_publish_state(keyboard, false, true);
+ 
+ 	return 0;
+ 
+@@ -253,6 +249,7 @@ static int nabu_keyboard_suspend(struct device *dev)
+ 	int ret;
+ 
+ 	cancel_delayed_work_sync(&keyboard->detect_work);
++	atomic_set(&keyboard->pending_edges, 0);
+ 	mutex_lock(&keyboard->lock);
+ 	connected = keyboard->connected;
+ 	mutex_unlock(&keyboard->lock);
+@@ -273,8 +270,6 @@ static int nabu_keyboard_resume(struct device *dev)
+ 		disable_irq_wake(keyboard->irq);
+ 		WRITE_ONCE(keyboard->wake_enabled, false);
+ 	}
+-	mod_delayed_work(system_percpu_wq, &keyboard->detect_work,
+-			 msecs_to_jiffies(NABU_KEYBOARD_DEBOUNCE_MS));
+ 	return 0;
+ }
+ 

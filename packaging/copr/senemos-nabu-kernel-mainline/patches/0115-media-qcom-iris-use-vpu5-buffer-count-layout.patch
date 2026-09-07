@@ -1,0 +1,62 @@
+From 1f057d531f2d75b3f6298eb9d7fd0e265a25173e Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 21:30:00 +0300
+Subject: [PATCH] media: qcom: iris: use the VPU5 buffer-count layout
+
+The downstream vidc_3x ABI used by SM8150 VIDEO.IR.1.2 carries only the
+buffer type and actual count in HFI_PROPERTY_PARAM_BUFFER_COUNT_ACTUAL.
+The later Gen1 layout adds count_min_host.  Sending that third word to the
+Nabu firmware corrupts its property stream and makes the encoder assert in
+venus_venc_host_driver.c while processing LOAD_RESOURCES.
+
+Keep the existing host-side structure, but serialize the two-word legacy
+layout for legacy_vpu5 platforms.  Other Gen1 platforms retain the current
+three-word ABI.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c | 12 ++++++++++++
+ drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h |  5 +++++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+index 000000000000..111111111111 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+@@ -726,6 +726,18 @@ iris_hfi_gen1_packet_session_set_property(struct hfi_session_set_property_pkt *
+ 	case HFI_PROPERTY_PARAM_BUFFER_COUNT_ACTUAL: {
+ 		struct hfi_buffer_count_actual *in = pdata;
+ 		struct hfi_buffer_count_actual *count = prop_data;
++
++		if (inst->core->iris_platform_data->legacy_vpu5) {
++			struct hfi_buffer_count_actual_vpu5 *legacy = prop_data;
++
++			legacy->type = in->type;
++			legacy->count_actual = in->count_actual;
++			packet->shdr.hdr.size += sizeof(u32) + sizeof(*legacy);
++			dev_dbg(inst->core->dev,
++				"Iris1: VPU5 buffer count type=%#x actual=%u\n",
++				legacy->type, legacy->count_actual);
++			break;
++		}
+ 
+ 		count->type = in->type;
+ 		count->count_actual = in->count_actual;
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h b/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
+index 222222222222..333333333333 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
+@@ -445,6 +445,11 @@ struct hfi_buffer_count_actual {
+ 	u32 count_min_host;
+ };
+ 
++struct hfi_buffer_count_actual_vpu5 {
++	u32 type;
++	u32 count_actual;
++};
++
+ struct hfi_buffer_size_actual {
+ 	u32 type;
+ 	u32 size;
+-- 
+2.51.0

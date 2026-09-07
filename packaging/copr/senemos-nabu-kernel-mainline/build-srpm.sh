@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-legacy=$root/../senemos-nabu-kernel-mainline-unstable
 top=${1:-$root/rpmbuild}
 spec=$root/senemos-nabu-kernel-mainline.spec
 version=$(sed -nE 's/^Version:[[:space:]]+([^[:space:]]+).*/\1/p' "$spec")
@@ -14,11 +13,9 @@ if [[ ! -s $top/SOURCES/$archive ]]; then
     curl -L --fail --retry 3 --output "$top/SOURCES/$archive" "$url"
 fi
 
-install -m0644 "$legacy/upstream.sha256" "$top/SOURCES/"
-install -m0644 "$legacy"/patches/*.patch "$top/SOURCES/"
-rm -f "$top/SOURCES/0022-senemos-isolate-mainline-unstable-kernel-identity.patch"
-install -m0644 "$root/patches/0022-senemos-isolate-mainline-kernel-identity.patch" \
+install -m0644 "$root/upstream.sha256" "$root/patches.sha256" \
     "$top/SOURCES/"
+install -m0644 "$root"/patches/*.patch "$top/SOURCES/"
 install -m0644 "$root/91-nabu-mainline-omit-early-xhci.conf" \
     "$root/nabu-mainline-late-xhci.service" \
     "$root/90-nabu-mainline.preset" "$top/SOURCES/"
@@ -26,8 +23,6 @@ install -m0644 "$root/91-nabu-mainline-omit-early-xhci.conf" \
 (
     cd "$top/SOURCES"
     sha256sum -c upstream.sha256
-    find . -maxdepth 1 -type f -name '*.patch' -printf '%f\n' \
-        | LC_ALL=C sort | xargs sha256sum >patches.sha256
     sha256sum -c patches.sha256
 )
 

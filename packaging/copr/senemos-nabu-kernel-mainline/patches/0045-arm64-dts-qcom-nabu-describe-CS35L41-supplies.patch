@@ -1,0 +1,49 @@
+From 42b83ba4bac81dc24ee69919001659ccaebd514a Mon Sep 17 00:00:00 2001
+From: MCC45TR <mursitcancihan@gmail.com>
+Date: Sat, 29 Aug 2026 19:15:46 +0300
+Subject: [PATCH 45/64] arm64: dts: qcom: nabu: describe CS35L41 supplies
+
+---
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index e5613ccdcdf6..ea42ca0f13be 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -535,6 +535,8 @@ cs35l41_br: cs35l41@40 {
+ 		interrupt-parent = <&tlmm>;
+ 		interrupts = <81 IRQ_TYPE_LEVEL_LOW>;
+ 		reset-gpios = <&tlmm 92 GPIO_ACTIVE_HIGH>;
++		VA-supply = <&vreg_s4a_1p8>;
++		VP-supply = <&vph_pwr>;
+ 		#sound-dai-cells = <1>;
+ 		sound-name-prefix = "BR";
+ 		cirrus,boost-peak-milliamp = <4000>;
+@@ -552,6 +554,8 @@ cs35l41_tr: cs35l41@41 {
+ 		interrupt-parent = <&tlmm>;
+ 		interrupts = <90 IRQ_TYPE_LEVEL_LOW>;
+ 		reset-gpios = <&tlmm 92 GPIO_ACTIVE_HIGH>;
++		VA-supply = <&vreg_s4a_1p8>;
++		VP-supply = <&vph_pwr>;
+ 		#sound-dai-cells = <1>;
+ 		sound-name-prefix = "TR";
+ 		cirrus,boost-peak-milliamp = <4000>;
+@@ -569,6 +573,8 @@ cs35l41_bl: cs35l41@42 {
+ 		interrupt-parent = <&tlmm>;
+ 		interrupts = <91 IRQ_TYPE_LEVEL_LOW>;
+ 		reset-gpios = <&tlmm 92 GPIO_ACTIVE_HIGH>;
++		VA-supply = <&vreg_s4a_1p8>;
++		VP-supply = <&vph_pwr>;
+ 		#sound-dai-cells = <1>;
+ 		sound-name-prefix = "BL";
+ 		cirrus,boost-peak-milliamp = <4000>;
+@@ -586,6 +592,8 @@ cs35l41_tl: cs35l41@43 {
+ 		interrupt-parent = <&tlmm>;
+ 		interrupts = <93 IRQ_TYPE_LEVEL_LOW>;
+ 		reset-gpios = <&tlmm 92 GPIO_ACTIVE_HIGH>;
++		VA-supply = <&vreg_s4a_1p8>;
++		VP-supply = <&vph_pwr>;
+ 		#sound-dai-cells = <1>;
+ 		sound-name-prefix = "TL";
+ 		cirrus,boost-peak-milliamp = <4000>;

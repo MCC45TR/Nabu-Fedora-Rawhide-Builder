@@ -1,0 +1,262 @@
+From ec4d1b04be08b0479974bdd3a157dde7319120dc Mon Sep 17 00:00:00 2001
+From: ChengFangming <chengfangming1993@gmail.com>
+Date: Tue, 1 Sep 2026 20:10:41 +0300
+Subject: [PATCH 29/30] kernel-overlay: make Nabu Iris device tree append-only
+
+Carry the composable derived Iris and Iris-camera DTBs from CFM880/nabu-iris while restoring the Linux 7.2.2 base SM8150 and Nabu device trees.
+
+Source: https://github.com/CFM880/nabu-iris
+
+Source revision: c49f45b
+---
+ .../qcom/sm8150-xiaomi-nabu-iris-camera.dts   |   6 ++
+ .../boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts |   5 +
+ .../dts/qcom/sm8150-xiaomi-nabu-iris.dtsi     | 100 ++++++++++++++++++
+ .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      |   5 -
+ arch/arm64/boot/dts/qcom/sm8150.dtsi          |  82 --------------
+ 5 files changed, 111 insertions(+), 87 deletions(-)
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts
+new file mode 100644
+index 000000000000..b0497848c33a
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts
+@@ -0,0 +1,6 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/* Xiaomi Pad 5 (nabu) combined Iris/Venus and camera derivative. */
++
++#include "sm8150-xiaomi-nabu.dts"
++#include "sm8150-xiaomi-nabu-iris.dtsi"
++#include "sm8150-xiaomi-nabu-camera.dtsi"
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts
+new file mode 100644
+index 000000000000..6d44f05a5fff
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts
+@@ -0,0 +1,5 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/* Xiaomi Pad 5 (nabu) Iris/Venus-enabled derivative. */
++
++#include "sm8150-xiaomi-nabu.dts"
++#include "sm8150-xiaomi-nabu-iris.dtsi"
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+new file mode 100644
+index 000000000000..03a6a3655287
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+@@ -0,0 +1,100 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Iris/Venus additions for Xiaomi Pad 5 (nabu).
++ *
++ * This file appends to the base SM8150 and nabu device trees so that
++ * sm8150.dtsi and sm8150-xiaomi-nabu.dts remain untouched.
++ */
++
++&{/reserved-memory/ramoops@b0000000} {
++	/* Keep the complete printk console across hard resets. */
++	record-size = <0>;
++	console-size = <0x400000>;
++	ecc-size = <0>;
++};
++
++&soc {
++	venus: video-codec@aa00000 {
++		compatible = "qcom,sm8150-iris";
++		reg = <0 0x0aa00000 0 0x100000>;
++		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
++
++		power-domains = <&videocc VENUS_GDSC>,
++				<&videocc VCODEC0_GDSC>,
++				<&videocc VCODEC1_GDSC>,
++				<&rpmhpd SM8150_CX>;
++		power-domain-names = "venus", "vcodec0", "vcodec1", "cx";
++		operating-points-v2 = <&venus_opp_table>;
++
++		clocks = <&videocc VIDEO_CC_MVSC_CORE_CLK>,
++			 <&videocc VIDEO_CC_IRIS_AHB_CLK>,
++			 <&gcc GCC_VIDEO_AXIC_CLK>,
++			 <&videocc VIDEO_CC_MVS0_CORE_CLK>,
++			 <&gcc GCC_VIDEO_AXI0_CLK>,
++			 <&videocc VIDEO_CC_MVS1_CORE_CLK>,
++			 <&gcc GCC_VIDEO_AXI1_CLK>;
++		clock-names = "core", "iface", "bus",
++			      "vcodec0_core", "vcodec0_bus",
++			      "vcodec1_core", "vcodec1_bus";
++
++		resets = <&gcc GCC_VIDEO_AXIC_CLK_BCR>,
++			 <&videocc VIDEO_CC_MVSC_CORE_CLK_BCR>,
++			 <&gcc GCC_VIDEO_AXI0_CLK_BCR>,
++			 <&gcc GCC_VIDEO_AXI1_CLK_BCR>;
++		reset-names = "bus", "core", "vcodec0_bus", "vcodec1_bus";
++
++		interconnects = <&mmss_noc MASTER_VIDEO_P0 0
++					 &mc_virt SLAVE_EBI_CH0 0>,
++				<&gem_noc MASTER_AMPSS_M0 0
++					 &config_noc SLAVE_VENUS_CFG 0>;
++		interconnect-names = "video-mem", "cpu-cfg";
++
++		/* SM8150 v2 moved VIDC stream IDs from 0x13xx to 0x23xx. */
++		iommus = <&apps_smmu 0x2300 0x60>;
++		memory-region = <&venus_mem>;
++
++		status = "disabled";
++
++		video-core0 {
++			compatible = "venus-decoder";
++		};
++
++		video-core1 {
++			compatible = "venus-encoder";
++		};
++
++		venus_opp_table: opp-table {
++			compatible = "operating-points-v2";
++
++			opp-200000000 {
++				opp-hz = /bits/ 64 <200000000>;
++				required-opps = <&rpmhpd_opp_min_svs>;
++			};
++
++			opp-240000000 {
++				opp-hz = /bits/ 64 <240000000>;
++				required-opps = <&rpmhpd_opp_low_svs>;
++			};
++
++			opp-365000000 {
++				opp-hz = /bits/ 64 <365000000>;
++				required-opps = <&rpmhpd_opp_svs>;
++			};
++
++			opp-444000000 {
++				opp-hz = /bits/ 64 <444000000>;
++				required-opps = <&rpmhpd_opp_svs_l1>;
++			};
++
++			opp-533000000 {
++				opp-hz = /bits/ 64 <533000000>;
++				required-opps = <&rpmhpd_opp_nom>;
++			};
++		};
++	};
++};
++
++&venus {
++	firmware-name = "qcom/sm8150/xiaomi/nabu/venus.mbn";
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index 743bbcc2b314..1327b2c547af 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -1070,11 +1070,6 @@ bluetooth: bluetooth {
+ 	};
+ };
+ 
+-&venus {
+-	firmware-name = "qcom/sm8150/xiaomi/nabu/venus.mbn";
+-	status = "okay";
+-};
+-
+ &ufs_mem_hc {
+ 	status = "okay";
+ 
+diff --git a/arch/arm64/boot/dts/qcom/sm8150.dtsi b/arch/arm64/boot/dts/qcom/sm8150.dtsi
+index 1add352d8008..310d299ee949 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8150.dtsi
+@@ -3785,88 +3785,6 @@ usb_2_dwc3: usb@a800000 {
+ 			};
+ 		};
+ 
+-		venus: video-codec@aa00000 {
+-			compatible = "qcom,sm8150-iris";
+-			reg = <0 0x0aa00000 0 0x100000>;
+-			interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
+-
+-			power-domains = <&videocc VENUS_GDSC>,
+-					<&videocc VCODEC0_GDSC>,
+-					<&videocc VCODEC1_GDSC>,
+-					<&rpmhpd SM8150_CX>;
+-			power-domain-names = "venus", "vcodec0", "vcodec1", "cx";
+-			operating-points-v2 = <&venus_opp_table>;
+-
+-			clocks = <&videocc VIDEO_CC_MVSC_CORE_CLK>,
+-				 <&videocc VIDEO_CC_IRIS_AHB_CLK>,
+-				 <&gcc GCC_VIDEO_AXIC_CLK>,
+-				 <&videocc VIDEO_CC_MVS0_CORE_CLK>,
+-				 <&gcc GCC_VIDEO_AXI0_CLK>,
+-				 <&videocc VIDEO_CC_MVS1_CORE_CLK>,
+-				 <&gcc GCC_VIDEO_AXI1_CLK>;
+-			clock-names = "core", "iface", "bus",
+-				      "vcodec0_core", "vcodec0_bus",
+-				      "vcodec1_core", "vcodec1_bus";
+-
+-			resets = <&gcc GCC_VIDEO_AXIC_CLK_BCR>,
+-				 <&videocc VIDEO_CC_MVSC_CORE_CLK_BCR>,
+-				 <&gcc GCC_VIDEO_AXI0_CLK_BCR>,
+-				 <&gcc GCC_VIDEO_AXI1_CLK_BCR>;
+-			reset-names = "bus", "core", "vcodec0_bus", "vcodec1_bus";
+-
+-			interconnects = <&mmss_noc MASTER_VIDEO_P0 0
+-					 &mc_virt SLAVE_EBI_CH0 0>,
+-					<&gem_noc MASTER_AMPSS_M0 0
+-					 &config_noc SLAVE_VENUS_CFG 0>;
+-			interconnect-names = "video-mem", "cpu-cfg";
+-
+-			/*
+-			 * nabu is SM8150 v2.2.  VIDC stream IDs moved from the
+-			 * v1 0x13xx range to 0x23xx on SM8150 v2.
+-			 */
+-			iommus = <&apps_smmu 0x2300 0x60>;
+-			memory-region = <&venus_mem>;
+-
+-			status = "disabled";
+-
+-			video-core0 {
+-				compatible = "venus-decoder";
+-			};
+-
+-			video-core1 {
+-				compatible = "venus-encoder";
+-			};
+-
+-			venus_opp_table: opp-table {
+-				compatible = "operating-points-v2";
+-
+-				opp-200000000 {
+-					opp-hz = /bits/ 64 <200000000>;
+-					required-opps = <&rpmhpd_opp_min_svs>;
+-				};
+-
+-				opp-240000000 {
+-					opp-hz = /bits/ 64 <240000000>;
+-					required-opps = <&rpmhpd_opp_low_svs>;
+-				};
+-
+-				opp-365000000 {
+-					opp-hz = /bits/ 64 <365000000>;
+-					required-opps = <&rpmhpd_opp_svs>;
+-				};
+-
+-				opp-444000000 {
+-					opp-hz = /bits/ 64 <444000000>;
+-					required-opps = <&rpmhpd_opp_svs_l1>;
+-				};
+-
+-				opp-533000000 {
+-					opp-hz = /bits/ 64 <533000000>;
+-					required-opps = <&rpmhpd_opp_nom>;
+-				};
+-			};
+-		};
+-
+ 		videocc: clock-controller@ab00000 {
+ 			compatible = "qcom,sm8150-videocc";
+ 			reg = <0 0x0ab00000 0 0x10000>;
+-- 
+2.55.0
+

@@ -4,8 +4,8 @@
 %global uname_r %{version}-nabu-senemos-mainline
 
 Name:           senemos-nabu-kernel-mainline
-Version:        7.2.3
-Release:        1%{?dist}
+Version:        7.2.2
+Release:        2%{?dist}
 Summary:        Patch-layered Linux 7.2.y SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -141,6 +141,16 @@ Patch0121:      0121-media-qcom-remove-Nabu-camera-bring-up-logging.patch
 Patch0122:      0122-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
 Patch0123:      0123-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
 Patch0124:      0124-crypto-enable-Android-data-compatibility-algorithms.patch
+Patch0125:      0125-soc-qcom-ice-support-legacy-Keymaster-wrapped-keys.patch
+Patch0126:      0126-media-qcom-iris-use-VPU5-firmware-encoder-buffer-sizes.patch
+Patch0127:      0127-power-supply-qcom_smbx-fix-SMB5-USB-voltage-reporting.patch
+Patch0128:      0128-media-qcom-iris-keep-VPU5-decoder-counts-sequence-safe.patch
+Patch0129:      0129-media-qcom-iris-reinitialize-legacy-VPU5-across-s2idle.patch
+Patch0130:      0130-dt-bindings-eeprom-add-Belling-BL24SA64.patch
+Patch0131:      0131-dt-bindings-i2c-add-SM8150-CCI-compatible.patch
+Patch0132:      0132-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
+Patch0133:      0133-arm64-dts-qcom-expose-Nabu-camera-calibration-EEPROM.patch
+Patch0134:      0134-arm64-dts-qcom-make-Nabu-nodes-schema-compliant.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -171,10 +181,9 @@ Obsoletes:      senemos-nabu-kernel-mainline-alpha < 7.2.4
 
 %description
 Official Linux 7.2.y plus a checksum-locked, ordered Xiaomi Pad 5 (nabu)
-patch series. This is the stable mainline family with its own kernel ABI,
-RPM ownership, maintenance queue and SENEMOS7 UKI namespace. It can coexist
-with the 6.17 fallback and the mainline-unstable development channel, while
-replacing the retired mainline-alpha package name.
+patch series. This is the frozen stable-mainline family with its own kernel
+ABI, RPM ownership, maintenance queue and SENEMOS7 UKI namespace. It can
+coexist with the 6.17 fallback and mainline-unstable development channel.
 
 %prep
 [[ '%{nabu_build_stamp}' =~ ^[0-9]{10}$ ]]
@@ -265,6 +274,7 @@ grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_I2C_QCOM_CCI=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_EEPROM_AT24=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SM_CAMCC_8150=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_SM_VIDEOCC_8150=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_DMABUF_HEAPS_SYSTEM=y' %{buildroot}/boot/config-%{uname_r}
@@ -345,12 +355,29 @@ grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 ! grep -Fq 'mod_delayed_work(system_wq, &chip->thermal_work' \
     drivers/power/supply/qcom_smbx.c
+grep -Fq 'belling,bl24sa64' \
+    Documentation/devicetree/bindings/eeprom/at24.yaml
+grep -Fq 'qcom,sm8150-cci' \
+    Documentation/devicetree/bindings/i2c/qcom,i2c-cci.yaml
+grep -Fq 'static DEVICE_ATTR_RO(panel_revision);' \
+    drivers/gpu/drm/panel/panel-novatek-nt36523.c
+grep -Fq '/panel_revision' \
+    Documentation/ABI/testing/sysfs-driver-panel-novatek-nt36523
+grep -A7 -F 'rear_camera_eeprom: eeprom@51' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi \
+    | grep -Fq 'read-only;'
+grep -A7 -F 'front_camera_eeprom: eeprom@50' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi \
+    | grep -Fq 'read-only;'
+! grep -Fq 'SM8150_MMCX>, <&rpmhpd SM8150_MX' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
+grep -Fq 'ranges = <0 0xb100 0x100>;' arch/arm64/boot/dts/qcom/pm8150.dtsi
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' %{buildroot}/boot/config-%{uname_r}
 test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
 # Built-in platform prerequisites (I2C_QCOM_CCI, SM_CAMCC_8150 and DMA-BUF
 # heaps) are validated through the config checks above.  Only loadable camera
 # and sensor drivers have module payloads to verify here.
-for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 qcom-ssc-cct \
+for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 at24 qcom-ssc-cct \
     f2fs dm-crypt; do
     find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
@@ -395,9 +422,36 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-1
-- Promote the validated 7.2.3 Nabu payload to the clean mainline-stable name.
-- Migrate the retired mainline-alpha package name during a normal DNF update.
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-2
+- Freeze the validated 134-patch Nabu series as the stable mainline channel.
+- Include camera EEPROM, panel revision, VPU5, charging, GPU and suspend fixes.
+- Make the stable source snapshot independent from mainline-unstable updates.
+
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Expose both read-only Nabu camera calibration EEPROMs through at24.
+- Report the physical panel revision for automatic per-variant ICC selection.
+- Make the Nabu camera, PMIC NVRAM, thermal and pinctrl DT nodes schema-clean.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Quiesce idle legacy VPU5 firmware before s2idle and initialize it lazily.
+- Reject suspend with an open codec session instead of corrupting its state.
+- Reset the HFI system-init completion before every firmware initialization.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Keep stateful VPU5 decoder setup valid before CAPTURE buffers exist.
+- Restrict exact two-queue VB2 counts to the encoder domain.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Report SMB5 USB input voltage exactly once after ADC5 IIO prescaling.
+- Fix the impossible 16x voltage shown through the PM8150B power-supply ABI.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Use VIDEO.IR.1.2 firmware requirements for all VPU5 encoder scratch buffers.
+
+* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
+- Add opt-in legacy Keymaster wrapped-key support for Nabu's pre-HWKM ICE.
+- Keep raw and wrapped key profiles mutually exclusive and fail closed on
+  unsupported modern wrapped-key lifecycle operations.
 
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Enable modular Adiantum and HCTR2 for the Android 9-17 userdata matrix.

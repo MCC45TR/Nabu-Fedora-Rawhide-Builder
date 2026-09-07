@@ -1,0 +1,39 @@
+From 3224badffdc4a9c6b0999ef6ac74dd39b4779d01 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 21:43:43 +0300
+Subject: [PATCH] media: qcom: iris: keep VPU5 decoder counts sequence-safe
+
+Legacy VPU5 encoders have both VB2 queues allocated before STREAMON and need their exact negotiated counts. Stateful decoders start the bitstream queue before a source-change event, so their CAPTURE queue legitimately has zero buffers at that point.
+
+Only use both VB2 queue counts for the encoder domain. Preserve the initial VIDEO_MAX_FRAME decoder placeholders until first-capture configuration replaces them with the negotiated CAPTURE and DPB counts.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ .../media/platform/qcom/iris/iris_hfi_gen1_command.c  | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+index 000f45ea7..33560eb9c 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+@@ -1113,7 +1113,16 @@ static int iris_hfi_gen1_set_num_bufs(struct iris_inst *inst, u32 plane)
+ 	u32 output_count = VIDEO_MAX_FRAME;
+ 	int ret;
+ 
+-	if (inst->core->iris_platform_data->legacy_vpu5) {
++	/*
++	 * Encoder clients allocate both queues before STREAMON, so the VPU5
++	 * firmware can be told the exact VB2 counts here.  Stateful decoders,
++	 * however, start the bitstream queue before the source-change event and
++	 * intentionally have no CAPTURE buffers yet.  Keep their initial
++	 * VIDEO_MAX_FRAME placeholders; first-capture configuration replaces
++	 * those values with the negotiated CAPTURE and DPB counts later.
++	 */
++	if (inst->core->iris_platform_data->legacy_vpu5 &&
++	    inst->domain == ENCODER) {
+ 		src_q = v4l2_m2m_get_src_vq(inst->m2m_ctx);
+ 		dst_q = v4l2_m2m_get_dst_vq(inst->m2m_ctx);
+ 		input_count = vb2_get_num_buffers(src_q);
+-- 
+2.55.0
+

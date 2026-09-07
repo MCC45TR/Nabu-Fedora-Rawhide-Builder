@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 4 Sep 2026 20:45:00 +0300
+Subject: [PATCH] senemos: enable multigenerational LRU
+
+Restore the mainline multigenerational LRU configuration already present in
+the full Fedora-oriented profile.  The compact Nabu profile otherwise falls
+back to arm64 defconfig and silently disables it.
+
+Nabu has 6 GiB of physical memory and relies on compressed zram under desktop
+workloads.  MGLRU improves reclaim decisions and reduces reclaim CPU overhead
+without userspace policy or a device-local sysctl.  Keep historical statistics
+disabled to avoid their per-memcg memory overhead.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ senemos/configs/nabu-minimal.config | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index aa6842d..7512b76 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -46,1 +46,6 @@ CONFIG_PSI=y
++CONFIG_LRU_GEN=y
++CONFIG_LRU_GEN_ENABLED=y
++# CONFIG_LRU_GEN_STATS is not set
++CONFIG_LRU_GEN_WALKS_MMU=y
++
+ # CONFIG_PSI_DEFAULT_DISABLED is not set

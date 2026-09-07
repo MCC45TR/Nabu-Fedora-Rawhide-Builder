@@ -1,0 +1,47 @@
+From 1e90be4866c92261ea2817fe2f20eac6f8f2bcbd Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 20:30:57 +0300
+Subject: [PATCH] media: qcom: keep CAMSS frame diagnostics at debug level
+
+The VFE paths printed large register dumps at the info ratelimit while a camera
+stream was active. These are diagnostic snapshots, not errors, and generate
+persistent journal and interrupt-path overhead during normal capture. Retain
+them behind dynamic debug while preserving violation and fault reporting.
+---
+ drivers/media/platform/qcom/camss/camss-vfe-17x.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe-17x.c b/drivers/media/platform/qcom/camss/camss-vfe-17x.c
+index 6a6569da5..af4a9d192 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe-17x.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe-17x.c
+@@ -289,7 +289,7 @@ static void vfe_wm_update(struct vfe_device *vfe, u8 wm, dma_addr_t addr,
+ 				    "WM%u DMA address exceeds 32 bits: %pad\n",
+ 				    wm, &addr);
+ 	else
+-		dev_info_ratelimited(vfe->camss->dev,
++		dev_dbg_ratelimited(vfe->camss->dev,
+ 				     "WM%u DMA address: %pad\n", wm, &addr);
+ 
+ 	/*
+@@ -392,7 +392,7 @@ static irqreturn_t vfe_isr(int irq, void *dev)
+ 	}
+ 
+ 	if (vfe->stream_count)
+-		dev_info_ratelimited(vfe->camss->dev,
++		dev_dbg_ratelimited(vfe->camss->dev,
+ 				     "VFE%d IRQ: top=%08x/%08x bus=%08x/%08x/%08x WM0=%08x/%08x cfg=%08x addr=%08x width=%08x height=%08x stride=%08x inc=%08x\n",
+ 				     vfe->id, status0, status1,
+ 				     vfe_bus_status[0], vfe_bus_status[1],
+@@ -407,7 +407,7 @@ static irqreturn_t vfe_isr(int irq, void *dev)
+ 				     readl_relaxed(vfe->base + VFE_BUS_WM_FRAME_INC(0)));
+ 
+ 	if (vfe->stream_count)
+-		dev_info_ratelimited(vfe->camss->dev,
++		dev_dbg_ratelimited(vfe->camss->dev,
+ 				     "VFE%d BUS state: err=%08x overwrite=%08x dual=%08x/%08x sync=%08x no-sync=%08x fifo=%08x reset=%08x debug=%08x cgc=%08x drop=%08x/%08x irq-sub=%08x/%08x\n",
+ 				     vfe->id,
+ 				     readl_relaxed(vfe->base + VFE_BUS_COMP_ERROR_STATUS),
+-- 
+2.55.0
+

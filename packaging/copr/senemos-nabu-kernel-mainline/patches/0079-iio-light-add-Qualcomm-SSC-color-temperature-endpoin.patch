@@ -1,0 +1,224 @@
+From c2f5eb906441f6652748d4ffcac1d6d5869a9e10 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 23:27:56 +0300
+Subject: [PATCH 79/79] iio: light: add Qualcomm SSC color temperature endpoint
+
+---
+ drivers/iio/light/Kconfig                     |  13 ++
+ drivers/iio/light/Makefile                    |   1 +
+ drivers/iio/light/qcom-ssc-cct.c              | 154 ++++++++++++++++++
+ senemos/configs/fedora-rawhide-aarch64.config |   1 +
+ 4 files changed, 169 insertions(+)
+ create mode 100644 drivers/iio/light/qcom-ssc-cct.c
+
+diff --git a/drivers/iio/light/Kconfig b/drivers/iio/light/Kconfig
+index f23bbce12c72..4873dfd0e40c 100644
+--- a/drivers/iio/light/Kconfig
++++ b/drivers/iio/light/Kconfig
+@@ -367,6 +367,19 @@ config JSA1212
+ 	  To compile this driver as a module, choose M here:
+ 	  the module will be called jsa1212.
+ 
++config QCOM_SSC_CCT
++	tristate "Qualcomm SSC userspace colour temperature bridge"
++	depends on IIO_SW_DEVICE
++	help
++	  Register a standard IIO colour-temperature channel for Qualcomm Sensor
++	  Core devices whose FastRPC/QMI transport is managed in userspace. A
++	  privileged sensor service supplies validated Kelvin measurements through
++	  the root-writable in_colortemp_raw attribute.
++
++	  This does not emulate a sensor or decode SSC messages in the kernel. To
++	  compile it as a module, choose M here: the module will be called
++	  qcom-ssc-cct.
++
+ config ROHM_BU27034
+ 	tristate "ROHM BU27034 ambient light sensor"
+ 	depends on I2C
+diff --git a/drivers/iio/light/Makefile b/drivers/iio/light/Makefile
+index 64e354c49ed8..321b3d7fee93 100644
+--- a/drivers/iio/light/Makefile
++++ b/drivers/iio/light/Makefile
+@@ -47,6 +47,7 @@ obj-$(CONFIG_OPT3001)		+= opt3001.o
+ obj-$(CONFIG_OPT4001)		+= opt4001.o
+ obj-$(CONFIG_OPT4060)		+= opt4060.o
+ obj-$(CONFIG_PA12203001)	+= pa12203001.o
++obj-$(CONFIG_QCOM_SSC_CCT)	+= qcom-ssc-cct.o
+ obj-$(CONFIG_ROHM_BU27034)	+= rohm-bu27034.o
+ obj-$(CONFIG_RPR0521)		+= rpr0521.o
+ obj-$(CONFIG_SI1133)		+= si1133.o
+diff --git a/drivers/iio/light/qcom-ssc-cct.c b/drivers/iio/light/qcom-ssc-cct.c
+new file mode 100644
+index 000000000000..f09979de6da2
+--- /dev/null
++++ b/drivers/iio/light/qcom-ssc-cct.c
+@@ -0,0 +1,154 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Standard IIO colour-temperature endpoint for Qualcomm SSC sensors whose
++ * transport is owned by a userspace FastRPC/QMI service.
++ */
++#include <linux/err.h>
++#include <linux/iio/iio.h>
++#include <linux/iio/sw_device.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
++
++#define SSC_CCT_MIN_KELVIN 1000
++#define SSC_CCT_MAX_KELVIN 40000
++
++/**
++ * struct ssc_cct_state - latest userspace-supplied measurement
++ * @lock: serializes readers and the single privileged writer
++ * @kelvin: validated colour temperature
++ * @valid: whether a first measurement has been received
++ */
++struct ssc_cct_state {
++	struct mutex lock; /* protects kelvin and valid */
++	int kelvin;
++	bool valid;
++};
++
++static const struct config_item_type ssc_cct_config_type = {
++	.ct_owner = THIS_MODULE,
++};
++
++static const struct iio_chan_spec ssc_cct_channels[] = {
++	{
++		.type = IIO_COLORTEMP,
++		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
++	},
++};
++
++static int ssc_cct_read_raw(struct iio_dev *indio_dev,
++			    const struct iio_chan_spec *channel,
++			    int *val, int *val2, long mask)
++{
++	struct ssc_cct_state *state = iio_priv(indio_dev);
++	int ret = IIO_VAL_INT;
++
++	if (mask != IIO_CHAN_INFO_RAW)
++		return -EINVAL;
++
++	mutex_lock(&state->lock);
++	if (!state->valid)
++		ret = -EAGAIN;
++	else
++		*val = state->kelvin;
++	mutex_unlock(&state->lock);
++	return ret;
++}
++
++static int ssc_cct_write_raw(struct iio_dev *indio_dev,
++			     const struct iio_chan_spec *channel,
++			     int val, int val2, long mask)
++{
++	struct ssc_cct_state *state = iio_priv(indio_dev);
++
++	if (mask != IIO_CHAN_INFO_RAW || val2 ||
++	    val < SSC_CCT_MIN_KELVIN || val > SSC_CCT_MAX_KELVIN)
++		return -EINVAL;
++
++	mutex_lock(&state->lock);
++	state->kelvin = val;
++	state->valid = true;
++	mutex_unlock(&state->lock);
++	return 0;
++}
++
++static const struct iio_info ssc_cct_info = {
++	.read_raw = ssc_cct_read_raw,
++	.write_raw = ssc_cct_write_raw,
++};
++
++static struct iio_sw_device *ssc_cct_probe(const char *name)
++{
++	struct iio_sw_device *software_device;
++	struct ssc_cct_state *state;
++	struct iio_dev *indio_dev;
++	int ret;
++
++	software_device = kzalloc_obj(*software_device);
++	if (!software_device)
++		return ERR_PTR(-ENOMEM);
++
++	indio_dev = iio_device_alloc(NULL, sizeof(*state));
++	if (!indio_dev) {
++		ret = -ENOMEM;
++		goto free_software_device;
++	}
++
++	indio_dev->name = kstrdup(name, GFP_KERNEL);
++	if (!indio_dev->name) {
++		ret = -ENOMEM;
++		goto free_iio_device;
++	}
++
++	state = iio_priv(indio_dev);
++	mutex_init(&state->lock);
++	indio_dev->channels = ssc_cct_channels;
++	indio_dev->num_channels = ARRAY_SIZE(ssc_cct_channels);
++	indio_dev->info = &ssc_cct_info;
++	indio_dev->modes = INDIO_DIRECT_MODE;
++
++	ret = iio_device_register(indio_dev);
++	if (ret)
++		goto free_name;
++
++	software_device->device = indio_dev;
++	iio_swd_group_init_type_name(software_device, name,
++				     &ssc_cct_config_type);
++	return software_device;
++
++free_name:
++	kfree(indio_dev->name);
++free_iio_device:
++	iio_device_free(indio_dev);
++free_software_device:
++	kfree(software_device);
++	return ERR_PTR(ret);
++}
++
++static int ssc_cct_remove(struct iio_sw_device *software_device)
++{
++	struct iio_dev *indio_dev = software_device->device;
++
++	iio_device_unregister(indio_dev);
++	kfree(indio_dev->name);
++	iio_device_free(indio_dev);
++	kfree(software_device);
++	return 0;
++}
++
++static const struct iio_sw_device_ops ssc_cct_ops = {
++	.probe = ssc_cct_probe,
++	.remove = ssc_cct_remove,
++};
++
++static struct iio_sw_device_type ssc_cct_device = {
++	.name = "ssc_cct",
++	.owner = THIS_MODULE,
++	.ops = &ssc_cct_ops,
++};
++
++module_iio_sw_device_driver(ssc_cct_device);
++
++MODULE_AUTHOR("mcc45tr <mcc45tr@gmail.com>");
++MODULE_DESCRIPTION("Qualcomm SSC userspace colour temperature IIO endpoint");
++MODULE_LICENSE("GPL");
+diff --git a/senemos/configs/fedora-rawhide-aarch64.config b/senemos/configs/fedora-rawhide-aarch64.config
+index 9a72b9fa3680..c2c3adcfbe73 100644
+--- a/senemos/configs/fedora-rawhide-aarch64.config
++++ b/senemos/configs/fedora-rawhide-aarch64.config
+@@ -11246,6 +11246,7 @@ CONFIG_IIO_GTS_HELPER=m
+ CONFIG_IIO_TRIGGER=y
+ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
+ CONFIG_IIO_SW_DEVICE=m
++CONFIG_QCOM_SSC_CCT=m
+ CONFIG_IIO_SW_TRIGGER=m
+ CONFIG_IIO_TRIGGERED_EVENT=m
+ CONFIG_IIO_BACKEND=m
+-- 
+2.55.0
+

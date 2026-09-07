@@ -1,0 +1,47 @@
+From 4f007ad44fe1fefde607103aaed67497c23458cf Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 4 Sep 2026 17:48:14 +0300
+Subject: [PATCH] Bluetooth: restore Fedora RFCOMM and BNEP protocols
+
+BlueZ enables classic serial profiles and Bluetooth PAN support by default.
+The pruned Nabu profile omitted their kernel protocols, causing every RFCOMM
+profile registration to fail with EPROTONOSUPPORT. Restore Fedora-compatible
+RFCOMM and BNEP support, including their standard filters and TTY endpoint.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ senemos/configs/nabu-minimal.config     | 5 +++++
+ senemos/configs/prune-nabu-config.sh   | 2 +-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 2711d9d..3052df5 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -96,6 +96,11 @@ CONFIG_ATH10K=m
+ CONFIG_ATH10K_SNOC=m
+ CONFIG_BT=m
+ CONFIG_BT_QCA=m
++CONFIG_BT_RFCOMM=m
++CONFIG_BT_RFCOMM_TTY=y
++CONFIG_BT_BNEP=m
++CONFIG_BT_BNEP_MC_FILTER=y
++CONFIG_BT_BNEP_PROTO_FILTER=y
+ 
+ # Fedora firewalld uses the nftables backend. Keep the compact, known-good
+ # 6.17 ruleset surface so filtering, rejection and NAT work after pruning.
+diff --git a/senemos/configs/prune-nabu-config.sh b/senemos/configs/prune-nabu-config.sh
+index 642a3e1..4112654 100755
+--- a/senemos/configs/prune-nabu-config.sh
++++ b/senemos/configs/prune-nabu-config.sh
+@@ -48,7 +48,7 @@ builtin_allow='^(ACPI|ARM64|ARM_ARCH_TIMER|ARM_GIC|ARM_GIC_V3|ARM_PSCI_FW|ATOMIC
+ # amplifiers as consumers of one shared reset GPIO, so its proxy driver is
+ # boot-critical and must not be left to module autoload ordering.
+ module_deny='^(ARM_CCI|ARM_CCN|ARM_CMN|ARM_CORESIGHT|ARM_DSU|ARM_SMMU_V3_PMU|ARM_SPE|NVIDIA_CORESIGHT|CORESIGHT|ALTERA_|FPGA_|OF_FPGA|XILINX_|UACCE|CROS_|EC_|GREYBUS|GNSS|GOOGLE_|IPMI_|TCG_|MHI_|ATH11K|BRCMF|BRCMUTIL|MWIFIEX|RSI_|WCN36XX|WL18XX|WLCORE|RTC_DRV_|SENSORS_|IIO_CROS|IIO_ST_|TOUCHSCREEN_|BACKLIGHT_|BATTERY_|CHARGER_|DRM_|CLK_|SM_|SC_|SA_|SDM_|QCS_|QCM_|IPQ_|MSM_MMCC_|PHY_|TYPEC_|UCSI_|REGULATOR_|MFD_|GPIO_|PWM_|VIDEO_|SND_SOC_|BT_)'
+-module_allow='^(BACKLIGHT_KTZ8866|ATH10K|ATH10K_SNOC|ATH_COMMON|BT_HCIUART|BT_HIDP|BT_QCA|CHARGER_IDTP9418|CHARGER_LN8000|CHARGER_QCOM_SMB2|SM_CAMCC_8150|DRM_PANEL_NOVATEK_NT36523|GPIO_WCD934X|MFD_WCD934X|TOUCHSCREEN_NT36523_SPI|VIDEO_DEV|VIDEO_CN3927|VIDEO_OV13B10|VIDEO_OV8856|VIDEO_QCOM_CAMSS|VIDEO_QCOM_IRIS|SND_SOC_I2C_AND_SPI|SND_SOC_QCOM.*|SND_SOC_QDSP6.*|SND_SOC_SM8150|SND_SOC_CS35L41.*|SND_SOC_WCD934X|SND_SOC_WCD_COMMON|SND_SOC_WCD_CLASSH|SND_SOC_WCD_MBHC|SND_SOC_WSA881X)$'
++module_allow='^(BACKLIGHT_KTZ8866|ATH10K|ATH10K_SNOC|ATH_COMMON|BT_HCIUART|BT_HIDP|BT_QCA|BT_RFCOMM|BT_BNEP|CHARGER_IDTP9418|CHARGER_LN8000|CHARGER_QCOM_SMB2|SM_CAMCC_8150|DRM_PANEL_NOVATEK_NT36523|GPIO_WCD934X|MFD_WCD934X|TOUCHSCREEN_NT36523_SPI|VIDEO_DEV|VIDEO_CN3927|VIDEO_OV13B10|VIDEO_OV8856|VIDEO_QCOM_CAMSS|VIDEO_QCOM_IRIS|SND_SOC_I2C_AND_SPI|SND_SOC_QCOM.*|SND_SOC_QDSP6.*|SND_SOC_SM8150|SND_SOC_CS35L41.*|SND_SOC_WCD934X|SND_SOC_WCD_COMMON|SND_SOC_WCD_CLASSH|SND_SOC_WCD_MBHC|SND_SOC_WSA881X)$'
+ 
+ while IFS= read -r symbol; do
+ 	if [[ $symbol =~ $module_deny && ! $symbol =~ $module_allow ]]; then
+-- 
+2.55.0

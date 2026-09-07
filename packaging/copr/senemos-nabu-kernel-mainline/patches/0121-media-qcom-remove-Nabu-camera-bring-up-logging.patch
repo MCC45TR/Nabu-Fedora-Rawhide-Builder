@@ -1,0 +1,75 @@
+From eb6dfb513d3b39c5b3bf9c65cd8ac2dad6613bef Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 01:00:55 +0300
+Subject: [PATCH] media: qcom: remove Nabu camera bring-up logging
+
+Drop the OV8856 register readback loop that was useful only during initial
+bring-up.  Keep VFE clock and address-FIFO snapshots available through dynamic
+debug without writing them to the journal for every ordinary camera stream.
+
+---
+ drivers/media/i2c/ov8856.c                    | 19 -------------------
+ .../media/platform/qcom/camss/camss-vfe-17x.c |  4 ++--
+ 2 files changed, 2 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/media/i2c/ov8856.c b/drivers/media/i2c/ov8856.c
+index 1c624479c..9f9e646a6 100644
+--- a/drivers/media/i2c/ov8856.c
++++ b/drivers/media/i2c/ov8856.c
+@@ -2006,12 +2006,6 @@ static unsigned int ov8856_update_pad_format(const struct ov8856_mode *mode,
+ static int ov8856_start_streaming(struct ov8856 *ov8856)
+ {
+ 	const struct ov8856_reg_list *reg_list;
+-	static const u16 debug_regs[] = {
+-		OV8856_REG_MODE_SELECT, 0x0302, 0x0303, 0x3018,
+-		0x4800, 0x4837, OV8856_REG_TEST_PATTERN,
+-	};
+-	u32 val;
+-	unsigned int i;
+ 	int link_freq_index, ret;
+ 
+ 	ret = ov8856_identify_module(ov8856);
+@@ -2052,19 +2046,6 @@ static int ov8856_start_streaming(struct ov8856 *ov8856)
+ 		return ret;
+ 	}
+ 
+-	usleep_range(1000, 2000);
+-	for (i = 0; i < ARRAY_SIZE(debug_regs); i++) {
+-		ret = ov8856_read_reg(ov8856, debug_regs[i],
+-				      OV8856_REG_VALUE_08BIT, &val);
+-		if (ret)
+-			dev_err(ov8856->dev,
+-				"failed to read back register 0x%04x: %d\n",
+-				debug_regs[i], ret);
+-		else
+-			dev_info(ov8856->dev, "stream readback 0x%04x=0x%02x\n",
+-				 debug_regs[i], val);
+-	}
+-
+ 	return 0;
+ }
+ 
+diff --git a/drivers/media/platform/qcom/camss/camss-vfe-17x.c b/drivers/media/platform/qcom/camss/camss-vfe-17x.c
+index af4a9d192..d966bfe3e 100644
+--- a/drivers/media/platform/qcom/camss/camss-vfe-17x.c
++++ b/drivers/media/platform/qcom/camss/camss-vfe-17x.c
+@@ -221,7 +221,7 @@ static void vfe_wm_start(struct vfe_device *vfe, u8 wm, struct vfe_line *line)
+ 	int i;
+ 
+ 	for (i = 0; i < vfe->nclocks; i++)
+-		dev_info(vfe->camss->dev, "VFE%d clock %s: %lu Hz\n",
++		dev_dbg(vfe->camss->dev, "VFE%d clock %s: %lu Hz\n",
+ 			 vfe->id, vfe->clock[i].name,
+ 			 clk_get_rate(vfe->clock[i].clk));
+ 
+@@ -303,7 +303,7 @@ static void vfe_wm_update(struct vfe_device *vfe, u8 wm, dma_addr_t addr,
+ 	writel_relaxed(lower_32_bits(addr),
+ 		       vfe->base + VFE_BUS_WM_IMAGE_ADDR(wm));
+ 	wmb();
+-	dev_info_ratelimited(vfe->camss->dev,
++	dev_dbg_ratelimited(vfe->camss->dev,
+ 			     "WM%u address FIFO after queue: %08x\n", wm,
+ 			     readl_relaxed(vfe->base + VFE_BUS_ADDR_FIFO_STATUS));
+ 	writel_relaxed(stride * pix->height, vfe->base + VFE_BUS_WM_FRAME_INC(wm));
+-- 
+2.55.0

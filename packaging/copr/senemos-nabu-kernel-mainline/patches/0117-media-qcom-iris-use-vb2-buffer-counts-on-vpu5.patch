@@ -1,0 +1,132 @@
+From 9d0bc8e73b517caf1bb82731f60e4cb3a7a3df0e Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 23:42:00 +0300
+Subject: [PATCH] media: qcom: iris: use VB2 buffer counts on VPU5
+
+Hardware validation showed that VIDEO.IR.1.2 rejects the two-word buffer
+count payload with HFI_ERR_SESSION_CMDSIZE.  Revert that assumption and keep
+the three-word Gen1 payload used by this firmware.
+
+The actual encoder failure happens later: generic Iris advertises
+VIDEO_MAX_FRAME for both client queues, while the downstream VPU5 driver
+sends the counts negotiated by VB2.  Advertising 32 buffers when the queues
+contain four input and two output buffers leaves the encoder in an invalid
+state and makes firmware assert during LOAD_RESOURCES.
+
+Use the negotiated VB2 counts for legacy VPU5 only.  Keep the generic Iris
+behaviour unchanged on other platforms, and retain the firmware-derived DPB
+count for split-mode decode.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c | 37 +++++++++++++----
+ drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h |  5 ---
+ 2 files changed, 29 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+index 111111111111..444444444444 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+@@ -728,18 +728,6 @@ iris_hfi_gen1_packet_session_set_property(struct hfi_session_set_property_pkt *
+ 		struct hfi_buffer_count_actual *in = pdata;
+ 		struct hfi_buffer_count_actual *count = prop_data;
+ 
+-		if (inst->core->iris_platform_data->legacy_vpu5) {
+-			struct hfi_buffer_count_actual_vpu5 *legacy = prop_data;
+-
+-			legacy->type = in->type;
+-			legacy->count_actual = in->count_actual;
+-			packet->shdr.hdr.size += sizeof(u32) + sizeof(*legacy);
+-			dev_dbg(inst->core->dev,
+-				"Iris1: VPU5 buffer count type=%#x actual=%u\n",
+-				legacy->type, legacy->count_actual);
+-			break;
+-		}
+-
+ 		count->type = in->type;
+ 		count->count_actual = in->count_actual;
+ 		count->count_min_host = in->count_min_host;
+@@ -1101,11 +1089,32 @@ static int iris_hfi_gen1_set_num_bufs(struct iris_inst *inst, u32 plane)
+ {
+ 	u32 ptype = HFI_PROPERTY_PARAM_BUFFER_COUNT_ACTUAL;
+ 	struct hfi_buffer_count_actual buf_count;
++	struct vb2_queue *src_q, *dst_q;
++	u32 input_count = VIDEO_MAX_FRAME;
++	u32 output_count = VIDEO_MAX_FRAME;
+ 	int ret;
+ 
++	if (inst->core->iris_platform_data->legacy_vpu5) {
++		src_q = v4l2_m2m_get_src_vq(inst->m2m_ctx);
++		dst_q = v4l2_m2m_get_dst_vq(inst->m2m_ctx);
++		input_count = vb2_get_num_buffers(src_q);
++		output_count = vb2_get_num_buffers(dst_q);
++
++		if (!input_count || !output_count) {
++			dev_err(inst->core->dev,
++				"Iris1: invalid VPU5 VB2 counts input=%u output=%u\n",
++				input_count, output_count);
++			return -EINVAL;
++		}
++
++		dev_info(inst->core->dev,
++			 "Iris1: VPU5 negotiated buffer counts input=%u output=%u\n",
++			 input_count, output_count);
++	}
++
+ 	buf_count.type = HFI_BUFFER_INPUT;
+-	buf_count.count_actual = VIDEO_MAX_FRAME;
+-	buf_count.count_min_host = VIDEO_MAX_FRAME;
++	buf_count.count_actual = input_count;
++	buf_count.count_min_host = input_count;
+ 
+ 	ret = hfi_gen1_set_property(inst, ptype, &buf_count, sizeof(buf_count));
+ 	if (ret)
+@@ -1118,8 +1129,8 @@ static int iris_hfi_gen1_set_num_bufs(struct iris_inst *inst, u32 plane)
+ 	if (inst->domain == DECODER) {
+ 		if (iris_split_mode_enabled(inst)) {
+ 			buf_count.type = HFI_BUFFER_OUTPUT;
+-			buf_count.count_actual = VIDEO_MAX_FRAME;
+-			buf_count.count_min_host = VIDEO_MAX_FRAME;
++			buf_count.count_actual = output_count;
++			buf_count.count_min_host = output_count;
+ 
+ 			ret = hfi_gen1_set_property(inst, ptype, &buf_count, sizeof(buf_count));
+ 			if (ret)
+@@ -1134,15 +1145,15 @@ static int iris_hfi_gen1_set_num_bufs(struct iris_inst *inst, u32 plane)
+ 			ret = hfi_gen1_set_property(inst, ptype, &buf_count, sizeof(buf_count));
+ 		} else {
+ 			buf_count.type = HFI_BUFFER_OUTPUT;
+-			buf_count.count_actual = VIDEO_MAX_FRAME;
+-			buf_count.count_min_host = VIDEO_MAX_FRAME;
++			buf_count.count_actual = output_count;
++			buf_count.count_min_host = output_count;
+ 
+ 			ret = hfi_gen1_set_property(inst, ptype, &buf_count, sizeof(buf_count));
+ 		}
+ 	} else {
+ 		buf_count.type = HFI_BUFFER_OUTPUT;
+-		buf_count.count_actual = VIDEO_MAX_FRAME;
+-		buf_count.count_min_host = VIDEO_MAX_FRAME;
++		buf_count.count_actual = output_count;
++		buf_count.count_min_host = output_count;
+ 
+ 		ret = hfi_gen1_set_property(inst, ptype, &buf_count, sizeof(buf_count));
+ 	}
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h b/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
+index 333333333333..555555555555 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
+@@ -445,11 +445,6 @@ struct hfi_buffer_count_actual {
+ 	u32 count_min_host;
+ };
+ 
+-struct hfi_buffer_count_actual_vpu5 {
+-	u32 type;
+-	u32 count_actual;
+-};
+-
+ struct hfi_buffer_size_actual {
+ 	u32 type;
+ 	u32 size;
+-- 
+2.51.0

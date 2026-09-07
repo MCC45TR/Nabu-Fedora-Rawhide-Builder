@@ -1,0 +1,169 @@
+From c3d6ae48c7bc0406929c605fce68c72054e7bd7f Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 00:36:16 +0300
+Subject: [PATCH] media: i2c: expose Nabu sensor geometry and frame rates
+
+---
+ drivers/media/i2c/ov13b10.c | 54 ++++++++++++++++++++++++++++++
+ drivers/media/i2c/ov8856.c  | 66 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 120 insertions(+)
+
+diff --git a/drivers/media/i2c/ov13b10.c b/drivers/media/i2c/ov13b10.c
+index 61b833bb5..30193b7e7 100644
+--- a/drivers/media/i2c/ov13b10.c
++++ b/drivers/media/i2c/ov13b10.c
+@@ -1078,6 +1078,58 @@ static int ov13b10_enum_frame_size(struct v4l2_subdev *sd,
+ 	return 0;
+ }
+ 
++static int ov13b10_enum_frame_interval(struct v4l2_subdev *sd,
++				       struct v4l2_subdev_state *sd_state,
++				       struct v4l2_subdev_frame_interval_enum *fie)
++{
++	struct ov13b10 *ov13b = to_ov13b10(sd);
++	const struct ov13b10_mode *mode;
++	u64 pixel_rate;
++
++	if (fie->index || fie->code != MEDIA_BUS_FMT_SGRBG10_1X10)
++		return -EINVAL;
++
++	mode = v4l2_find_nearest_size(ov13b->supported_modes,
++				      ov13b->supported_modes_num,
++				      width, height, fie->width, fie->height);
++	if (!mode || mode->width != fie->width || mode->height != fie->height)
++		return -EINVAL;
++
++	pixel_rate = link_freq_to_pixel_rate(
++		link_freq_menu_items[mode->link_freq_index], ov13b->data_lanes);
++	fie->interval.numerator = mode->ppl * mode->vts_def;
++	fie->interval.denominator = pixel_rate;
++
++	return 0;
++}
++
++static int ov13b10_get_selection(struct v4l2_subdev *sd,
++				 struct v4l2_subdev_state *sd_state,
++				 struct v4l2_subdev_selection *sel)
++{
++	struct ov13b10 *ov13b = to_ov13b10(sd);
++
++	if (sel->pad)
++		return -EINVAL;
++
++	sel->r.left = 0;
++	sel->r.top = 0;
++	switch (sel->target) {
++	case V4L2_SEL_TGT_CROP:
++		sel->r.width = ov13b->cur_mode->width;
++		sel->r.height = ov13b->cur_mode->height;
++		return 0;
++	case V4L2_SEL_TGT_NATIVE_SIZE:
++	case V4L2_SEL_TGT_CROP_DEFAULT:
++	case V4L2_SEL_TGT_CROP_BOUNDS:
++		sel->r.width = ov13b->supported_modes[0].width;
++		sel->r.height = ov13b->supported_modes[0].height;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
+ static void ov13b10_update_pad_format(const struct ov13b10_mode *mode,
+ 				      struct v4l2_subdev_format *fmt)
+ {
+@@ -1344,6 +1396,8 @@ static const struct v4l2_subdev_pad_ops ov13b10_pad_ops = {
+ 	.get_fmt = ov13b10_get_pad_format,
+ 	.set_fmt = ov13b10_set_pad_format,
+ 	.enum_frame_size = ov13b10_enum_frame_size,
++	.enum_frame_interval = ov13b10_enum_frame_interval,
++	.get_selection = ov13b10_get_selection,
+ };
+ 
+ static const struct v4l2_subdev_ops ov13b10_subdev_ops = {
+diff --git a/drivers/media/i2c/ov8856.c b/drivers/media/i2c/ov8856.c
+index fa05436cf..1c624479c 100644
+--- a/drivers/media/i2c/ov8856.c
++++ b/drivers/media/i2c/ov8856.c
+@@ -2263,6 +2263,70 @@ static int ov8856_enum_frame_size(struct v4l2_subdev *sd,
+ 	return 0;
+ }
+ 
++static int ov8856_enum_frame_interval(struct v4l2_subdev *sd,
++				      struct v4l2_subdev_state *sd_state,
++				      struct v4l2_subdev_frame_interval_enum *fie)
++{
++	struct ov8856 *ov8856 = to_ov8856(sd);
++	const struct ov8856_mode *mode = NULL;
++	u64 pixel_rate;
++	u64 ppl;
++	unsigned int i;
++
++	if (fie->index)
++		return -EINVAL;
++
++	for (i = 0; i < ov8856->modes_size; i++) {
++		const struct ov8856_mode *candidate =
++			&ov8856->priv_lane->supported_modes[i];
++
++		if (candidate->width == fie->width &&
++		    candidate->height == fie->height) {
++			mode = candidate;
++			break;
++		}
++	}
++	if (!mode)
++		return -EINVAL;
++
++	pixel_rate = to_rate(ov8856->priv_lane->link_freq_menu_items,
++			     mode->link_freq_index, mode->data_lanes);
++	ppl = to_pixels_per_line(ov8856->priv_lane->link_freq_menu_items,
++				 mode->hts, mode->link_freq_index,
++				 mode->data_lanes);
++	fie->interval.numerator = ppl * mode->vts_def;
++	fie->interval.denominator = pixel_rate;
++
++	return 0;
++}
++
++static int ov8856_get_selection(struct v4l2_subdev *sd,
++				struct v4l2_subdev_state *sd_state,
++				struct v4l2_subdev_selection *sel)
++{
++	struct ov8856 *ov8856 = to_ov8856(sd);
++
++	if (sel->pad)
++		return -EINVAL;
++
++	sel->r.left = 0;
++	sel->r.top = 0;
++	switch (sel->target) {
++	case V4L2_SEL_TGT_CROP:
++		sel->r.width = ov8856->cur_mode->width;
++		sel->r.height = ov8856->cur_mode->height;
++		return 0;
++	case V4L2_SEL_TGT_NATIVE_SIZE:
++	case V4L2_SEL_TGT_CROP_DEFAULT:
++	case V4L2_SEL_TGT_CROP_BOUNDS:
++		sel->r.width = ov8856->priv_lane->supported_modes[0].width;
++		sel->r.height = ov8856->priv_lane->supported_modes[0].height;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
+ static int ov8856_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ {
+ 	struct ov8856 *ov8856 = to_ov8856(sd);
+@@ -2284,6 +2348,8 @@ static const struct v4l2_subdev_pad_ops ov8856_pad_ops = {
+ 	.get_fmt = ov8856_get_format,
+ 	.enum_mbus_code = ov8856_enum_mbus_code,
+ 	.enum_frame_size = ov8856_enum_frame_size,
++	.enum_frame_interval = ov8856_enum_frame_interval,
++	.get_selection = ov8856_get_selection,
+ };
+ 
+ static const struct v4l2_subdev_ops ov8856_subdev_ops = {
+-- 
+2.55.0
+

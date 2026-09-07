@@ -1,0 +1,35 @@
+From b6d5a5142f4da6ae172b6d6399eef693770db5a2 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 00:07:11 +0300
+Subject: [PATCH 60/64] power: supply: adapt Nabu charging to Linux 7.2 APIs
+
+---
+ drivers/power/supply/ln8000_charger.c | 1 -
+ drivers/power/supply/qcom_smbx.c      | 2 +-
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/power/supply/ln8000_charger.c b/drivers/power/supply/ln8000_charger.c
+index 6f8c977ad301..f0183117d25a 100644
+--- a/drivers/power/supply/ln8000_charger.c
++++ b/drivers/power/supply/ln8000_charger.c
+@@ -26,7 +26,6 @@
+ #include <linux/mutex.h>
+ #include <linux/delay.h>
+ #include <linux/of_irq.h>
+-#include <linux/of_gpio.h>
+ #include <linux/of_device.h>
+ #include <linux/property.h>
+ #include <linux/pm_runtime.h>
+diff --git a/drivers/power/supply/qcom_smbx.c b/drivers/power/supply/qcom_smbx.c
+index e9d936055d68..f87f66514230 100644
+--- a/drivers/power/supply/qcom_smbx.c
++++ b/drivers/power/supply/qcom_smbx.c
+@@ -1997,7 +1997,7 @@ static int smb_probe(struct platform_device *pdev)
+ 
+ 	if (chip->gen == SMB5) {
+ 		chip->cdev = devm_thermal_of_cooling_device_register(
+-			chip->dev, chip->dev->of_node, "smb5-charger", chip,
++			chip->dev, 0, "smb5-charger", chip,
+ 			&smb_cooling_ops);
+ 		if (IS_ERR(chip->cdev)) {
+ 			rc = PTR_ERR(chip->cdev);
