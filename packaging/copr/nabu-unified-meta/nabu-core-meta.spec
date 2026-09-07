@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        77%{?dist}
+Release:        78%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ Source7:        90-nabu-kernel-maintenance.preset
 Source8:        kernel.conf
 Source9:        nabu-system-integration-2.0.0.tar.zst
 Source10:       nabu-flashlight-integration-1.0.0.tar.gz
-Source11:       nabu-sar-service-0.2.4.tar.zst
+Source11:       nabu-sar-service-0.2.5.tar.zst
 Source12:       nabu-ssc-probe.c
 Source13:       nabu-pen-autopair
 Source14:       82-nabu-pen-autopair.rules
@@ -483,6 +483,12 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Mon Sep 07 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-78
+- Keep ADUX1050 sampling and grip transitions responsive while limiting
+  unchanged D-Bus telemetry to one update per second.
+- Reduce idle CPU and bus traffic without weakening stale-sample or
+  hold-awake safety gates.
+
 * Mon Sep 07 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-77
 - Make SAR calibration capture deterministic under Turkish and other
   non-English collation locales.
