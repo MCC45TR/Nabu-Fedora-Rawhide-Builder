@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 17:30:52 +0300
-Subject: [PATCH 06/21] input: power: restore Nabu touch and fuel-gauge drivers
+Subject: [PATCH 006/117] input: power: restore Nabu touch and fuel-gauge
+ drivers
 
 ---
  drivers/input/touchscreen/Kconfig             |    2 +
@@ -3500,10 +3501,10 @@ index 000000000000..3f4195d636a0
 +		.mmap = &NT36676F_memory_map, .hwinfo = &NT36676F_hw_info}
 +};
 diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
-index f0ede1cecb6a..dd557defcb66 100644
+index b89ef40df7f8..ae0b8271f687 100644
 --- a/drivers/power/supply/Kconfig
 +++ b/drivers/power/supply/Kconfig
-@@ -1156,6 +1156,14 @@ config BATTERY_CHARGER_SURFACE_RT
+@@ -1172,6 +1172,14 @@ config BATTERY_CHARGER_SURFACE_RT
  	  This driver can also be built as a module. If so, the module
  	  will be called surface-rt-ec.
  
@@ -3519,10 +3520,10 @@ index f0ede1cecb6a..dd557defcb66 100644
  	tristate "Qualcomm PMI8998 PMIC charger driver"
  	depends on MFD_SPMI_PMIC
 diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
-index 31fe4a145929..d052acdf1569 100644
+index f3c0d1006c1a..2fe782dd0a2b 100644
 --- a/drivers/power/supply/Makefile
 +++ b/drivers/power/supply/Makefile
-@@ -129,6 +129,7 @@ obj-$(CONFIG_BATTERY_SURFACE)	+= surface_battery.o
+@@ -131,6 +131,7 @@ obj-$(CONFIG_BATTERY_SURFACE)	+= surface_battery.o
  obj-$(CONFIG_CHARGER_SURFACE)	+= surface_charger.o
  obj-$(CONFIG_BATTERY_CHARGER_SURFACE_RT) += surface-rt-ec.o
  obj-$(CONFIG_BATTERY_UG3105)	+= ug3105_battery.o

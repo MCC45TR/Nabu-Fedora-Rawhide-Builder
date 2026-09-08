@@ -1,0 +1,135 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Tue, 1 Sep 2026 22:18:58 +0300
+Subject: [PATCH 042/117] nabu: keep keyboard and legacy Iris from blocking
+ suspend
+
+---
+ drivers/input/misc/xiaomi-nabu-keyboard.c     | 16 +++++++---
+ drivers/media/platform/qcom/iris/iris_probe.c | 30 +++++++++++++++--
+ senemos/7.3-iris-audit.md                     | 32 +++++++++++++++++++
+ 3 files changed, 72 insertions(+), 6 deletions(-)
+ create mode 100644 senemos/7.3-iris-audit.md
+
+diff --git a/drivers/input/misc/xiaomi-nabu-keyboard.c b/drivers/input/misc/xiaomi-nabu-keyboard.c
+index 70e07728d364..24c6c1da6d9a 100644
+--- a/drivers/input/misc/xiaomi-nabu-keyboard.c
++++ b/drivers/input/misc/xiaomi-nabu-keyboard.c
+@@ -82,7 +82,15 @@ static irqreturn_t nabu_keyboard_detect_irq(int irq, void *data)
+ {
+ 	struct nabu_keyboard *keyboard = data;
+ 
+-	pm_wakeup_event(keyboard->dev, 500);
++	/*
++	 * Cover transitions while the system is awake are ordinary input
++	 * changes, not wake events.  Keeping a wakeup event pending during the
++	 * desktop's pre-suspend blanking phase can make the freezer abort the
++	 * following system suspend.  Only hold the system awake after the PM
++	 * callback has actually armed this IRQ as a wake source.
++	 */
++	if (READ_ONCE(keyboard->wake_enabled))
++		pm_wakeup_event(keyboard->dev, 500);
+ 	mod_delayed_work(system_wq, &keyboard->detect_work,
+ 			 msecs_to_jiffies(NABU_KEYBOARD_DEBOUNCE_MS));
+ 	return IRQ_HANDLED;
+@@ -249,7 +257,7 @@ static int nabu_keyboard_suspend(struct device *dev)
+ 
+ 	ret = enable_irq_wake(keyboard->irq);
+ 	if (!ret)
+-		keyboard->wake_enabled = true;
++		WRITE_ONCE(keyboard->wake_enabled, true);
+ 	return ret;
+ }
+ 
+@@ -257,9 +265,9 @@ static int nabu_keyboard_resume(struct device *dev)
+ {
+ 	struct nabu_keyboard *keyboard = dev_get_drvdata(dev);
+ 
+-	if (keyboard->wake_enabled) {
++	if (READ_ONCE(keyboard->wake_enabled)) {
+ 		disable_irq_wake(keyboard->irq);
+-		keyboard->wake_enabled = false;
++		WRITE_ONCE(keyboard->wake_enabled, false);
+ 	}
+ 	mod_delayed_work(system_wq, &keyboard->detect_work,
+ 			 msecs_to_jiffies(NABU_KEYBOARD_DEBOUNCE_MS));
+diff --git a/drivers/media/platform/qcom/iris/iris_probe.c b/drivers/media/platform/qcom/iris/iris_probe.c
+index d5f6a75b9901..8deb0d5f1b84 100644
+--- a/drivers/media/platform/qcom/iris/iris_probe.c
++++ b/drivers/media/platform/qcom/iris/iris_probe.c
+@@ -349,9 +349,35 @@ static int __maybe_unused iris_pm_resume(struct device *dev)
+ 	return ret;
+ }
+ 
++static int __maybe_unused iris_system_suspend(struct device *dev)
++{
++	struct iris_core *core = dev_get_drvdata(dev);
++
++	/*
++	 * Runtime PM is forbidden on legacy VPU5 until its power-collapse
++	 * handshake is implemented.  pm_runtime_force_suspend() bypasses that
++	 * prohibition and would still call iris_pm_suspend(), whose prepare-PC
++	 * path intentionally returns -EAGAIN.  Keep the controller powered
++	 * across s2idle instead of rejecting every system suspend.
++	 */
++	if (core->iris_platform_data->legacy_vpu5)
++		return 0;
++
++	return pm_runtime_force_suspend(dev);
++}
++
++static int __maybe_unused iris_system_resume(struct device *dev)
++{
++	struct iris_core *core = dev_get_drvdata(dev);
++
++	if (core->iris_platform_data->legacy_vpu5)
++		return 0;
++
++	return pm_runtime_force_resume(dev);
++}
++
+ static const struct dev_pm_ops iris_pm_ops = {
+-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+-				pm_runtime_force_resume)
++	SET_SYSTEM_SLEEP_PM_OPS(iris_system_suspend, iris_system_resume)
+ 	SET_RUNTIME_PM_OPS(iris_pm_suspend, iris_pm_resume, NULL)
+ };
+ 
+diff --git a/senemos/7.3-iris-audit.md b/senemos/7.3-iris-audit.md
+new file mode 100644
+index 000000000000..da5f0253d256
+--- /dev/null
++++ b/senemos/7.3-iris-audit.md
+@@ -0,0 +1,32 @@
++# Linux 7.3 Nabu Iris audit
++
++## Decision
++
++Keep Linux 7.3's upstream Iris driver as the implementation base. The Nabu
++port adds only the SM8150 VIDEO.IR.1.2 platform description, VPU5 register and
++power-domain differences, and firmware-specific protocol quirks.
++
++Do not replay the old 6.17/7.2 Iris driver files wholesale. That would replace
++Linux 7.3's current encoder/decoder, firmware-descriptor and V4L2 architecture.
++
++## Feature comparison
++
++| Capability | Old Nabu overlay | Linux 7.3 port |
++|---|---|---|
++| SM8150 Iris/VPU5 platform data | Present | Reworked on current platform data |
++| HFI Gen1 decoder and encoder | Present | Uses Linux 7.3 implementations |
++| Board firmware path | Present | Supplied by the Nabu DT |
++| Two VCODEC domains and VPP pipes | Present | Explicitly described and managed |
++| VPU5 register/interrupt layout | Present | Isolated behind a platform quirk |
++| Current V4L2/media API | Backported | Native Linux 7.3 API |
++| Runtime power collapse on VPU5 | Unsupported | Runtime PM remains forbidden |
++| System suspend on VPU5 | Could enter Iris2 prepare-PC | Guarded from that path |
++
++## Validation gates
++
++Source and compile validation are necessary but do not prove video hardware.
++The physical gate is: firmware authentication succeeds, both video nodes
++enumerate, V4L2 compliance does not regress, H.264/VP9 decode and H.264 encode
++complete, P010 decode completes, repeated stream-on/off does not leak buffers,
++and suspend/resume succeeds both idle and after a codec workload. Preserve
++pstore and surrounding Iris/HFI logs before returning to the known-good kernel.

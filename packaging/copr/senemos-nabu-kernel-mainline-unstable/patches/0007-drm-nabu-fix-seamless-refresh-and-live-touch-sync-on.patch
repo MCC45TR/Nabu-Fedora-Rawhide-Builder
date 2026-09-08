@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 17:31:10 +0300
-Subject: [PATCH 07/21] drm: nabu: fix seamless refresh and live touch sync on
- 7.2
+Subject: [PATCH 007/117] drm: nabu: fix seamless refresh and live touch sync
+ on 7.2
 
 ---
  drivers/gpu/drm/msm/dsi/dsi_host.c            | 25 +++++++++++++++
@@ -11,7 +11,7 @@ Subject: [PATCH 07/21] drm: nabu: fix seamless refresh and live touch sync on
  3 files changed, 52 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
-index 5081cdbc7ebe..ab1645a70f1e 100644
+index 8f054b000b9c..1ac02272724e 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_host.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
 @@ -100,6 +100,7 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
@@ -49,7 +49,7 @@ index 5081cdbc7ebe..ab1645a70f1e 100644
  	data = dsi_read(msm_host, REG_DSI_STATUS0);
  
  	/* if video mode engine is not busy, its because
-@@ -2691,6 +2707,15 @@ int msm_dsi_host_stage_seamless(struct mipi_dsi_host *host,
+@@ -2696,6 +2712,15 @@ int msm_dsi_host_stage_seamless(struct mipi_dsi_host *host,
  	dsi_write(msm_host, REG_DSI_TIMING_DB_MODE, 1);
  	dsi_timing_setup(msm_host, is_bonded_dsi);
  	msm_host->mode = active_mode;
@@ -86,10 +86,10 @@ index 786759bdf7c0..72a25482a789 100644
  	drm_atomic_helper_commit_modeset_enables(dev, state);
  	msm_atomic_mask_seamless_modesets(state, false);
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index aed02f1875e9..72d8389792fd 100644
+index 72059286dc11..10534ae53cb3 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-@@ -1252,7 +1252,7 @@ static void nt36523_reset(struct panel_info *pinfo)
+@@ -1253,7 +1253,7 @@ static void nt36523_reset(struct panel_info *pinfo)
  	usleep_range(12000, 13000);
  }
  
@@ -98,7 +98,7 @@ index aed02f1875e9..72d8389792fd 100644
  {
  	struct mipi_dsi_device *dsi0 = pinfo->dsi[0];
  	struct mipi_dsi_device *dsi1 = pinfo->dsi[1];
-@@ -1266,7 +1266,10 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo)
+@@ -1267,7 +1267,10 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo)
  
  	/* Xiaomi's downstream panel commands synchronize the TDDI scan rate. */
  	mipi_dsi_dual_dcs_write_seq_multi(dsi_ctx, dsi0, dsi1, 0xff, 0x2a);
@@ -110,7 +110,7 @@ index aed02f1875e9..72d8389792fd 100644
  	if (pinfo->refresh_rate == 60)
  		mipi_dsi_dual_dcs_write_seq_multi(dsi_ctx, dsi0, dsi1,
  						  0x23, 0x0c);
-@@ -1291,19 +1294,25 @@ static void nt36523_mode_set(struct drm_panel *panel,
+@@ -1292,19 +1295,25 @@ static void nt36523_mode_set(struct drm_panel *panel,
  			     const struct drm_display_mode *mode)
  {
  	struct panel_info *pinfo = to_panel_info(panel);
@@ -144,7 +144,7 @@ index aed02f1875e9..72d8389792fd 100644
  }
  
  static int nt36523_prepare(struct drm_panel *panel)
-@@ -1327,7 +1336,7 @@ static int nt36523_prepare(struct drm_panel *panel)
+@@ -1328,7 +1337,7 @@ static int nt36523_prepare(struct drm_panel *panel)
  	}
  
  	if (pinfo->desc->sync_pen_fps) {

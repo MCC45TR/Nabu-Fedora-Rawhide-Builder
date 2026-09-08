@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Thu, 27 Aug 2026 23:30:34 +0300
-Subject: [PATCH 18/21] qcom: nabu: stabilize Linux 7.2 hardware bring-up
+Subject: [PATCH 018/117] qcom: nabu: stabilize Linux 7.2 hardware bring-up
 
 ---
  .../bindings/misc/qcom,fastrpc.yaml           |  9 ++++++++
@@ -13,10 +13,10 @@ Subject: [PATCH 18/21] qcom: nabu: stabilize Linux 7.2 hardware bring-up
  6 files changed, 49 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
-index c230a5713d1f..1e819d2ef7fb 100644
+index 83f483f0b6ea..7c2c367d8855 100644
 --- a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
 +++ b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
-@@ -74,6 +74,15 @@ properties:
+@@ -78,6 +78,15 @@ properties:
        Virtual machine IDs for remote processor.
      $ref: /schemas/types.yaml#/definitions/uint32-array
  
@@ -67,10 +67,10 @@ index b3d9232532a4..120bdf12e51a 100644
  };
  MODULE_DEVICE_TABLE(spi, nvt_ts_id);
 diff --git a/drivers/misc/fastrpc.c b/drivers/misc/fastrpc.c
-index 8ce02f494f44..2dd2fe6b796e 100644
+index 1b6190b72392..34e6811aadd8 100644
 --- a/drivers/misc/fastrpc.c
 +++ b/drivers/misc/fastrpc.c
-@@ -2471,8 +2471,14 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+@@ -2634,8 +2634,14 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
  
  			err = qcom_scm_assign_mem(res.start, resource_size(&res), &src_perms,
  				    data->vmperms, data->vmcount);

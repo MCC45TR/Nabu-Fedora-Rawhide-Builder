@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 23:33:34 +0300
+Subject: [PATCH 072/117] senemos: enable SSC CCT IIO bridge in Nabu profile
+
+---
+ senemos/configs/nabu-minimal.config | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 8dd4f9aac88b..9ae9d4b9fc71 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -190,3 +190,7 @@ CONFIG_MODULE_SIG_SHA512=y
+ # CONFIG_LOCK_TORTURE_TEST is not set
+ # CONFIG_TORTURE_TEST is not set
+ # CONFIG_RCU_TORTURE_TEST is not set
++# Standard IIO publication endpoint for the userspace Qualcomm SSC CCT bridge.
++CONFIG_IIO_CONFIGFS=m
++CONFIG_IIO_SW_DEVICE=m
++CONFIG_QCOM_SSC_CCT=m

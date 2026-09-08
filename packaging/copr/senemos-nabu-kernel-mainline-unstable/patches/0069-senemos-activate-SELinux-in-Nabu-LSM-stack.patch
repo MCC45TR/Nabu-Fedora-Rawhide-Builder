@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 22:02:49 +0300
+Subject: [PATCH 069/117] senemos: activate SELinux in Nabu LSM stack
+
+---
+ senemos/configs/nabu-minimal.config | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 9bd06568ee9e..8dd4f9aac88b 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -162,6 +162,14 @@ CONFIG_CMA_SIZE_MBYTES=256
+ # Fedora-compatible module packaging.
+ CONFIG_MODULES=y
+ CONFIG_MODULE_COMPRESS_ZSTD=y
++
++# Fedora installs and boots with SELinux policy. SECURITY_SELINUX alone only
++# compiles the LSM; it must also be present in CONFIG_LSM to become active.
++CONFIG_SECURITY=y
++CONFIG_SECURITY_SELINUX=y
++CONFIG_DEFAULT_SECURITY_SELINUX=y
++# CONFIG_DEFAULT_SECURITY_DAC is not set
++CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"
+ # The RPM installation stage signs every installed module explicitly.  Keep
+ # the kernel signing helper available without signing twice during make.
+ CONFIG_MODULE_SIG=y

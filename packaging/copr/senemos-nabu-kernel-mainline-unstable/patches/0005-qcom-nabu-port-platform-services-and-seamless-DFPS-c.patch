@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 17:29:52 +0300
-Subject: [PATCH 05/21] qcom: nabu: port platform services and seamless DFPS
+Subject: [PATCH 005/117] qcom: nabu: port platform services and seamless DFPS
  core to 7.2
 
 ---
@@ -113,10 +113,10 @@ index 000000000000..cab877df04d2
 +not create a receiver.  External USB or Bluetooth GNSS receivers can be
 +supported separately without adding a fictitious onboard Device Tree node.
 diff --git a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
-index 2876fdd7c6e6..c230a5713d1f 100644
+index 49d2a5e8ba39..83f483f0b6ea 100644
 --- a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
 +++ b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
-@@ -43,6 +43,12 @@ properties:
+@@ -47,6 +47,12 @@ properties:
      description:
        Phandle to a node describing memory to be used for remote heap CMA.
  
@@ -129,7 +129,7 @@ index 2876fdd7c6e6..c230a5713d1f 100644
    qcom,glink-channels:
      description:
        A list of channels tied to this function, used for matching
-@@ -132,6 +138,9 @@ examples:
+@@ -136,6 +142,9 @@ examples:
              compatible = "qcom,fastrpc";
              qcom,glink-channels = "fastrpcglink-apps-dsp";
              label = "sdsp";
@@ -140,7 +140,7 @@ index 2876fdd7c6e6..c230a5713d1f 100644
              #address-cells = <1>;
              #size-cells = <0>;
 diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml
-index a8cddf7e2fe1..836115ca8583 100644
+index 5a7c5f8c92d1..2660ce167381 100644
 --- a/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml
 +++ b/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml
 @@ -31,6 +31,7 @@ properties:
@@ -151,7 +151,7 @@ index a8cddf7e2fe1..836115ca8583 100644
            - qcom,sm8150-slpi-pas
            - qcom,sm8250-adsp-pas
            - qcom,sm8250-cdsp-pas
-@@ -78,6 +79,7 @@ allOf:
+@@ -106,6 +107,7 @@ allOf:
                - qcom,sc8180x-slpi-pas
                - qcom,sm8150-adsp-pas
                - qcom,sm8150-cdsp-pas
@@ -159,7 +159,7 @@ index a8cddf7e2fe1..836115ca8583 100644
                - qcom,sm8150-slpi-pas
                - qcom,sm8250-adsp-pas
                - qcom,sm8250-cdsp-pas
-@@ -136,6 +138,7 @@ allOf:
+@@ -164,6 +166,7 @@ allOf:
          compatible:
            enum:
              - qcom,sc8180x-slpi-pas
@@ -572,7 +572,7 @@ index 3d7a1ec7f212..2b65e5da205b 100644
 +
 +#include "sm8150-xiaomi-nabu-power-scaffold.dtsi"
 diff --git a/arch/arm64/boot/dts/qcom/sm8150.dtsi b/arch/arm64/boot/dts/qcom/sm8150.dtsi
-index 0e101096209a..fe0fe9ee6400 100644
+index 94a3b02cb289..804669c40818 100644
 --- a/arch/arm64/boot/dts/qcom/sm8150.dtsi
 +++ b/arch/arm64/boot/dts/qcom/sm8150.dtsi
 @@ -792,6 +792,14 @@ qseecom_mem: memory@9e400000 {
@@ -725,10 +725,10 @@ index 0e101096209a..fe0fe9ee6400 100644
  					qcom,glink-channels = "fastrpcglink-apps-dsp";
  					label = "adsp";
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
-index 778e231d4967..fb7e2482b467 100644
+index 1f20695f81e3..c817c1795ede 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
-@@ -1270,6 +1270,9 @@ static void dpu_encoder_virt_atomic_mode_set(struct drm_encoder *drm_enc,
+@@ -1269,6 +1269,9 @@ static void dpu_encoder_virt_atomic_mode_set(struct drm_encoder *drm_enc,
  		phys->cached_mode = crtc_state->adjusted_mode;
  		if (phys->ops.atomic_mode_set)
  			phys->ops.atomic_mode_set(phys, crtc_state, conn_state);
@@ -828,7 +828,7 @@ index 93c028a122f3..c3b989809ca3 100644
  #endif /* __DSI_CONNECTOR_H__ */
 -
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
-index 982abaaac00d..5081cdbc7ebe 100644
+index 7e4e3718b536..8f054b000b9c 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_host.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
 @@ -97,7 +97,10 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
@@ -851,9 +851,9 @@ index 982abaaac00d..5081cdbc7ebe 100644
 +	struct drm_display_mode *seamless_mode;
 +	bool seamless_staged;
  	struct drm_dsc_config *dsc;
+ 	unsigned int dsc_slice_per_pkt;
  
- 	/* connected device info */
-@@ -2592,6 +2598,135 @@ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
+@@ -2597,6 +2603,135 @@ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
  	return 0;
  }
  
@@ -990,10 +990,10 @@ index 982abaaac00d..5081cdbc7ebe 100644
  					    const struct drm_display_mode *mode)
  {
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_manager.c b/drivers/gpu/drm/msm/dsi/dsi_manager.c
-index 46faeaae9d94..10d905c8a8b9 100644
+index 959daa88b1d0..72bdc0cdbc83 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_manager.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_manager.c
-@@ -397,11 +397,76 @@ static void dsi_mgr_bridge_mode_set(struct drm_bridge *bridge,
+@@ -399,11 +399,76 @@ static void dsi_mgr_bridge_mode_set(struct drm_bridge *bridge,
  	if (is_bonded_dsi && !IS_MASTER_DSI_LINK(id))
  		return;
  
@@ -1353,10 +1353,10 @@ index a8babf1dbe0d..786759bdf7c0 100644
  
  	lock_crtcs(kms, crtc_mask);
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index c27fed19d482..aed02f1875e9 100644
+index c67c10e8bf34..72059286dc11 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-@@ -1118,30 +1118,40 @@ static const struct drm_display_mode elish_csot_modes[] = {
+@@ -1119,30 +1119,40 @@ static const struct drm_display_mode elish_csot_modes[] = {
  
  static const struct drm_display_mode nabu_csot_modes[] = {
  	{
@@ -1408,7 +1408,7 @@ index c27fed19d482..aed02f1875e9 100644
  	},
  };
  
-@@ -1248,13 +1258,15 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo)
+@@ -1249,13 +1259,15 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo)
  	struct mipi_dsi_device *dsi1 = pinfo->dsi[1];
  	struct mipi_dsi_multi_context dsi_ctx = { .dsi = NULL };
  
@@ -1425,7 +1425,7 @@ index c27fed19d482..aed02f1875e9 100644
  	if (pinfo->refresh_rate == 60)
  		mipi_dsi_dual_dcs_write_seq_multi(dsi_ctx, dsi0, dsi1,
  						  0x23, 0x0c);
-@@ -1281,6 +1293,17 @@ static void nt36523_mode_set(struct drm_panel *panel,
+@@ -1282,6 +1294,17 @@ static void nt36523_mode_set(struct drm_panel *panel,
  	struct panel_info *pinfo = to_panel_info(panel);
  
  	pinfo->refresh_rate = drm_mode_vrefresh(mode);
@@ -1444,18 +1444,18 @@ index c27fed19d482..aed02f1875e9 100644
  
  static int nt36523_prepare(struct drm_panel *panel)
 diff --git a/drivers/misc/fastrpc.c b/drivers/misc/fastrpc.c
-index eb6c2a78d3c7..8ce02f494f44 100644
+index d4fac2caca86..1b6190b72392 100644
 --- a/drivers/misc/fastrpc.c
 +++ b/drivers/misc/fastrpc.c
-@@ -285,6 +285,7 @@ struct fastrpc_channel_ctx {
- 	bool unsigned_support;
+@@ -326,6 +326,7 @@ struct fastrpc_channel_ctx {
+ 	atomic_t ctx_seq;
  	u64 dma_mask;
  	const struct fastrpc_soc_data *soc_data;
 +	char *accel_mount_matrix;
  };
  
  struct fastrpc_device {
-@@ -493,6 +494,7 @@ static void fastrpc_channel_ctx_free(struct kref *ref)
+@@ -539,6 +540,7 @@ static void fastrpc_channel_ctx_free(struct kref *ref)
  	cctx = container_of(ref, struct fastrpc_channel_ctx, refcount);
  
  	idr_destroy(&cctx->ctx_idr);
@@ -1463,7 +1463,7 @@ index eb6c2a78d3c7..8ce02f494f44 100644
  	kfree(cctx);
  }
  
-@@ -2312,6 +2314,22 @@ static struct platform_driver fastrpc_cb_driver = {
+@@ -2451,6 +2453,22 @@ static struct platform_driver fastrpc_cb_driver = {
  	},
  };
  
@@ -1486,7 +1486,7 @@ index eb6c2a78d3c7..8ce02f494f44 100644
  static int fastrpc_device_register(struct device *dev, struct fastrpc_channel_ctx *cctx,
  				   bool is_secured, const char *domain)
  {
-@@ -2326,6 +2344,8 @@ static int fastrpc_device_register(struct device *dev, struct fastrpc_channel_ct
+@@ -2465,6 +2483,8 @@ static int fastrpc_device_register(struct device *dev, struct fastrpc_channel_ct
  	fdev->cctx = cctx;
  	fdev->miscdev.minor = MISC_DYNAMIC_MINOR;
  	fdev->miscdev.fops = &fastrpc_fops;
@@ -1495,7 +1495,7 @@ index eb6c2a78d3c7..8ce02f494f44 100644
  	fdev->miscdev.name = devm_kasprintf(dev, GFP_KERNEL, "fastrpc-%s%s",
  					    domain, is_secured ? "-secure" : "");
  	if (!fdev->miscdev.name)
-@@ -2374,8 +2394,9 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+@@ -2537,8 +2557,9 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
  {
  	struct device *rdev = &rpdev->dev;
  	struct fastrpc_channel_ctx *data;
@@ -1506,7 +1506,7 @@ index eb6c2a78d3c7..8ce02f494f44 100644
  	bool secure_dsp;
  	unsigned int vmids[FASTRPC_MAX_VMIDS];
  	const struct fastrpc_soc_data *soc_data;
-@@ -2409,6 +2430,29 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+@@ -2572,6 +2593,29 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
  	if (!data)
  		return -ENOMEM;
  
@@ -1536,7 +1536,7 @@ index eb6c2a78d3c7..8ce02f494f44 100644
  	if (vmcount) {
  		data->vmcount = vmcount;
  		for (i = 0; i < data->vmcount; i++) {
-@@ -2489,6 +2533,7 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+@@ -2655,6 +2699,7 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
  		misc_deregister(&data->secure_fdevice->miscdev);
  
  err_free_data:
@@ -1545,10 +1545,10 @@ index eb6c2a78d3c7..8ce02f494f44 100644
  	return err;
  }
 diff --git a/drivers/remoteproc/qcom_q6v5_pas.c b/drivers/remoteproc/qcom_q6v5_pas.c
-index 808e9609988d..242f873dfe14 100644
+index ca8e61254c44..cde445b0bbae 100644
 --- a/drivers/remoteproc/qcom_q6v5_pas.c
 +++ b/drivers/remoteproc/qcom_q6v5_pas.c
-@@ -1309,6 +1309,27 @@ static const struct qcom_pas_data sdm845_slpi_resource_init = {
+@@ -1393,6 +1393,27 @@ static const struct qcom_pas_data sdm845_slpi_resource_init = {
  	.ssctl_id = 0x16,
  };
  
@@ -1576,7 +1576,7 @@ index 808e9609988d..242f873dfe14 100644
  static const struct qcom_pas_data wcss_resource_init = {
  	.crash_reason_smem = 421,
  	.firmware_name = "wcnss.mdt",
-@@ -1628,6 +1649,7 @@ static const struct of_device_id qcom_pas_of_match[] = {
+@@ -1885,6 +1906,7 @@ static const struct of_device_id qcom_pas_of_match[] = {
  	{ .compatible = "qcom,sm8150-adsp-pas", .data = &sm8150_adsp_resource },
  	{ .compatible = "qcom,sm8150-cdsp-pas", .data = &sm8150_cdsp_resource },
  	{ .compatible = "qcom,sm8150-mpss-pas", .data = &mpss_resource_init },
@@ -1585,7 +1585,7 @@ index 808e9609988d..242f873dfe14 100644
  	{ .compatible = "qcom,sm8250-adsp-pas", .data = &sm8250_adsp_resource },
  	{ .compatible = "qcom,sm8250-cdsp-pas", .data = &sm8250_cdsp_resource },
 diff --git a/drivers/slimbus/qcom-ngd-ctrl.c b/drivers/slimbus/qcom-ngd-ctrl.c
-index 3071e46d03be..c2bf27678243 100644
+index 6e89415712ce..068a798a1a22 100644
 --- a/drivers/slimbus/qcom-ngd-ctrl.c
 +++ b/drivers/slimbus/qcom-ngd-ctrl.c
 @@ -160,6 +160,7 @@ struct qcom_slim_ngd_ctrl {
@@ -1633,10 +1633,10 @@ index 3071e46d03be..c2bf27678243 100644
  	pm_runtime_disable(&pdev->dev);
  	qcom_slim_ngd_enable(ctrl, false);
 diff --git a/drivers/soc/qcom/Makefile b/drivers/soc/qcom/Makefile
-index b7f1d2a57367..9a707c990899 100644
+index 798643be3590..1e98850780c3 100644
 --- a/drivers/soc/qcom/Makefile
 +++ b/drivers/soc/qcom/Makefile
-@@ -27,6 +27,7 @@ obj-$(CONFIG_QCOM_SMEM) +=	smem.o
+@@ -28,6 +28,7 @@ obj-$(CONFIG_QCOM_SMEM) +=	qcom_smem.o
  obj-$(CONFIG_QCOM_SMEM_STATE) += smem_state.o
  CFLAGS_smp2p.o := -I$(src)
  obj-$(CONFIG_QCOM_SMP2P)	+= smp2p.o
@@ -1807,7 +1807,7 @@ index 000000000000..823d3e927e14
 +MODULE_DESCRIPTION("Qualcomm SMP2P sleep-state notifier");
 +MODULE_LICENSE("GPL");
 diff --git a/include/drm/drm_crtc.h b/include/drm/drm_crtc.h
-index c6dbe8b7db9e..f886458c0d11 100644
+index 152349f973e3..c18cf48a3dbb 100644
 --- a/include/drm/drm_crtc.h
 +++ b/include/drm/drm_crtc.h
 @@ -311,6 +311,15 @@ struct drm_crtc_state {

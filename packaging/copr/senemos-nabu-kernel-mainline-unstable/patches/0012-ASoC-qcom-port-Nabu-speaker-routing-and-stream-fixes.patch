@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 17:37:26 +0300
-Subject: [PATCH 12/21] ASoC: qcom: port Nabu speaker routing and stream fixes
- to 7.2
+Subject: [PATCH 012/117] ASoC: qcom: port Nabu speaker routing and stream
+ fixes to 7.2
 
 ---
  senemos/configs/nabu-minimal.config |  9 +++++
@@ -37,10 +37,10 @@ index 1491aaa8c4f9..fd0ceaacfa0b 100644
  CONFIG_REMOTEPROC=y
  CONFIG_QCOM_Q6V5_PAS=m
 diff --git a/sound/soc/codecs/wm_adsp.c b/sound/soc/codecs/wm_adsp.c
-index baa75e7ff53b..53133d531ba6 100644
+index 90c24c4b318e..d075fee81779 100644
 --- a/sound/soc/codecs/wm_adsp.c
 +++ b/sound/soc/codecs/wm_adsp.c
-@@ -801,6 +801,57 @@ static int wm_adsp_request_firmware_file(struct wm_adsp *dsp,
+@@ -789,6 +789,57 @@ static int wm_adsp_request_firmware_file(struct wm_adsp *dsp,
  	return 0;
  }
  
@@ -98,7 +98,7 @@ index baa75e7ff53b..53133d531ba6 100644
  static const char * const cirrus_dir = "cirrus/";
  VISIBLE_IF_KUNIT int wm_adsp_request_firmware_files(struct wm_adsp *dsp,
  						    struct wm_adsp_fw_files *fw)
-@@ -876,11 +927,19 @@ VISIBLE_IF_KUNIT int wm_adsp_request_firmware_files(struct wm_adsp *dsp,
+@@ -864,11 +915,19 @@ VISIBLE_IF_KUNIT int wm_adsp_request_firmware_files(struct wm_adsp *dsp,
  		goto err;
  
  	if (fw->wmfw.firmware || dsp->wmfw_optional) {
@@ -163,7 +163,7 @@ index 985ce2ae286b..712e4aa0144e 100644
  obj-$(CONFIG_SND_SOC_QCOM_COMMON) += snd-soc-qcom-common.o
  obj-$(CONFIG_SND_SOC_QCOM_SDW) += snd-soc-qcom-sdw.o
 diff --git a/sound/soc/qcom/qdsp6/q6afe-dai.c b/sound/soc/qcom/qdsp6/q6afe-dai.c
-index a0d21034a626..6d3a790df79b 100644
+index 920345609d2c..bafa174155c0 100644
 --- a/sound/soc/qcom/qdsp6/q6afe-dai.c
 +++ b/sound/soc/qcom/qdsp6/q6afe-dai.c
 @@ -278,6 +278,9 @@ static int q6tdm_hw_params(struct snd_pcm_substream *substream,
@@ -177,10 +177,10 @@ index a0d21034a626..6d3a790df79b 100644
  	return 0;
  }
 diff --git a/sound/soc/qcom/qdsp6/q6afe.c b/sound/soc/qcom/qdsp6/q6afe.c
-index 40237267fda0..1f544264374a 100644
+index f0ff1350e9dd..ba80354bdf79 100644
 --- a/sound/soc/qcom/qdsp6/q6afe.c
 +++ b/sound/soc/qcom/qdsp6/q6afe.c
-@@ -1362,9 +1362,19 @@ void q6afe_tdm_port_prepare(struct q6afe_port *port,
+@@ -1404,9 +1404,19 @@ void q6afe_tdm_port_prepare(struct q6afe_port *port,
  	pcfg->tdm_cfg.sync_mode = cfg->sync_mode;
  	pcfg->tdm_cfg.sync_src = cfg->sync_src;
  	pcfg->tdm_cfg.nslots_per_frame = cfg->nslots_per_frame;

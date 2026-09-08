@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 17:48:41 +0300
-Subject: [PATCH 13/21] power: supply: port PM8150B SMB5 charging support to
+Subject: [PATCH 013/117] power: supply: port PM8150B SMB5 charging support to
  7.2
 
 ---
@@ -128,7 +128,7 @@ index c1fe5e0e020f..cc9239e6412b 100644
  	vdd-pdphy-supply = <&vreg_l2a_3p1>;
  	status = "okay";
 diff --git a/drivers/power/supply/qcom_smbx.c b/drivers/power/supply/qcom_smbx.c
-index bf2e2ccc454a..d3f02a80b69e 100644
+index 67fdb4335338..ef5fd0d53a5c 100644
 --- a/drivers/power/supply/qcom_smbx.c
 +++ b/drivers/power/supply/qcom_smbx.c
 @@ -23,38 +23,30 @@
@@ -939,7 +939,7 @@ index bf2e2ccc454a..d3f02a80b69e 100644
  		if (rc < 0)
  			return dev_err_probe(chip->dev, rc,
  					     "%s: init command %d failed\n",
-@@ -936,6 +977,7 @@ static int smb_probe(struct platform_device *pdev)
+@@ -935,6 +976,7 @@ static int smb_probe(struct platform_device *pdev)
  	struct power_supply_config supply_config = {};
  	struct power_supply_desc *desc;
  	struct smb_chip *chip;
@@ -947,7 +947,7 @@ index bf2e2ccc454a..d3f02a80b69e 100644
  	int rc, irq;
  
  	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
-@@ -966,7 +1008,13 @@ static int smb_probe(struct platform_device *pdev)
+@@ -965,7 +1007,13 @@ static int smb_probe(struct platform_device *pdev)
  				     "Couldn't get usbin_i IIO channel\n");
  	}
  
@@ -962,7 +962,7 @@ index bf2e2ccc454a..d3f02a80b69e 100644
  	if (rc < 0)
  		return rc;
  
-@@ -979,7 +1027,7 @@ static int smb_probe(struct platform_device *pdev)
+@@ -978,7 +1026,7 @@ static int smb_probe(struct platform_device *pdev)
  	memcpy(desc, &smb_psy_desc, sizeof(smb_psy_desc));
  	desc->name =
  		devm_kasprintf(chip->dev, GFP_KERNEL, "%s-charger",
@@ -971,7 +971,7 @@ index bf2e2ccc454a..d3f02a80b69e 100644
  	if (!desc->name)
  		return -ENOMEM;
  
-@@ -993,6 +1041,8 @@ static int smb_probe(struct platform_device *pdev)
+@@ -992,6 +1040,8 @@ static int smb_probe(struct platform_device *pdev)
  	if (rc)
  		return dev_err_probe(chip->dev, rc,
  				     "Failed to get battery info\n");
@@ -980,7 +980,7 @@ index bf2e2ccc454a..d3f02a80b69e 100644
  
  	rc = devm_delayed_work_autocancel(chip->dev, &chip->status_change_work,
  					  smb_status_change_work);
-@@ -1031,6 +1081,26 @@ static int smb_probe(struct platform_device *pdev)
+@@ -1030,6 +1080,26 @@ static int smb_probe(struct platform_device *pdev)
  
  	platform_set_drvdata(pdev, chip);
  
@@ -1007,7 +1007,7 @@ index bf2e2ccc454a..d3f02a80b69e 100644
  	/* Initialise charger state */
  	schedule_delayed_work(&chip->status_change_work, 0);
  
-@@ -1038,8 +1108,10 @@ static int smb_probe(struct platform_device *pdev)
+@@ -1037,8 +1107,10 @@ static int smb_probe(struct platform_device *pdev)
  }
  
  static const struct of_device_id smb_match_id_table[] = {

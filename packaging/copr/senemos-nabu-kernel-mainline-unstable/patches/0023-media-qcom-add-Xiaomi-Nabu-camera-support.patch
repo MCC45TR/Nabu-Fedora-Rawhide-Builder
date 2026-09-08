@@ -1,7 +1,7 @@
-From 921990e7f692af31b9595506b50e85cd57dcfb1d Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: mcc45tr <mcc45tr@gmail.com>
 Date: Tue, 1 Sep 2026 18:02:03 +0300
-Subject: [PATCH 23/30] media: qcom: add Xiaomi Nabu camera support
+Subject: [PATCH 023/117] media: qcom: add Xiaomi Nabu camera support
 
 Port ChengFangming/CFM880 nabu-camera SM8150 CAMSS, CCI, OV13B10, OV8856 and CN3927 work onto the Linux 7.2.2 Nabu tree. Preserve the current 7.2 media APIs while retaining the camera reopen/runtime-PM fix and the composable camera-only derived DTB.
 
@@ -711,10 +711,10 @@ index 000000000000..a65067352b58
 +        };
 +    };
 diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
-index 2e48167cb408..b21bd83a0b6f 100644
+index 4cf0c4ce0a47..2e61c8c17f35 100644
 --- a/arch/arm64/boot/dts/qcom/Makefile
 +++ b/arch/arm64/boot/dts/qcom/Makefile
-@@ -355,6 +355,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-mtp.dtb
+@@ -363,6 +363,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-mtp.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-sony-xperia-kumano-bahamut.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-sony-xperia-kumano-griffin.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-xiaomi-nabu.dtb
@@ -1251,10 +1251,10 @@ index 000000000000..970e14094c80
 +	};
 +};
 diff --git a/drivers/media/i2c/Kconfig b/drivers/media/i2c/Kconfig
-index 5d173e0ecf42..7fa1df291d62 100644
+index 5c52007f9cbe..ca4f52d011c9 100644
 --- a/drivers/media/i2c/Kconfig
 +++ b/drivers/media/i2c/Kconfig
-@@ -878,6 +878,16 @@ menuconfig VIDEO_CAMERA_LENS
+@@ -901,6 +901,16 @@ menuconfig VIDEO_CAMERA_LENS
  
  if VIDEO_CAMERA_LENS
  
@@ -1272,7 +1272,7 @@ index 5d173e0ecf42..7fa1df291d62 100644
  	tristate "AD5820 lens voice coil support"
  	depends on GPIOLIB
 diff --git a/drivers/media/i2c/Makefile b/drivers/media/i2c/Makefile
-index e45359efe0e4..6dfea83ff231 100644
+index d04bd5724552..5402ed1b0024 100644
 --- a/drivers/media/i2c/Makefile
 +++ b/drivers/media/i2c/Makefile
 @@ -25,6 +25,7 @@ obj-$(CONFIG_VIDEO_BT856) += bt856.o
@@ -2502,7 +2502,7 @@ index 93d691c8ac63..a1993d5c2dda 100644
  	CAMSS_8280XP,
  	CAMSS_8300,
 diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
-index af66292977c6..4dc8f3187cd3 100644
+index da39b5f2c97b..3a660c163a0d 100644
 --- a/senemos/configs/nabu-minimal.config
 +++ b/senemos/configs/nabu-minimal.config
 @@ -87,6 +87,18 @@ CONFIG_PSTORE_RAM=y
@@ -2524,6 +2524,3 @@ index af66292977c6..4dc8f3187cd3 100644
  # Fedora-compatible module packaging.
  CONFIG_MODULES=y
  CONFIG_MODULE_COMPRESS_ZSTD=y
--- 
-2.55.0
-

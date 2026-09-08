@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 17:31:44 +0300
-Subject: [PATCH 09/21] nabu: carry 90 Hz touch policy and defer optional XHCI
- on 7.2
+Subject: [PATCH 009/117] nabu: carry 90 Hz touch policy and defer optional
+ XHCI on 7.2
 
 ---
  drivers/gpu/drm/panel/panel-novatek-nt36523.c | 9 ++++++++-
@@ -10,10 +10,10 @@ Subject: [PATCH 09/21] nabu: carry 90 Hz touch policy and defer optional XHCI
  2 files changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index 72d8389792fd..a5ecce82b834 100644
+index 10534ae53cb3..9e8ea8c1a365 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-@@ -1270,7 +1270,14 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo, bool panel_init)
+@@ -1271,7 +1271,14 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo, bool panel_init)
  	if (panel_init)
  		mipi_dsi_dual_dcs_write_seq_multi(dsi_ctx, dsi0, dsi1,
  						  0xfb, 0x01);

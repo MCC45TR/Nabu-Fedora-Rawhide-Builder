@@ -4,13 +4,18 @@ set -Eeuo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 top=${1:-$root/rpmbuild}
 spec=$root/senemos-nabu-kernel-mainline-unstable.spec
-version=$(sed -nE 's/^Version:[[:space:]]+([^[:space:]]+).*/\1/p' "$spec")
-archive=linux-$version.tar.xz
-url=https://cdn.kernel.org/pub/linux/kernel/v7.x/$archive
+upstream_version=$(sed -nE \
+    's/^%global upstream_version[[:space:]]+([^[:space:]]+).*/\1/p' "$spec")
+archive=linux-$upstream_version.tar.gz
+url=https://git.kernel.org/torvalds/t/$archive
 
 mkdir -p "$top"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 if [[ ! -s $top/SOURCES/$archive ]]; then
-    curl -L --fail --retry 3 --output "$top/SOURCES/$archive" "$url"
+    if [[ -n ${NABU_UPSTREAM_ARCHIVE:-} ]]; then
+        install -m0644 "$NABU_UPSTREAM_ARCHIVE" "$top/SOURCES/$archive"
+    else
+        curl -L --fail --retry 3 --output "$top/SOURCES/$archive" "$url"
+    fi
 fi
 install -m0644 "$root/upstream.sha256" "$root/patches.sha256" \
     "$root/91-nabu-mainline-unstable-omit-early-xhci.conf" \

@@ -1,0 +1,2069 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Tue, 8 Sep 2026 07:21:21 +0300
+Subject: [PATCH 114/117] media: qcom: complete Nabu VPU5 port for Linux 7.3
+
+---
+ .../media/platform/qcom/iris/iris_buffer.c    |   9 +-
+ .../media/platform/qcom/iris/iris_common.c    |   2 +
+ drivers/media/platform/qcom/iris/iris_core.c  |  46 ++-
+ drivers/media/platform/qcom/iris/iris_core.h  |   6 +
+ drivers/media/platform/qcom/iris/iris_ctrls.c |  33 +-
+ .../platform/qcom/iris/iris_hfi_common.c      |   9 +-
+ .../qcom/iris/iris_hfi_gen1_command.c         | 344 ++++++++++++++++--
+ .../qcom/iris/iris_hfi_gen1_defines.h         |  41 +++
+ .../qcom/iris/iris_hfi_gen1_response.c        | 157 +++++++-
+ .../media/platform/qcom/iris/iris_hfi_queue.c | 104 ++++--
+ .../media/platform/qcom/iris/iris_hfi_queue.h |  17 +
+ .../media/platform/qcom/iris/iris_instance.h  |  18 +
+ drivers/media/platform/qcom/iris/iris_probe.c |   7 +-
+ drivers/media/platform/qcom/iris/iris_vb2.c   |  91 +++++
+ drivers/media/platform/qcom/iris/iris_vb2.h   |   2 +
+ drivers/media/platform/qcom/iris/iris_vdec.c  | 221 ++++++++++-
+ drivers/media/platform/qcom/iris/iris_vdec.h  |   7 +
+ drivers/media/platform/qcom/iris/iris_vidc.c  |  19 +-
+ .../platform/qcom/iris/iris_vpu_buffer.c      |   3 +
+ .../platform/qcom/iris/iris_vpu_common.c      |  23 +-
+ 20 files changed, 1068 insertions(+), 91 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_buffer.c b/drivers/media/platform/qcom/iris/iris_buffer.c
+index eb8de60c1177..a3d52452254b 100644
+--- a/drivers/media/platform/qcom/iris/iris_buffer.c
++++ b/drivers/media/platform/qcom/iris/iris_buffer.c
+@@ -487,8 +487,15 @@ static void iris_fill_internal_buf_info(struct iris_inst *inst,
+ 					enum iris_buffer_type buffer_type)
+ {
+ 	struct iris_buffers *buffers = &inst->buffers[buffer_type];
++	u32 calculated_size;
+ 
+-	buffers->size = inst->core->iris_firmware_desc->get_vpu_buffer_size(inst, buffer_type);
++	calculated_size = inst->core->iris_firmware_desc->get_vpu_buffer_size(inst,
++								     buffer_type);
++	if (inst->core->iris_platform_data->legacy_vpu5 &&
++	    inst->fw_buffer_sizes[buffer_type])
++		buffers->size = inst->fw_buffer_sizes[buffer_type];
++	else
++		buffers->size = calculated_size;
+ 	buffers->min_count = iris_vpu_buf_count(inst, buffer_type);
+ }
+ 
+diff --git a/drivers/media/platform/qcom/iris/iris_common.c b/drivers/media/platform/qcom/iris/iris_common.c
+index 25836561bcf3..5685b8fe9171 100644
+--- a/drivers/media/platform/qcom/iris/iris_common.c
++++ b/drivers/media/platform/qcom/iris/iris_common.c
+@@ -215,6 +215,8 @@ int iris_session_streamoff(struct iris_inst *inst, u32 plane)
+ 		return -EINVAL;
+ 	}
+ 
++	inst->streamoff_pending = true;
++
+ 	ret = hfi_ops->session_stop(inst, plane);
+ 	if (ret)
+ 		goto error;
+diff --git a/drivers/media/platform/qcom/iris/iris_core.c b/drivers/media/platform/qcom/iris/iris_core.c
+index 8c335dbfce16..b5489989ca2b 100644
+--- a/drivers/media/platform/qcom/iris/iris_core.c
++++ b/drivers/media/platform/qcom/iris/iris_core.c
+@@ -10,26 +10,49 @@
+ #include "iris_state.h"
+ #include "iris_vpu_common.h"
+ 
++static void iris_core_deinit_locked(struct iris_core *core, bool power_off)
++{
++	iris_fw_unload(core);
++	if (power_off)
++		iris_vpu_power_off(core);
++	iris_hfi_queues_deinit(core);
++	core->state = IRIS_CORE_DEINIT;
++}
++
+ void iris_core_deinit(struct iris_core *core)
+ {
+ 	int ret;
+ 
++	if (READ_ONCE(core->state) == IRIS_CORE_DEINIT)
++		return;
++
+ 	ret = pm_runtime_resume_and_get(core->dev);
+ 
+ 	mutex_lock(&core->lock);
+-	if (core->state != IRIS_CORE_DEINIT) {
+-		iris_fw_unload(core);
++	if (core->state != IRIS_CORE_DEINIT)
++		iris_core_deinit_locked(core, ret >= 0);
++	mutex_unlock(&core->lock);
+ 
+-		if (!ret)
+-			iris_vpu_power_off(core);
++	if (ret >= 0)
++		pm_runtime_put_sync(core->dev);
++}
++
++int iris_core_deinit_for_system_suspend(struct iris_core *core)
++{
++	int ret = 0;
+ 
+-		iris_hfi_queues_deinit(core);
+-		core->state = IRIS_CORE_DEINIT;
++	mutex_lock(&core->lock);
++	if (!list_empty(&core->instances)) {
++		dev_warn(core->dev,
++			 "refusing system suspend with active codec sessions\n");
++		ret = -EBUSY;
++	} else if (core->state != IRIS_CORE_DEINIT) {
++		dev_info(core->dev, "quiescing legacy VPU5 for system suspend\n");
++		iris_core_deinit_locked(core, true);
+ 	}
+ 	mutex_unlock(&core->lock);
+ 
+-	if (!ret)
+-		pm_runtime_put_sync(core->dev);
++	return ret;
+ }
+ 
+ static int iris_wait_for_system_response(struct iris_core *core)
+@@ -76,6 +99,12 @@ int iris_core_init(struct iris_core *core)
+ 	if (ret)
+ 		goto error_power_off;
+ 
++	if (core->iris_platform_data->legacy_vpu5) {
++		ret = iris_set_hw_state(core, true);
++		if (ret)
++			goto error_unload_fw;
++	}
++
+ 	ret = iris_vpu_boot_firmware(core);
+ 	if (ret)
+ 		goto error_unload_fw;
+@@ -86,6 +115,7 @@ int iris_core_init(struct iris_core *core)
+ 
+ 	core->iris_firmware_data->init_hfi_ops(core);
+ 
++	reinit_completion(&core->core_init_done);
+ 	ret = iris_hfi_core_init(core);
+ 	if (ret)
+ 		goto error_unload_fw;
+diff --git a/drivers/media/platform/qcom/iris/iris_core.h b/drivers/media/platform/qcom/iris/iris_core.h
+index 24da60448cf2..09a86fbfe022 100644
+--- a/drivers/media/platform/qcom/iris/iris_core.h
++++ b/drivers/media/platform/qcom/iris/iris_core.h
+@@ -16,6 +16,8 @@
+ #include "iris_resources.h"
+ #include "iris_state.h"
+ 
++struct llcc_slice_desc;
++
+ struct icc_info {
+ 	const char		*name;
+ 	u32			bw_min_kbps;
+@@ -115,6 +117,9 @@ struct iris_core {
+ 	u32					header_id;
+ 	u32					packet_id;
+ 	struct iris_core_power			power;
++	struct llcc_slice_desc			*llcc_slices[2];
++	bool					llcc_active;
++	bool					syscache_set;
+ 	const struct iris_hfi_sys_ops		*hfi_sys_ops;
+ 	struct completion			core_init_done;
+ 	u32					intr_status;
+@@ -127,5 +132,6 @@ struct iris_core {
+ 
+ int iris_core_init(struct iris_core *core);
+ void iris_core_deinit(struct iris_core *core);
++int iris_core_deinit_for_system_suspend(struct iris_core *core);
+ 
+ #endif
+diff --git a/drivers/media/platform/qcom/iris/iris_ctrls.c b/drivers/media/platform/qcom/iris/iris_ctrls.c
+index bf17d310eac0..eb6495431ff3 100644
+--- a/drivers/media/platform/qcom/iris/iris_ctrls.c
++++ b/drivers/media/platform/qcom/iris/iris_ctrls.c
+@@ -313,12 +313,27 @@ static int iris_op_s_ctrl(struct v4l2_ctrl *ctrl)
+ 	struct platform_inst_fw_cap *cap;
+ 	struct vb2_queue *q;
+ 
++	q = v4l2_m2m_get_src_vq(inst->m2m_ctx);
++	switch (ctrl->id) {
++	case V4L2_CID_MPEG_VIDEO_DEC_DISPLAY_DELAY:
++		if (inst->domain != DECODER || vb2_is_streaming(q))
++			return -EINVAL;
++		inst->display_delay = ctrl->val;
++		return 0;
++	case V4L2_CID_MPEG_VIDEO_DEC_DISPLAY_DELAY_ENABLE:
++		if (inst->domain != DECODER || vb2_is_streaming(q))
++			return -EINVAL;
++		inst->display_delay_enable = ctrl->val;
++		return 0;
++	default:
++		break;
++	}
++
+ 	cap = &inst->fw_caps[0];
+ 	cap_id = iris_get_cap_id(ctrl->id);
+ 	if (!iris_valid_cap_id(cap_id))
+ 		return -EINVAL;
+ 
+-	q = v4l2_m2m_get_src_vq(inst->m2m_ctx);
+ 	if (vb2_is_streaming(q) &&
+ 	    (!(inst->fw_caps[cap_id].flags & CAP_FLAG_DYNAMIC_ALLOWED)))
+ 		return -EINVAL;
+@@ -343,6 +358,7 @@ int iris_ctrls_init(struct iris_inst *inst)
+ {
+ 	struct platform_inst_fw_cap *cap = &inst->fw_caps[0];
+ 	u32 num_ctrls = 0, ctrl_idx = 0, idx = 0;
++	u32 handler_ctrls;
+ 	u32 v4l2_id;
+ 	int ret;
+ 
+@@ -356,7 +372,12 @@ int iris_ctrls_init(struct iris_inst *inst)
+ 	 * V4L2_CID_MIN_BUFFERS_FOR_OUTPUT for encoder
+ 	 */
+ 
+-	ret = v4l2_ctrl_handler_init(&inst->ctrl_handler, num_ctrls + 1);
++	handler_ctrls = num_ctrls + 1;
++	if (inst->domain == DECODER &&
++	    inst->core->iris_platform_data->legacy_vpu5)
++		handler_ctrls += 2;
++
++	ret = v4l2_ctrl_handler_init(&inst->ctrl_handler, handler_ctrls);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -399,6 +420,14 @@ int iris_ctrls_init(struct iris_inst *inst)
+ 	if (inst->domain == DECODER) {
+ 		v4l2_ctrl_new_std(&inst->ctrl_handler, NULL,
+ 				  V4L2_CID_MIN_BUFFERS_FOR_CAPTURE, 1, 32, 1, 4);
++		if (inst->core->iris_platform_data->legacy_vpu5) {
++			v4l2_ctrl_new_std(&inst->ctrl_handler, &iris_ctrl_ops,
++					  V4L2_CID_MPEG_VIDEO_DEC_DISPLAY_DELAY,
++					  0, 16383, 1, 0);
++			v4l2_ctrl_new_std(&inst->ctrl_handler, &iris_ctrl_ops,
++					  V4L2_CID_MPEG_VIDEO_DEC_DISPLAY_DELAY_ENABLE,
++					  0, 1, 1, 0);
++		}
+ 	} else {
+ 		v4l2_ctrl_new_std(&inst->ctrl_handler, NULL,
+ 				  V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 1, 32, 1, 4);
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_common.c b/drivers/media/platform/qcom/iris/iris_hfi_common.c
+index 8769ec61f117..372fe7461758 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_common.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_common.c
+@@ -82,6 +82,8 @@ int iris_hfi_core_init(struct iris_core *core)
+ 	ret = hfi_ops->sys_init(core);
+ 	if (ret)
+ 		return ret;
++	if (core->iris_platform_data->legacy_vpu5)
++		return 0;
+ 
+ 	ret = hfi_ops->sys_image_version(core);
+ 	if (ret)
+@@ -92,7 +94,11 @@ int iris_hfi_core_init(struct iris_core *core)
+ 
+ irqreturn_t iris_hfi_isr(int irq, void *data)
+ {
++	struct iris_core *core = data;
++
+ 	disable_irq_nosync(irq);
++	if (core && core->iris_platform_data->legacy_vpu5)
++		iris_vpu_clear_interrupt(core);
+ 
+ 	return IRQ_WAKE_THREAD;
+ }
+@@ -106,7 +112,8 @@ irqreturn_t iris_hfi_isr_handler(int irq, void *data)
+ 
+ 	mutex_lock(&core->lock);
+ 	pm_runtime_mark_last_busy(core->dev);
+-	iris_vpu_clear_interrupt(core);
++	if (!core->iris_platform_data->legacy_vpu5)
++		iris_vpu_clear_interrupt(core);
+ 	mutex_unlock(&core->lock);
+ 
+ 	core->hfi_sys_ops->sys_hfi_response_handler(core);
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+index f6e9cbfccd09..67a43e994445 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+@@ -8,6 +8,9 @@
+ #include "iris_instance.h"
+ #include "iris_vpu_buffer.h"
+ 
++#include <linux/soc/qcom/llcc-qcom.h>
++#include <media/v4l2-mem2mem.h>
++
+ static u32 iris_hfi_gen1_buf_type_from_driver(enum iris_buffer_type buffer_type)
+ {
+ 	switch (buffer_type) {
+@@ -53,7 +56,8 @@ static int iris_hfi_gen1_sys_image_version(struct iris_core *core)
+ 	return iris_hfi_queue_cmd_write_locked(core, &packet, packet.hdr.size);
+ }
+ 
+-static int iris_hfi_gen1_sys_interframe_powercollapse(struct iris_core *core)
++static int iris_hfi_gen1_sys_power_control(struct iris_core *core, bool enable,
++					   bool core_locked)
+ {
+ 	struct hfi_sys_set_property_pkt *pkt;
+ 	struct hfi_enable *hfi;
+@@ -71,14 +75,115 @@ static int iris_hfi_gen1_sys_interframe_powercollapse(struct iris_core *core)
+ 	pkt->hdr.pkt_type = HFI_CMD_SYS_SET_PROPERTY;
+ 	pkt->num_properties = 1;
+ 	pkt->data[0] = HFI_PROPERTY_SYS_CODEC_POWER_PLANE_CTRL;
+-	hfi->enable = true;
++	hfi->enable = enable;
++
++	if (core_locked)
++		ret = iris_hfi_queue_cmd_write_locked(core, pkt, pkt->hdr.size);
++	else
++		ret = iris_hfi_queue_cmd_write(core, pkt, pkt->hdr.size);
++	kfree(pkt);
++
++	return ret;
++}
++
++static int iris_hfi_gen1_sys_debug_config(struct iris_core *core)
++{
++	struct hfi_sys_set_property_pkt *pkt;
++	struct hfi_debug_config *config;
++	u32 packet_size;
++	int ret;
++
++	packet_size = struct_size(pkt, data, 1) + sizeof(*config);
++	pkt = kzalloc(packet_size, GFP_KERNEL);
++	if (!pkt)
++		return -ENOMEM;
++
++	config = (struct hfi_debug_config *)&pkt->data[1];
++	pkt->hdr.size = packet_size;
++	pkt->hdr.pkt_type = HFI_CMD_SYS_SET_PROPERTY;
++	pkt->num_properties = 1;
++	pkt->data[0] = HFI_PROPERTY_SYS_DEBUG_CONFIG;
++	config->debug_config = HFI_DEBUG_MSG_ERROR | HFI_DEBUG_MSG_FATAL;
++	config->debug_mode = HFI_DEBUG_MODE_QUEUE;
++
++	ret = iris_hfi_queue_cmd_write(core, pkt, packet_size);
++	kfree(pkt);
++
++	return ret;
++}
++
++static int iris_hfi_gen1_syscache_config(struct iris_core *core)
++{
++	static const u32 usecase_ids[] = { LLCC_VIDSC0, LLCC_VIDSC1 };
++	struct hfi_sys_set_resource_pkt *pkt;
++	u32 packet_size, i;
++	int ret;
++
++	if (core->syscache_set)
++		return 0;
+ 
+-	ret = iris_hfi_queue_cmd_write_locked(core, pkt, pkt->hdr.size);
++	for (i = 0; i < ARRAY_SIZE(usecase_ids); i++) {
++		core->llcc_slices[i] = llcc_slice_getd(usecase_ids[i]);
++		if (IS_ERR(core->llcc_slices[i])) {
++			ret = PTR_ERR(core->llcc_slices[i]);
++			core->llcc_slices[i] = NULL;
++			goto error_put;
++		}
++	}
++
++	for (i = 0; i < ARRAY_SIZE(usecase_ids); i++) {
++		ret = llcc_slice_activate(core->llcc_slices[i]);
++		if (ret)
++			goto error_deactivate;
++	}
++	core->llcc_active = true;
++
++	packet_size = struct_size(pkt, data, 5);
++	pkt = kzalloc(packet_size, GFP_KERNEL);
++	if (!pkt) {
++		ret = -ENOMEM;
++		goto error_deactivate;
++	}
++
++	pkt->hdr.size = packet_size;
++	pkt->hdr.pkt_type = HFI_CMD_SYS_SET_RESOURCE;
++	pkt->resource_handle = 1;
++	pkt->resource_type = HFI_RESOURCE_SYSCACHE;
++	pkt->data[0] = ARRAY_SIZE(usecase_ids);
++	for (i = 0; i < ARRAY_SIZE(usecase_ids); i++) {
++		pkt->data[1 + i * 2] = llcc_get_slice_size(core->llcc_slices[i]);
++		pkt->data[2 + i * 2] = llcc_get_slice_id(core->llcc_slices[i]);
++	}
++
++	ret = iris_hfi_queue_cmd_write(core, pkt, packet_size);
+ 	kfree(pkt);
++	if (ret)
++		goto error_deactivate;
++
++	core->syscache_set = true;
++	return 0;
++
++error_deactivate:
++	while (i--)
++		llcc_slice_deactivate(core->llcc_slices[i]);
++	core->llcc_active = false;
++error_put:
++	for (i = 0; i < ARRAY_SIZE(usecase_ids); i++) {
++		if (core->llcc_slices[i])
++			llcc_slice_putd(core->llcc_slices[i]);
++		core->llcc_slices[i] = NULL;
++	}
+ 
+ 	return ret;
+ }
+ 
++static int iris_hfi_gen1_sys_interframe_powercollapse(struct iris_core *core)
++{
++	return iris_hfi_gen1_sys_power_control(core,
++					     !core->iris_platform_data->legacy_vpu5,
++					     true);
++}
++
+ static int iris_hfi_gen1_sys_pc_prep(struct iris_core *core)
+ {
+ 	struct hfi_sys_pc_prep_pkt pkt;
+@@ -98,6 +203,20 @@ static int iris_hfi_gen1_session_open(struct iris_inst *inst)
+ 	if (inst->state != IRIS_INST_DEINIT)
+ 		return -EALREADY;
+ 
++	if (inst->core->iris_platform_data->legacy_vpu5) {
++		ret = iris_hfi_gen1_sys_debug_config(inst->core);
++		if (ret)
++			return ret;
++
++		ret = iris_hfi_gen1_syscache_config(inst->core);
++		if (ret)
++			return ret;
++
++		ret = iris_hfi_gen1_sys_power_control(inst->core, false, false);
++		if (ret)
++			return ret;
++	}
++
+ 	switch (inst->codec) {
+ 	case V4L2_PIX_FMT_H264:
+ 		codec = HFI_VIDEO_CODEC_H264;
+@@ -143,6 +262,7 @@ static int iris_hfi_gen1_session_close(struct iris_inst *inst)
+ {
+ 	struct hfi_session_pkt packet;
+ 
++	inst->hfi_core_id = 0;
+ 	iris_hfi_gen1_packet_session_cmd(inst, &packet, HFI_CMD_SYS_SESSION_END);
+ 
+ 	return iris_hfi_queue_cmd_write(inst->core, &packet, packet.shdr.hdr.size);
+@@ -518,20 +638,10 @@ iris_hfi_gen1_packet_session_set_property(struct hfi_session_set_property_pkt *p
+ 		break;
+ 	}
+ 	case HFI_PROPERTY_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO: {
++		struct hfi_uncompressed_plane_actual_constraints_info *in = pdata;
+ 		struct hfi_uncompressed_plane_actual_constraints_info *info = prop_data;
+ 
+-		info->buffer_type = HFI_BUFFER_OUTPUT2;
+-		info->num_planes = 2;
+-		info->plane_format[0].stride_multiples = 128;
+-		info->plane_format[0].max_stride = 8192;
+-		info->plane_format[0].min_plane_buffer_height_multiple = 32;
+-		info->plane_format[0].buffer_alignment = 256;
+-		if (info->num_planes > 1) {
+-			info->plane_format[1].stride_multiples = 128;
+-			info->plane_format[1].max_stride = 8192;
+-			info->plane_format[1].min_plane_buffer_height_multiple = 16;
+-			info->plane_format[1].buffer_alignment = 256;
+-		}
++		*info = *in;
+ 
+ 		packet->shdr.hdr.size += sizeof(*info);
+ 		break;
+@@ -555,6 +665,17 @@ iris_hfi_gen1_packet_session_set_property(struct hfi_session_set_property_pkt *p
+ 		packet->shdr.hdr.size += sizeof(*multi);
+ 		break;
+ 	}
++	case HFI_PROPERTY_PARAM_VDEC_OUTPUT_ORDER: {
++		u32 *order = pdata;
++
++		if (*order != HFI_OUTPUT_ORDER_DECODE &&
++		    *order != HFI_OUTPUT_ORDER_DISPLAY)
++			return -EINVAL;
++
++		packet->data[1] = *order;
++		packet->shdr.hdr.size += sizeof(u32);
++		break;
++	}
+ 	case HFI_PROPERTY_PARAM_BUFFER_SIZE_ACTUAL: {
+ 		struct hfi_buffer_size_actual *in = pdata, *sz = prop_data;
+ 
+@@ -815,11 +936,60 @@ static int iris_hfi_gen1_set_resolution(struct iris_inst *inst, u32 plane)
+ static int iris_hfi_gen1_decide_core(struct iris_inst *inst, u32 plane)
+ {
+ 	const u32 ptype = HFI_PROPERTY_CONFIG_VIDEOCORES_USAGE;
++	struct iris_core *core = inst->core;
+ 	struct hfi_videocores_usage_type cu;
++	struct iris_inst *instance;
++	u64 core1_load = 0;
++	u64 core2_load = 0;
++	bool new_assignment = false;
++	u32 fps;
++	int ret;
++
++	mutex_lock(&core->lock);
++	if (!inst->hfi_core_id) {
++		list_for_each_entry(instance, &core->instances, list) {
++			if (instance == inst || instance->domain != DECODER ||
++			    instance->state == IRIS_INST_DEINIT ||
++			    instance->state == IRIS_INST_ERROR)
++				continue;
++
++			fps = max(instance->frame_rate, instance->operating_rate);
++			if (fps == MAXIMUM_FPS)
++				fps = DEFAULT_FPS;
++			fps = max(fps, 1U);
++			if (instance->hfi_core_id == HFI_CORE_ID_1)
++				core1_load += (u64)iris_get_mbpf(instance) * fps;
++			else if (instance->hfi_core_id == HFI_CORE_ID_2)
++				core2_load += (u64)iris_get_mbpf(instance) * fps;
++		}
++
++		if (core->iris_platform_data->legacy_vpu5 &&
++		    core->iris_platform_data->num_vpp_pipe > 1 &&
++		    core1_load > core2_load)
++			inst->hfi_core_id = HFI_CORE_ID_2;
++		else
++			inst->hfi_core_id = HFI_CORE_ID_1;
++		new_assignment = true;
++	}
++	cu.video_core_enable_mask = inst->hfi_core_id;
++	mutex_unlock(&core->lock);
++
++	ret = hfi_gen1_set_property(inst, ptype, &cu, sizeof(cu));
++	if (ret && new_assignment) {
++		mutex_lock(&core->lock);
++		if (inst->hfi_core_id == cu.video_core_enable_mask)
++			inst->hfi_core_id = 0;
++		mutex_unlock(&core->lock);
++		return ret;
++	}
+ 
+-	cu.video_core_enable_mask = HFI_CORE_ID_1;
++	if (core->iris_platform_data->legacy_vpu5)
++		dev_info(core->dev,
++			 "Iris1: decoder codec=%p4cc assigned core=%u (loads %llu/%llu)\n",
++			 &inst->codec, cu.video_core_enable_mask,
++			 core1_load, core2_load);
+ 
+-	return hfi_gen1_set_property(inst, ptype, &cu, sizeof(cu));
++	return ret;
+ }
+ 
+ static int iris_hfi_gen1_set_raw_format(struct iris_inst *inst, u32 plane)
+@@ -833,15 +1003,23 @@ static int iris_hfi_gen1_set_raw_format(struct iris_inst *inst, u32 plane)
+ 		pixelformat = inst->fmt_dst->fmt.pix_mp.pixelformat;
+ 		if (iris_split_mode_enabled(inst)) {
+ 			fmt.buffer_type = HFI_BUFFER_OUTPUT;
+-			fmt.format = HFI_COLOR_FORMAT_NV12_UBWC;
++			if (inst->core->iris_platform_data->legacy_vpu5 &&
++			    pixelformat == V4L2_PIX_FMT_P010)
++				fmt.format = HFI_COLOR_FORMAT_YUV420_TP10_UBWC;
++			else
++				fmt.format = HFI_COLOR_FORMAT_NV12_UBWC;
+ 
+ 			ret = hfi_gen1_set_property(inst, ptype, &fmt, sizeof(fmt));
+ 			if (ret)
+ 				return ret;
+ 
+ 			fmt.buffer_type = HFI_BUFFER_OUTPUT2;
+-			fmt.format = pixelformat == V4L2_PIX_FMT_NV12 ?
+-				HFI_COLOR_FORMAT_NV12 : HFI_COLOR_FORMAT_NV12_UBWC;
++			if (inst->core->iris_platform_data->legacy_vpu5 &&
++			    pixelformat == V4L2_PIX_FMT_P010)
++				fmt.format = HFI_COLOR_FORMAT_P010;
++			else
++				fmt.format = pixelformat == V4L2_PIX_FMT_NV12 ?
++					HFI_COLOR_FORMAT_NV12 : HFI_COLOR_FORMAT_NV12_UBWC;
+ 
+ 			ret = hfi_gen1_set_property(inst, ptype, &fmt, sizeof(fmt));
+ 		} else {
+@@ -866,18 +1044,22 @@ static int iris_hfi_gen1_set_format_constraints(struct iris_inst *inst, u32 plan
+ {
+ 	const u32 ptype = HFI_PROPERTY_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO;
+ 	struct hfi_uncompressed_plane_actual_constraints_info pconstraint;
++	u32 stride_multiple;
+ 
+ 	if (inst->fmt_dst->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_QC08C)
+ 		return 0;
+ 
++	stride_multiple = inst->fmt_dst->fmt.pix_mp.pixelformat ==
++		V4L2_PIX_FMT_P010 ? 256 : 128;
++
+ 	pconstraint.buffer_type = HFI_BUFFER_OUTPUT2;
+ 	pconstraint.num_planes = 2;
+-	pconstraint.plane_format[0].stride_multiples = 128;
++	pconstraint.plane_format[0].stride_multiples = stride_multiple;
+ 	pconstraint.plane_format[0].max_stride = 8192;
+ 	pconstraint.plane_format[0].min_plane_buffer_height_multiple = 32;
+ 	pconstraint.plane_format[0].buffer_alignment = 256;
+ 
+-	pconstraint.plane_format[1].stride_multiples = 128;
++	pconstraint.plane_format[1].stride_multiples = stride_multiple;
+ 	pconstraint.plane_format[1].max_stride = 8192;
+ 	pconstraint.plane_format[1].min_plane_buffer_height_multiple = 16;
+ 	pconstraint.plane_format[1].buffer_alignment = 256;
+@@ -889,11 +1071,29 @@ static int iris_hfi_gen1_set_num_bufs(struct iris_inst *inst, u32 plane)
+ {
+ 	u32 ptype = HFI_PROPERTY_PARAM_BUFFER_COUNT_ACTUAL;
+ 	struct hfi_buffer_count_actual buf_count;
++	struct vb2_queue *src_q, *dst_q;
++	u32 input_count = VIDEO_MAX_FRAME;
++	u32 output_count = VIDEO_MAX_FRAME;
+ 	int ret;
+ 
++	/* Stateful decoders have no CAPTURE buffers before first source-change. */
++	if (inst->core->iris_platform_data->legacy_vpu5 &&
++	    inst->domain == ENCODER) {
++		src_q = v4l2_m2m_get_src_vq(inst->m2m_ctx);
++		dst_q = v4l2_m2m_get_dst_vq(inst->m2m_ctx);
++		input_count = vb2_get_num_buffers(src_q);
++		output_count = vb2_get_num_buffers(dst_q);
++		if (!input_count || !output_count) {
++			dev_err(inst->core->dev,
++				"Iris1: invalid VPU5 VB2 counts input=%u output=%u\n",
++				input_count, output_count);
++			return -EINVAL;
++		}
++	}
++
+ 	buf_count.type = HFI_BUFFER_INPUT;
+-	buf_count.count_actual = VIDEO_MAX_FRAME;
+-	buf_count.count_min_host = VIDEO_MAX_FRAME;
++	buf_count.count_actual = input_count;
++	buf_count.count_min_host = input_count;
+ 
+ 	ret = hfi_gen1_set_property(inst, ptype, &buf_count, sizeof(buf_count));
+ 	if (ret)
+@@ -923,8 +1123,8 @@ static int iris_hfi_gen1_set_num_bufs(struct iris_inst *inst, u32 plane)
+ 		}
+ 	} else {
+ 		buf_count.type = HFI_BUFFER_OUTPUT;
+-		buf_count.count_actual = VIDEO_MAX_FRAME;
+-		buf_count.count_min_host = VIDEO_MAX_FRAME;
++		buf_count.count_actual = output_count;
++		buf_count.count_min_host = output_count;
+ 
+ 		ret = hfi_gen1_set_property(inst, ptype, &buf_count, sizeof(buf_count));
+ 	}
+@@ -975,7 +1175,8 @@ static int iris_hfi_gen1_set_bufsize(struct iris_inst *inst, u32 plane)
+ 
+ 	if (iris_split_mode_enabled(inst)) {
+ 		bufsz.type = HFI_BUFFER_OUTPUT;
+-		bufsz.size = inst->core->iris_firmware_desc->get_vpu_buffer_size(inst, BUF_DPB);
++		bufsz.size = inst->fw_buffer_sizes[BUF_DPB] ?:
++			inst->core->iris_firmware_desc->get_vpu_buffer_size(inst, BUF_DPB);
+ 
+ 		ret = hfi_gen1_set_property(inst, ptype, &bufsz, sizeof(bufsz));
+ 		if (ret)
+@@ -1002,6 +1203,84 @@ static int iris_hfi_gen1_set_bufsize(struct iris_inst *inst, u32 plane)
+ 	return ret;
+ }
+ 
++static int iris_hfi_gen1_get_buffer_requirements(struct iris_inst *inst)
++{
++	struct hfi_session_get_property_pkt packet = {
++		.shdr.hdr.size = sizeof(packet),
++		.shdr.hdr.pkt_type = HFI_CMD_SESSION_GET_PROPERTY,
++		.shdr.session_id = inst->session_id,
++		.num_properties = 1,
++		.data = HFI_PROPERTY_CONFIG_BUFFER_REQUIREMENTS,
++	};
++	int ret;
++
++	reinit_completion(&inst->completion);
++	ret = iris_hfi_queue_cmd_write(inst->core, &packet, packet.shdr.hdr.size);
++	if (ret)
++		return ret;
++
++	return iris_wait_for_session_response(inst, false);
++}
++
++static int iris_hfi_gen1_set_first_capture_config(struct iris_inst *inst)
++{
++	struct vb2_queue *dst_q = v4l2_m2m_get_dst_vq(inst->m2m_ctx);
++	const u32 count_ptype = HFI_PROPERTY_PARAM_BUFFER_COUNT_ACTUAL;
++	const u32 size_ptype = HFI_PROPERTY_PARAM_BUFFER_SIZE_ACTUAL;
++	const u32 frame_ptype = HFI_PROPERTY_PARAM_FRAME_SIZE;
++	struct hfi_buffer_count_actual count;
++	struct hfi_buffer_size_actual size;
++	struct hfi_framesize frame;
++	u32 dpb_count, output2_count;
++	int ret;
++
++	dpb_count = iris_vpu_buf_count(inst, BUF_DPB);
++	output2_count = vb2_get_num_buffers(dst_q);
++	if (!dpb_count || output2_count < dpb_count) {
++		dev_err(inst->core->dev,
++			"Iris1: invalid first capture counts: codec=%p4cc output2=%u dpb=%u\n",
++			&inst->codec, output2_count, dpb_count);
++		return -EINVAL;
++	}
++
++	ret = iris_hfi_gen1_get_buffer_requirements(inst);
++	if (ret)
++		return ret;
++
++	frame.buffer_type = HFI_BUFFER_OUTPUT2;
++	frame.width = inst->fmt_src->fmt.pix_mp.width;
++	frame.height = inst->fmt_src->fmt.pix_mp.height;
++	ret = hfi_gen1_set_property(inst, frame_ptype, &frame, sizeof(frame));
++	if (ret)
++		return ret;
++
++	count.type = HFI_BUFFER_OUTPUT2;
++	count.count_actual = output2_count;
++	count.count_min_host = output2_count;
++	ret = hfi_gen1_set_property(inst, count_ptype, &count, sizeof(count));
++	if (ret)
++		return ret;
++
++	size.type = HFI_BUFFER_OUTPUT2;
++	size.size = inst->buffers[BUF_OUTPUT].size;
++	ret = hfi_gen1_set_property(inst, size_ptype, &size, sizeof(size));
++	if (ret)
++		return ret;
++
++	size.type = HFI_BUFFER_OUTPUT;
++	size.size = inst->fw_buffer_sizes[BUF_DPB] ?:
++		inst->core->iris_firmware_desc->get_vpu_buffer_size(inst, BUF_DPB);
++	ret = hfi_gen1_set_property(inst, size_ptype, &size, sizeof(size));
++	if (ret)
++		return ret;
++
++	count.type = HFI_BUFFER_OUTPUT;
++	count.count_actual = dpb_count;
++	count.count_min_host = dpb_count;
++
++	return hfi_gen1_set_property(inst, count_ptype, &count, sizeof(count));
++}
++
+ static int iris_hfi_gen1_set_frame_rate(struct iris_inst *inst, u32 plane)
+ {
+ 	const u32 ptype = HFI_PROPERTY_CONFIG_FRAME_RATE;
+@@ -1044,6 +1323,13 @@ static int iris_hfi_gen1_session_set_config_params(struct iris_inst *inst, u32 p
+ 	const u32 *config_params;
+ 	int ret;
+ 
++	if (core->iris_platform_data->legacy_vpu5 &&
++	    inst->domain == DECODER && V4L2_TYPE_IS_CAPTURE(plane) &&
++	    (inst->codec == V4L2_PIX_FMT_HEVC ||
++	     inst->codec == V4L2_PIX_FMT_VP9) &&
++	    inst->sub_state & IRIS_INST_SUB_FIRST_IPSC)
++		return iris_hfi_gen1_set_first_capture_config(inst);
++
+ 	static const struct iris_hfi_prop_type_handle vdec_prop_type_handle_inp_arr[] = {
+ 		{HFI_PROPERTY_PARAM_FRAME_SIZE,
+ 			iris_hfi_gen1_set_resolution},
+@@ -1117,6 +1403,10 @@ static int iris_hfi_gen1_session_set_config_params(struct iris_inst *inst, u32 p
+ 		}
+ 	}
+ 
++	if (core->iris_platform_data->legacy_vpu5 &&
++	    V4L2_TYPE_IS_OUTPUT(plane))
++		return iris_hfi_gen1_get_buffer_requirements(inst);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h b/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
+index 275f3fea3d2a..e70424de8cd6 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
+@@ -21,6 +21,7 @@
+ 
+ #define HFI_CMD_SYS_INIT				0x10001
+ #define HFI_CMD_SYS_PC_PREP				0x10002
++#define HFI_CMD_SYS_SET_RESOURCE			0x10003
+ #define HFI_CMD_SYS_SET_PROPERTY			0x10005
+ #define HFI_CMD_SYS_GET_PROPERTY			0x10006
+ #define HFI_CMD_SYS_SESSION_INIT			0x10007
+@@ -35,6 +36,7 @@
+ #define HFI_CMD_SESSION_EMPTY_BUFFER			0x211004
+ #define HFI_CMD_SESSION_FILL_BUFFER			0x211005
+ #define HFI_CMD_SESSION_FLUSH				0x211008
++#define HFI_CMD_SESSION_GET_PROPERTY			0x211009
+ #define HFI_CMD_SESSION_RELEASE_BUFFERS			0x21100b
+ #define HFI_CMD_SESSION_RELEASE_RESOURCES		0x21100c
+ #define HFI_CMD_SESSION_CONTINUE			0x21100d
+@@ -67,6 +69,9 @@
+ #define HFI_PROPERTY_PARAM_BUFFER_SIZE_ACTUAL				0x20100c
+ 
+ #define HFI_PROPERTY_CONFIG_BUFFER_REQUIREMENTS		0x202001
++#define HFI_PROPERTY_PARAM_VDEC_OUTPUT_ORDER		0x1203005
++#define HFI_OUTPUT_ORDER_DISPLAY			0x1000001
++#define HFI_OUTPUT_ORDER_DECODE			0x1000002
+ 
+ #define HFI_PROPERTY_PARAM_VDEC_DPB_COUNTS		0x120300e
+ #define HFI_PROPERTY_CONFIG_VDEC_ENTROPY		0x1204004
+@@ -82,6 +87,13 @@
+ 
+ #define HFI_PROPERTY_SYS_CODEC_POWER_PLANE_CTRL		0x5
+ #define HFI_PROPERTY_SYS_IMAGE_VERSION			0x6
++#define HFI_PROPERTY_SYS_DEBUG_CONFIG			0x1
++
++#define HFI_DEBUG_MSG_ERROR				0x00000008
++#define HFI_DEBUG_MSG_FATAL				0x00000010
++#define HFI_DEBUG_MODE_QUEUE				0x00000001
++
++#define HFI_RESOURCE_SYSCACHE				0x00000002
+ 
+ #define HFI_PROPERTY_PARAM_FRAME_SIZE			0x1001
+ #define HFI_PROPERTY_PARAM_UNCOMPRESSED_PLANE_ACTUAL_INFO	0x1002
+@@ -97,8 +109,11 @@
+ #define HFI_PROPERTY_PARAM_VDEC_PIC_STRUCT		0x1003009
+ #define HFI_PROPERTY_PARAM_VDEC_COLOUR_SPACE		0x100300a
+ #define HFI_CORE_ID_1					1
++#define HFI_CORE_ID_2					2
+ #define HFI_COLOR_FORMAT_NV12				0x02
+ #define HFI_COLOR_FORMAT_NV12_UBWC			0x8002
++#define HFI_COLOR_FORMAT_YUV420_TP10_UBWC		0xc002
++#define HFI_COLOR_FORMAT_P010				0x4003
+ 
+ #define HFI_MSG_SYS_INIT				0x20001
+ #define HFI_MSG_SYS_SESSION_INIT			0x20006
+@@ -113,6 +128,7 @@
+ #define HFI_MSG_SESSION_FLUSH				0x221006
+ #define HFI_MSG_SESSION_EMPTY_BUFFER			0x221007
+ #define HFI_MSG_SESSION_FILL_BUFFER			0x221008
++#define HFI_MSG_SESSION_PROPERTY_INFO			0x221009
+ #define HFI_MSG_SESSION_RELEASE_RESOURCES		0x22100a
+ #define HFI_MSG_SESSION_RELEASE_BUFFERS			0x22100c
+ 
+@@ -194,6 +210,13 @@ struct hfi_sys_set_property_pkt {
+ 	u32 data[];
+ };
+ 
++struct hfi_sys_set_resource_pkt {
++	struct hfi_pkt_hdr hdr;
++	u32 resource_handle;
++	u32 resource_type;
++	u32 data[];
++};
++
+ struct hfi_sys_get_property_pkt {
+ 	struct hfi_pkt_hdr hdr;
+ 	u32 num_properties;
+@@ -206,6 +229,12 @@ struct hfi_session_set_property_pkt {
+ 	u32 data[];
+ };
+ 
++struct hfi_session_get_property_pkt {
++	struct hfi_session_hdr_pkt shdr;
++	u32 num_properties;
++	u32 data;
++};
++
+ struct hfi_sys_pc_prep_pkt {
+ 	struct hfi_pkt_hdr hdr;
+ };
+@@ -311,6 +340,13 @@ struct hfi_msg_session_init_done_pkt {
+ 	u32 data[];
+ };
+ 
++struct hfi_msg_session_property_info_pkt {
++	struct hfi_session_hdr_pkt shdr;
++	u32 num_properties;
++	u32 property;
++	u8 data[];
++};
++
+ struct hfi_msg_sys_property_info_pkt {
+ 	struct hfi_pkt_hdr hdr;
+ 	u32 num_properties;
+@@ -327,6 +363,11 @@ struct hfi_enable {
+ 	u32 enable;
+ };
+ 
++struct hfi_debug_config {
++	u32 debug_config;
++	u32 debug_mode;
++};
++
+ struct hfi_profile_level {
+ 	u32 profile;
+ 	u32 level;
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
+index bfd7495bf44f..fc6bcfe64e92 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
+@@ -9,9 +9,23 @@
+ #include "iris_hfi_gen1.h"
+ #include "iris_hfi_gen1_defines.h"
+ #include "iris_instance.h"
++#include "iris_vb2.h"
+ #include "iris_vdec.h"
+ #include "iris_vpu_buffer.h"
+ 
++#define IRIS1_MAX_CORRUPT_OUTPUT_DROPS 8
++
++static u32
++iris_hfi_gen1_bufreq_count_min(struct iris_inst *inst,
++			       const struct hfi_buffer_requirements *bufreq)
++{
++	/* VIDEO.IR.1.2 swaps the display-hold and minimum-count fields. */
++	if (inst->core->iris_platform_data->legacy_vpu5)
++		return bufreq->hold_count;
++
++	return bufreq->count_min;
++}
++
+ static void iris_hfi_gen1_read_changed_params(struct iris_inst *inst,
+ 					      struct hfi_msg_event_notify_pkt *pkt)
+ {
+@@ -79,7 +93,7 @@ static void iris_hfi_gen1_read_changed_params(struct iris_inst *inst,
+ 		case HFI_PROPERTY_CONFIG_BUFFER_REQUIREMENTS:
+ 			data_ptr += sizeof(u32);
+ 			bufreq = (struct hfi_buffer_requirements *)data_ptr;
+-			event.buf_count = bufreq->count_min;
++			event.buf_count = iris_hfi_gen1_bufreq_count_min(inst, bufreq);
+ 			data_ptr += sizeof(*bufreq);
+ 			break;
+ 		case HFI_INDEX_EXTRADATA_INPUT_CROP:
+@@ -106,9 +120,15 @@ static void iris_hfi_gen1_read_changed_params(struct iris_inst *inst,
+ 	pixmp_ip->width = event.width;
+ 	pixmp_ip->height = event.height;
+ 
+-	pixmp_op->width = ALIGN(event.width, 128);
+-	pixmp_op->height = ALIGN(event.height, 32);
+-	pixmp_op->plane_fmt[0].bytesperline = ALIGN(event.width, 128);
++	if (pixmp_op->pixelformat == V4L2_PIX_FMT_QC10C) {
++		pixmp_op->width = roundup(event.width, 192);
++		pixmp_op->height = ALIGN(event.height, 16);
++	} else {
++		pixmp_op->width = ALIGN(event.width, 128);
++		pixmp_op->height = ALIGN(event.height, 32);
++	}
++	pixmp_op->plane_fmt[0].bytesperline =
++		iris_vdec_raw_stride(event.width, pixmp_op->pixelformat);
+ 	pixmp_op->plane_fmt[0].sizeimage = iris_get_buffer_size(inst, BUF_OUTPUT);
+ 
+ 	matrix_coeff =  FIELD_GET(GENMASK(7, 0), event.colour_space);
+@@ -199,6 +219,7 @@ static void iris_hfi_gen1_event_seq_changed(struct iris_inst *inst,
+ 	}
+ 
+ 	iris_hfi_gen1_read_changed_params(inst, pkt);
++	iris_vb2_vp9_release_high_iova_hole(inst);
+ 
+ 	if (inst->state != IRIS_INST_ERROR && !(inst->sub_state & IRIS_INST_SUB_FIRST_IPSC)) {
+ 
+@@ -403,8 +424,12 @@ static void iris_hfi_gen1_session_ftb_done(struct iris_inst *inst, void *packet)
+ 	u32 hfi_flags;
+ 	u32 offset;
+ 	u64 timestamp_us = 0;
++	bool m2m_stopped;
++	bool recycle_output = false;
++	bool seek_was_pending = false;
+ 	bool found = false;
+ 	u32 flags = 0;
++	int ret;
+ 
+ 	if (inst->domain == DECODER) {
+ 		timestamp_hi = uncom_pkt->time_stamp_hi;
+@@ -494,6 +519,48 @@ static void iris_hfi_gen1_session_ftb_done(struct iris_inst *inst, void *packet)
+ 	}
+ 	buf->timestamp = timestamp_us;
+ 
++	if (inst->domain == DECODER && buf->type == BUF_OUTPUT &&
++	    inst->core->iris_platform_data->legacy_vpu5) {
++		/* The leading hidden frame in a VP9 superframe shares its timestamp. */
++		if (inst->codec == V4L2_PIX_FMT_VP9 && filled_len &&
++		    inst->pending_output &&
++		    inst->pending_output->timestamp == timestamp_us)
++			ret = iris_vdec_recycle_pending_output(inst);
++		else
++			ret = iris_vdec_complete_pending_output(inst);
++		if (ret)
++			goto error;
++		seek_was_pending = inst->seek_timestamp_pending;
++		if (inst->seek_hold_frames)
++			inst->seek_hold_frames--;
++	}
++
++	if (inst->domain == DECODER && buf->type == BUF_OUTPUT && filled_len) {
++		if (inst->core->iris_platform_data->legacy_vpu5 &&
++		    inst->codec != V4L2_PIX_FMT_VP9 &&
++		    (hfi_flags & (HFI_BUFFERFLAG_DATACORRUPT |
++				  HFI_BUFFERFLAG_DROP_FRAME)) &&
++		    inst->corrupt_output_drops < IRIS1_MAX_CORRUPT_OUTPUT_DROPS) {
++			inst->corrupt_output_drops++;
++			recycle_output = true;
++		} else {
++			inst->corrupt_output_drops = 0;
++			recycle_output = iris_vdec_discard_stale_frame(inst, timestamp_us);
++		}
++	}
++
++	if (recycle_output) {
++		buf->data_size = 0;
++		buf->flags = 0;
++		buf->timestamp = 0;
++		buf->attr &= ~(BUF_ATTR_QUEUED | BUF_ATTR_DEQUEUED |
++			       BUF_ATTR_BUFFER_DONE);
++		ret = iris_queue_buffer(inst, buf);
++		if (ret)
++			goto error;
++		return;
++	}
++
+ 	switch (pic_type) {
+ 	case HFI_GEN1_PICTURE_IDR:
+ 	case HFI_GEN1_PICTURE_I:
+@@ -516,23 +583,95 @@ static void iris_hfi_gen1_session_ftb_done(struct iris_inst *inst, void *packet)
+ 	buf->attr |= BUF_ATTR_DEQUEUED;
+ 	buf->attr |= BUF_ATTR_BUFFER_DONE;
+ 
+-	if (hfi_flags & HFI_BUFFERFLAG_DATACORRUPT)
++	if ((hfi_flags & HFI_BUFFERFLAG_DATACORRUPT) &&
++	    !(inst->domain == DECODER && buf->type == BUF_OUTPUT && filled_len &&
++	      inst->core->iris_platform_data->legacy_vpu5 &&
++	      inst->codec == V4L2_PIX_FMT_VP9))
+ 		flags |= V4L2_BUF_FLAG_ERROR;
+ 
+-	if (hfi_flags & HFI_BUFFERFLAG_DROP_FRAME)
++	if ((hfi_flags & HFI_BUFFERFLAG_DROP_FRAME) &&
++	    !(inst->domain == DECODER && buf->type == BUF_OUTPUT && filled_len &&
++	      inst->core->iris_platform_data->legacy_vpu5 &&
++	      inst->codec == V4L2_PIX_FMT_VP9))
+ 		flags |= V4L2_BUF_FLAG_ERROR;
+ 
+ 	buf->flags |= flags;
+ 
++	if (inst->domain == DECODER && buf->type == BUF_OUTPUT && filled_len &&
++	    inst->core->iris_platform_data->legacy_vpu5 &&
++	    !seek_was_pending &&
++	    (inst->codec == V4L2_PIX_FMT_VP9 ||
++	     (!(hfi_flags & (HFI_BUFFERFLAG_DATACORRUPT |
++			     HFI_BUFFERFLAG_DROP_FRAME)) &&
++	      inst->seek_hold_frames))) {
++		ret = iris_vdec_hold_output(inst, buf);
++		if (ret)
++			goto error;
++		return;
++	}
++
+ 	iris_vb2_buffer_done(inst, buf);
+ 
+ 	return;
+ 
+ error:
++	m2m_stopped = v4l2_m2m_has_stopped(m2m_ctx);
++	if (inst->streamoff_pending || inst->last_buffer_dequeued || m2m_stopped)
++		return;
++
+ 	iris_inst_change_state(inst, IRIS_INST_ERROR);
+ 	dev_err(core->dev, "error in ftb done\n");
+ }
+ 
++static void
++iris_hfi_gen1_session_property_info(struct iris_inst *inst, void *packet)
++{
++	struct hfi_msg_session_property_info_pkt *pkt = packet;
++	struct hfi_buffer_requirements *req;
++	enum iris_buffer_type buffer_type;
++	u32 req_bytes, count, i;
++
++	req_bytes = pkt->shdr.hdr.size - sizeof(*pkt);
++	if (pkt->num_properties != 1 ||
++	    pkt->property != HFI_PROPERTY_CONFIG_BUFFER_REQUIREMENTS ||
++	    !req_bytes || req_bytes % sizeof(*req)) {
++		dev_err(inst->core->dev, "malformed VPU5 buffer requirements response\n");
++		complete(&inst->completion);
++		return;
++	}
++
++	count = req_bytes / sizeof(*req);
++	req = (struct hfi_buffer_requirements *)pkt->data;
++	for (i = 0; i < count; i++, req++) {
++		switch (req->type) {
++		case HFI_BUFFER_OUTPUT:
++			if (inst->domain != DECODER || !iris_split_mode_enabled(inst))
++				continue;
++			buffer_type = BUF_DPB;
++			break;
++		case HFI_BUFFER_INTERNAL_PERSIST_1:
++			buffer_type = BUF_PERSIST;
++			break;
++		case HFI_BUFFER_INTERNAL_SCRATCH:
++			buffer_type = BUF_BIN;
++			break;
++		case HFI_BUFFER_INTERNAL_SCRATCH_1:
++			buffer_type = BUF_SCRATCH_1;
++			break;
++		case HFI_BUFFER_INTERNAL_SCRATCH_2:
++			buffer_type = BUF_SCRATCH_2;
++			break;
++		default:
++			continue;
++		}
++
++		inst->fw_buffer_sizes[buffer_type] =
++			max(inst->fw_buffer_sizes[buffer_type], req->size);
++	}
++
++	complete(&inst->completion);
++}
++
+ struct iris_hfi_gen1_response_pkt_info {
+ 	u32 pkt;
+ 	u32 pkt_sz;
+@@ -579,6 +718,10 @@ static const struct iris_hfi_gen1_response_pkt_info pkt_infos[] = {
+ 	 .pkt = HFI_MSG_SESSION_FILL_BUFFER,
+ 	 .pkt_sz = sizeof(struct hfi_msg_session_fbd_compressed_pkt),
+ 	},
++	{
++	 .pkt = HFI_MSG_SESSION_PROPERTY_INFO,
++	 .pkt_sz = sizeof(struct hfi_msg_session_property_info_pkt),
++	},
+ 	{
+ 	 .pkt = HFI_MSG_SESSION_FLUSH,
+ 	 .pkt_sz = sizeof(struct hfi_msg_session_flush_done_pkt),
+@@ -652,6 +795,8 @@ static void iris_hfi_gen1_handle_response(struct iris_core *core, void *response
+ 			iris_hfi_gen1_session_etb_done(inst, hdr);
+ 		} else if (hdr->pkt_type == HFI_MSG_SESSION_FILL_BUFFER) {
+ 			iris_hfi_gen1_session_ftb_done(inst, hdr);
++		} else if (hdr->pkt_type == HFI_MSG_SESSION_PROPERTY_INFO) {
++			iris_hfi_gen1_session_property_info(inst, hdr);
+ 		} else {
+ 			struct hfi_msg_session_hdr_pkt *shdr;
+ 
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_queue.c b/drivers/media/platform/qcom/iris/iris_hfi_queue.c
+index bf6db23b53e2..2421d25b84da 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_queue.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_queue.c
+@@ -9,6 +9,41 @@
+ #include "iris_hfi_queue.h"
+ #include "iris_vpu_common.h"
+ 
++static u32 iris_hfi_queue_table_size(struct iris_core *core)
++{
++	if (core->iris_platform_data->legacy_vpu5)
++		return sizeof(struct iris_hfi_legacy_queue_table_header);
++
++	return sizeof(struct iris_hfi_queue_table_header);
++}
++
++static u32 iris_hfi_single_queue_size(struct iris_core *core)
++{
++	u32 count = core->iris_platform_data->legacy_vpu5 ?
++		IFACEQ_LEGACY_MAX_BUF_COUNT : IFACEQ_MAX_BUF_COUNT;
++
++	return IFACEQ_MAX_PKT_SIZE * count * IFACE_MAX_PARALLEL_SESSIONS;
++}
++
++static u32 iris_hfi_queue_used_size(struct iris_core *core)
++{
++	return ALIGN(iris_hfi_queue_table_size(core) +
++		     iris_hfi_single_queue_size(core) * IFACEQ_NUMQ, SZ_4K);
++}
++
++u32 iris_hfi_queue_region_size(struct iris_core *core)
++{
++	return ALIGN(SFR_SIZE + iris_hfi_queue_used_size(core), SZ_1M);
++}
++
++static u32 iris_hfi_queue_alloc_size(struct iris_core *core)
++{
++	if (core->iris_platform_data->legacy_vpu5)
++		return iris_hfi_queue_region_size(core);
++
++	return iris_hfi_queue_used_size(core);
++}
++
+ static int iris_hfi_queue_write(struct iris_iface_q_info *qinfo, void *packet, u32 packet_size)
+ {
+ 	struct iris_hfi_queue_header *queue = qinfo->qhdr;
+@@ -20,7 +55,7 @@ static int iris_hfi_queue_write(struct iris_iface_q_info *qinfo, void *packet, u
+ 	if (write_idx < read_idx)
+ 		empty_space = read_idx - write_idx;
+ 	else
+-		empty_space = IFACEQ_QUEUE_SIZE - (write_idx -  read_idx);
++		empty_space = qinfo->size - (write_idx -  read_idx);
+ 	if (empty_space < packet_size)
+ 		return -ENOSPC;
+ 
+@@ -31,13 +66,13 @@ static int iris_hfi_queue_write(struct iris_iface_q_info *qinfo, void *packet, u
+ 
+ 	if (write_ptr < (u32 *)qinfo->kernel_vaddr ||
+ 	    write_ptr > (u32 *)(qinfo->kernel_vaddr +
+-	    IFACEQ_QUEUE_SIZE))
++		    qinfo->size))
+ 		return -EINVAL;
+ 
+-	if (new_write_idx < IFACEQ_QUEUE_SIZE) {
++	if (new_write_idx < qinfo->size) {
+ 		memcpy(write_ptr, packet, packet_size);
+ 	} else {
+-		residue = new_write_idx - IFACEQ_QUEUE_SIZE;
++		residue = new_write_idx - qinfo->size;
+ 		memcpy(write_ptr, packet, (packet_size - residue));
+ 		memcpy(qinfo->kernel_vaddr,
+ 		       packet + (packet_size - residue), residue);
+@@ -77,7 +112,7 @@ static int iris_hfi_queue_read(struct iris_iface_q_info *qinfo, void *packet)
+ 	read_ptr = qinfo->kernel_vaddr + read_idx;
+ 	if (read_ptr < (u32 *)qinfo->kernel_vaddr ||
+ 	    read_ptr > (u32 *)(qinfo->kernel_vaddr +
+-	    IFACEQ_QUEUE_SIZE - sizeof(*read_ptr)))
++		    qinfo->size - sizeof(*read_ptr)))
+ 		return -ENODATA;
+ 
+ 	packet_size = *read_ptr;
+@@ -86,10 +121,10 @@ static int iris_hfi_queue_read(struct iris_iface_q_info *qinfo, void *packet)
+ 
+ 	new_read_idx = read_idx + packet_size;
+ 	if (packet_size <= IFACEQ_CORE_PKT_SIZE) {
+-		if (new_read_idx < IFACEQ_QUEUE_SIZE) {
++		if (new_read_idx < qinfo->size) {
+ 			memcpy(packet, read_ptr, packet_size);
+ 		} else {
+-			residue = new_read_idx - IFACEQ_QUEUE_SIZE;
++			residue = new_read_idx - qinfo->size;
+ 			memcpy(packet, read_ptr, (packet_size - residue));
+ 			memcpy((packet + (packet_size - residue)),
+ 			       qinfo->kernel_vaddr, residue);
+@@ -203,7 +238,7 @@ static void iris_hfi_queue_set_header(struct iris_core *core, u32 queue_id,
+ 	iface_q->qhdr->start_addr = iface_q->device_addr;
+ 	iface_q->qhdr->header_type = IFACEQ_DFLT_QHDR;
+ 	iface_q->qhdr->queue_type = queue_id;
+-	iface_q->qhdr->q_size = IFACEQ_QUEUE_SIZE / sizeof(u32);
++	iface_q->qhdr->q_size = iface_q->size / sizeof(u32);
+ 	iface_q->qhdr->pkt_size = 0; /* variable packet size */
+ 	iface_q->qhdr->rx_wm = 0x1;
+ 	iface_q->qhdr->tx_wm = 0x1;
+@@ -226,12 +261,19 @@ static void
+ iris_hfi_queue_init(struct iris_core *core, u32 queue_id, struct iris_iface_q_info *iface_q)
+ {
+ 	struct iris_hfi_queue_table_header *q_tbl_hdr = core->iface_q_table_vaddr;
+-	u32 offset = sizeof(*q_tbl_hdr) + (queue_id * IFACEQ_QUEUE_SIZE);
++	struct iris_hfi_legacy_queue_table_header *legacy_tbl_hdr =
++		core->iface_q_table_vaddr;
++	u32 queue_size = iris_hfi_single_queue_size(core);
++	u32 offset = iris_hfi_queue_table_size(core) + queue_id * queue_size;
+ 
+ 	iface_q->device_addr = core->iface_q_table_daddr + offset;
+ 	iface_q->kernel_vaddr =
+ 			(void *)((char *)core->iface_q_table_vaddr + offset);
+-	iface_q->qhdr = &q_tbl_hdr->q_hdr[queue_id];
++	iface_q->size = queue_size;
++	if (core->iris_platform_data->legacy_vpu5)
++		iface_q->qhdr = &legacy_tbl_hdr->q_hdr[queue_id];
++	else
++		iface_q->qhdr = &q_tbl_hdr->q_hdr[queue_id];
+ 
+ 	iris_hfi_queue_set_header(core, queue_id, iface_q);
+ }
+@@ -241,15 +283,16 @@ static void iris_hfi_queue_deinit(struct iris_iface_q_info *iface_q)
+ 	iface_q->qhdr = NULL;
+ 	iface_q->kernel_vaddr = NULL;
+ 	iface_q->device_addr = 0;
++	iface_q->size = 0;
+ }
+ 
+ int iris_hfi_queues_init(struct iris_core *core)
+ {
+ 	struct iris_hfi_queue_table_header *q_tbl_hdr;
++	struct iris_hfi_legacy_queue_table_header *legacy_tbl_hdr;
+ 	u32 queue_size;
+ 
+-	/* Iris hardware requires 4K queue alignment */
+-	queue_size = ALIGN((sizeof(*q_tbl_hdr) + (IFACEQ_QUEUE_SIZE * IFACEQ_NUMQ)), SZ_4K);
++	queue_size = iris_hfi_queue_alloc_size(core);
+ 	core->iface_q_table_vaddr = dma_alloc_attrs(core->dev, queue_size,
+ 						    &core->iface_q_table_daddr,
+ 						    GFP_KERNEL, DMA_ATTR_WRITE_COMBINE);
+@@ -257,6 +300,7 @@ int iris_hfi_queues_init(struct iris_core *core)
+ 		dev_err(core->dev, "queues alloc and map failed\n");
+ 		return -ENOMEM;
+ 	}
++	memset(core->iface_q_table_vaddr, 0, queue_size);
+ 
+ 	core->sfr_vaddr = dma_alloc_attrs(core->dev, SFR_SIZE,
+ 					  &core->sfr_daddr,
+@@ -272,19 +316,32 @@ int iris_hfi_queues_init(struct iris_core *core)
+ 	iris_hfi_queue_init(core, IFACEQ_MSGQ_ID, &core->message_queue);
+ 	iris_hfi_queue_init(core, IFACEQ_DBGQ_ID, &core->debug_queue);
+ 
+-	q_tbl_hdr = (struct iris_hfi_queue_table_header *)core->iface_q_table_vaddr;
+-	q_tbl_hdr->version = 0;
+-	q_tbl_hdr->device_addr = (void *)core;
+-	strscpy(q_tbl_hdr->name, "iris-hfi-queues", sizeof(q_tbl_hdr->name));
+-	q_tbl_hdr->size = sizeof(*q_tbl_hdr);
+-	q_tbl_hdr->qhdr0_offset = sizeof(*q_tbl_hdr) -
+-		(IFACEQ_NUMQ * sizeof(struct iris_hfi_queue_header));
+-	q_tbl_hdr->qhdr_size = sizeof(q_tbl_hdr->q_hdr[0]);
+-	q_tbl_hdr->num_q = IFACEQ_NUMQ;
+-	q_tbl_hdr->num_active_q = IFACEQ_NUMQ;
++	if (core->iris_platform_data->legacy_vpu5) {
++		legacy_tbl_hdr = core->iface_q_table_vaddr;
++		legacy_tbl_hdr->version = 0;
++		legacy_tbl_hdr->size = sizeof(*legacy_tbl_hdr);
++		legacy_tbl_hdr->qhdr0_offset =
++			offsetof(struct iris_hfi_legacy_queue_table_header, q_hdr);
++		legacy_tbl_hdr->qhdr_size = sizeof(legacy_tbl_hdr->q_hdr[0]);
++		legacy_tbl_hdr->num_q = IFACEQ_NUMQ;
++		legacy_tbl_hdr->num_active_q = IFACEQ_NUMQ;
++	} else {
++		q_tbl_hdr = core->iface_q_table_vaddr;
++		q_tbl_hdr->version = 0;
++		q_tbl_hdr->device_addr = (void *)core;
++		strscpy(q_tbl_hdr->name, "iris-hfi-queues", sizeof(q_tbl_hdr->name));
++		q_tbl_hdr->size = sizeof(*q_tbl_hdr);
++		q_tbl_hdr->qhdr0_offset = sizeof(*q_tbl_hdr) -
++			(IFACEQ_NUMQ * sizeof(struct iris_hfi_queue_header));
++		q_tbl_hdr->qhdr_size = sizeof(q_tbl_hdr->q_hdr[0]);
++		q_tbl_hdr->num_q = IFACEQ_NUMQ;
++		q_tbl_hdr->num_active_q = IFACEQ_NUMQ;
++	}
+ 
+ 	 /* Write sfr size in first word to be used by firmware */
+ 	*((u32 *)core->sfr_vaddr) = SFR_SIZE;
++	/* Publish queue and SFR metadata before firmware starts consuming it. */
++	wmb();
+ 
+ 	return 0;
+ }
+@@ -306,8 +363,7 @@ void iris_hfi_queues_deinit(struct iris_core *core)
+ 	core->sfr_vaddr = NULL;
+ 	core->sfr_daddr = 0;
+ 
+-	queue_size = ALIGN(sizeof(struct iris_hfi_queue_table_header) +
+-		(IFACEQ_QUEUE_SIZE * IFACEQ_NUMQ), SZ_4K);
++	queue_size = iris_hfi_queue_alloc_size(core);
+ 
+ 	dma_free_attrs(core->dev, queue_size, core->iface_q_table_vaddr,
+ 		       core->iface_q_table_daddr, DMA_ATTR_WRITE_COMBINE);
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_queue.h b/drivers/media/platform/qcom/iris/iris_hfi_queue.h
+index 2174fc5ce618..85bf2618ce88 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_queue.h
++++ b/drivers/media/platform/qcom/iris/iris_hfi_queue.h
+@@ -13,6 +13,7 @@ struct iris_core;
+  * can be queued by v4l2 framework at any given time.
+  */
+ #define IFACEQ_MAX_BUF_COUNT		64
++#define IFACEQ_LEGACY_MAX_BUF_COUNT	50
+ /*
+  * Max session supported are 16.
+  * this value is used to calcualte the size of
+@@ -165,10 +166,25 @@ struct iris_hfi_queue_table_header {
+ 	struct iris_hfi_queue_header q_hdr[IFACEQ_NUMQ];
+ };
+ 
++/*
++ * VIDEO.IR.1.2 predates the extended Iris queue-table header.  Its first
++ * queue header starts immediately after the six common u32 fields.
++ */
++struct iris_hfi_legacy_queue_table_header {
++	u32 version;
++	u32 size;
++	u32 qhdr0_offset;
++	u32 qhdr_size;
++	u32 num_q;
++	u32 num_active_q;
++	struct iris_hfi_queue_header q_hdr[IFACEQ_NUMQ];
++};
++
+ struct iris_iface_q_info {
+ 	struct iris_hfi_queue_header *qhdr;
+ 	dma_addr_t	device_addr;
+ 	void		*kernel_vaddr;
++	u32		size;
+ };
+ 
+ int iris_hfi_queues_init(struct iris_core *core);
+@@ -178,5 +194,6 @@ int iris_hfi_queue_cmd_write_locked(struct iris_core *core, void *pkt, u32 pkt_s
+ int iris_hfi_queue_cmd_write(struct iris_core *core, void *pkt, u32 pkt_size);
+ int iris_hfi_queue_msg_read(struct iris_core *core, void *pkt);
+ int iris_hfi_queue_dbg_read(struct iris_core *core, void *pkt);
++u32 iris_hfi_queue_region_size(struct iris_core *core);
+ 
+ #endif
+diff --git a/drivers/media/platform/qcom/iris/iris_instance.h b/drivers/media/platform/qcom/iris/iris_instance.h
+index a770331d1675..007060e9f0b0 100644
+--- a/drivers/media/platform/qcom/iris/iris_instance.h
++++ b/drivers/media/platform/qcom/iris/iris_instance.h
+@@ -99,6 +99,7 @@ struct iris_inst {
+ 	u32				flush_responses_pending;
+ 	struct platform_inst_fw_cap	fw_caps[INST_FW_CAP_MAX];
+ 	struct iris_buffers		buffers[BUF_TYPE_MAX];
++	u32				fw_buffer_sizes[BUF_TYPE_MAX];
+ 	u32				fw_min_count;
+ 	enum iris_inst_state		state;
+ 	enum iris_inst_sub_state	sub_state;
+@@ -113,10 +114,27 @@ struct iris_inst {
+ 	struct iris_ts_metadata		tss[VIDEO_MAX_FRAME];
+ 	u32				metadata_idx;
+ 	u32				codec;
++	u32				hfi_core_id;
++	bool				streamoff_pending;
++	u64				last_input_timestamp;
++	u64				seek_timestamp;
++	bool				input_timestamp_valid;
++	bool				seek_timestamp_pending;
++	u32				corrupt_output_drops;
++	struct iris_buffer		*pending_output;
++	u32				seek_hold_frames;
++	u32				display_delay;
++	bool				display_delay_enable;
++	void				*vp9_iova_hole_vaddr;
++	dma_addr_t			vp9_iova_hole_daddr;
++	size_t				vp9_iova_hole_size;
+ 	bool				last_buffer_dequeued;
+ 	u64				last_buf_ns;
++	u64				rate_min_timestamp;
++	u64				rate_max_timestamp;
+ 	u32				frame_counter;
+ 	u32				frame_rate;
++	u32				frame_rate_down_count;
+ 	u32				operating_rate;
+ 	u32				hfi_rc_type;
+ 	u32				enc_raw_width;
+diff --git a/drivers/media/platform/qcom/iris/iris_probe.c b/drivers/media/platform/qcom/iris/iris_probe.c
+index 8deb0d5f1b84..33192f54ec67 100644
+--- a/drivers/media/platform/qcom/iris/iris_probe.c
++++ b/drivers/media/platform/qcom/iris/iris_probe.c
+@@ -357,11 +357,12 @@ static int __maybe_unused iris_system_suspend(struct device *dev)
+ 	 * Runtime PM is forbidden on legacy VPU5 until its power-collapse
+ 	 * handshake is implemented.  pm_runtime_force_suspend() bypasses that
+ 	 * prohibition and would still call iris_pm_suspend(), whose prepare-PC
+-	 * path intentionally returns -EAGAIN.  Keep the controller powered
+-	 * across s2idle instead of rejecting every system suspend.
++	 * path intentionally returns -EAGAIN.  Firmware state is not retained
++	 * reliably across Nabu s2idle, so tear down an idle controller and let
++	 * the next open initialize it again.
+ 	 */
+ 	if (core->iris_platform_data->legacy_vpu5)
+-		return 0;
++		return iris_core_deinit_for_system_suspend(core);
+ 
+ 	return pm_runtime_force_suspend(dev);
+ }
+diff --git a/drivers/media/platform/qcom/iris/iris_vb2.c b/drivers/media/platform/qcom/iris/iris_vb2.c
+index a2ea2d67f60d..c3cf5ffdacda 100644
+--- a/drivers/media/platform/qcom/iris/iris_vb2.c
++++ b/drivers/media/platform/qcom/iris/iris_vb2.c
+@@ -3,6 +3,8 @@
+  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+  */
+ 
++#include <linux/dma-mapping.h>
++#include <linux/module.h>
+ #include <media/videobuf2-dma-contig.h>
+ #include <media/v4l2-event.h>
+ #include <media/v4l2-mem2mem.h>
+@@ -14,6 +16,80 @@
+ #include "iris_venc.h"
+ #include "iris_power.h"
+ 
++#define IRIS1_VP9_IOVA_HOLE_SIZE	0x04000000ULL
++
++static bool cached_capture;
++module_param(cached_capture, bool, 0444);
++MODULE_PARM_DESC(cached_capture,
++		 "Use cacheable H.264/HEVC/VP9 CAPTURE MMAP buffers on legacy Iris1");
++
++static bool iris1_use_cached_capture(struct iris_inst *inst,
++				     struct vb2_queue *q)
++{
++	return cached_capture &&
++	       inst->core->iris_platform_data->legacy_vpu5 &&
++	       (inst->codec == V4L2_PIX_FMT_H264 ||
++		inst->codec == V4L2_PIX_FMT_HEVC ||
++		inst->codec == V4L2_PIX_FMT_VP9) &&
++	       V4L2_TYPE_IS_CAPTURE(q->type) &&
++	       q->memory == VB2_MEMORY_MMAP;
++}
++
++static bool iris1_vp9_needs_iova_hole(struct iris_inst *inst)
++{
++	return inst->core->iris_platform_data->legacy_vpu5 &&
++	       inst->codec == V4L2_PIX_FMT_VP9;
++}
++
++int iris_vb2_vp9_alloc_high_iova_hole(struct iris_inst *inst)
++{
++	struct iris_core *core = inst->core;
++	size_t size = IRIS1_VP9_IOVA_HOLE_SIZE;
++	dma_addr_t daddr;
++	void *vaddr;
++
++	if (!iris1_vp9_needs_iova_hole(inst) || inst->vp9_iova_hole_size)
++		return 0;
++
++	vaddr = dma_alloc_attrs(core->dev, size, &daddr, GFP_KERNEL, DMA_ATTR_WRITE_COMBINE);
++	if (!vaddr)
++		return -ENOMEM;
++
++	inst->vp9_iova_hole_vaddr = vaddr;
++	inst->vp9_iova_hole_daddr = daddr;
++	inst->vp9_iova_hole_size = size;
++	dev_info(core->dev,
++		 "Iris1: reserved VP9 high IOVA hole %#llx-%#llx\n",
++		 (unsigned long long)daddr,
++		 (unsigned long long)daddr + size - 1);
++
++	return 0;
++}
++
++void iris_vb2_vp9_release_high_iova_hole(struct iris_inst *inst)
++{
++	struct iris_core *core = inst->core;
++	dma_addr_t daddr;
++	void *vaddr;
++	size_t size;
++
++	if (!inst->vp9_iova_hole_size)
++		return;
++
++	vaddr = inst->vp9_iova_hole_vaddr;
++	daddr = inst->vp9_iova_hole_daddr;
++	size = inst->vp9_iova_hole_size;
++	inst->vp9_iova_hole_vaddr = NULL;
++	inst->vp9_iova_hole_daddr = 0;
++	inst->vp9_iova_hole_size = 0;
++
++	dma_free_attrs(core->dev, size, vaddr, daddr, DMA_ATTR_WRITE_COMBINE);
++	dev_info(core->dev,
++		 "Iris1: released VP9 high IOVA hole %#llx-%#llx\n",
++		 (unsigned long long)daddr,
++		 (unsigned long long)daddr + size - 1);
++}
++
+ static int iris_check_inst_mbpf(struct iris_inst *inst)
+ {
+ 	struct platform_inst_caps *caps;
+@@ -115,6 +191,11 @@ int iris_vb2_queue_setup(struct vb2_queue *q,
+ 	core = inst->core;
+ 	f = V4L2_TYPE_IS_OUTPUT(q->type) ? inst->fmt_src : inst->fmt_dst;
+ 
++	if (iris1_use_cached_capture(inst, q)) {
++		q->dma_dir = DMA_FROM_DEVICE;
++		q->non_coherent_mem = true;
++	}
++
+ 	if (*num_planes) {
+ 		if (*num_planes != f->fmt.pix_mp.num_planes ||
+ 		    sizes[0] < f->fmt.pix_mp.plane_fmt[0].sizeimage)
+@@ -141,6 +222,14 @@ int iris_vb2_queue_setup(struct vb2_queue *q,
+ 			goto unlock;
+ 	}
+ 
++	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
++		ret = iris_vb2_vp9_alloc_high_iova_hole(inst);
++		if (ret)
++			goto unlock;
++	} else if (V4L2_TYPE_IS_CAPTURE(q->type)) {
++		iris_vb2_vp9_release_high_iova_hole(inst);
++	}
++
+ 	*num_planes = 1;
+ 	sizes[0] = f->fmt.pix_mp.plane_fmt[0].sizeimage;
+ 
+@@ -235,6 +324,8 @@ void iris_vb2_stop_streaming(struct vb2_queue *q)
+ 		return;
+ 
+ 	mutex_lock(&inst->lock);
++	if (inst->domain == DECODER && V4L2_TYPE_IS_CAPTURE(q->type))
++		iris_vdec_clear_pending_output(inst);
+ 
+ 	if (!V4L2_TYPE_IS_OUTPUT(q->type) &&
+ 	    !V4L2_TYPE_IS_CAPTURE(q->type))
+diff --git a/drivers/media/platform/qcom/iris/iris_vb2.h b/drivers/media/platform/qcom/iris/iris_vb2.h
+index a88565fdd3e4..a772e9aa6987 100644
+--- a/drivers/media/platform/qcom/iris/iris_vb2.h
++++ b/drivers/media/platform/qcom/iris/iris_vb2.h
+@@ -7,6 +7,8 @@
+ #define __IRIS_VB2_H__
+ 
+ int iris_vb2_buf_init(struct vb2_buffer *vb2);
++int iris_vb2_vp9_alloc_high_iova_hole(struct iris_inst *inst);
++void iris_vb2_vp9_release_high_iova_hole(struct iris_inst *inst);
+ int iris_vb2_queue_setup(struct vb2_queue *q,
+ 			 unsigned int *num_buffers, unsigned int *num_planes,
+ 			 unsigned int sizes[], struct device *alloc_devs[]);
+diff --git a/drivers/media/platform/qcom/iris/iris_vdec.c b/drivers/media/platform/qcom/iris/iris_vdec.c
+index 9e228b70420e..e31852222639 100644
+--- a/drivers/media/platform/qcom/iris/iris_vdec.c
++++ b/drivers/media/platform/qcom/iris/iris_vdec.c
+@@ -3,26 +3,135 @@
+  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+  */
+ 
++#include <linux/math64.h>
+ #include <media/v4l2-event.h>
+ #include <media/v4l2-mem2mem.h>
+ 
+ #include "iris_buffer.h"
+ #include "iris_common.h"
+ #include "iris_ctrls.h"
++#include "iris_hfi_gen1_defines.h"
+ #include "iris_instance.h"
+ #include "iris_power.h"
+ #include "iris_vdec.h"
+ #include "iris_vpu_buffer.h"
+ 
+ #define DEFAULT_CODEC_ALIGNMENT 16
++#define IRIS1_TIMESTAMP_DISCONTINUITY_NS	NSEC_PER_SEC
++#define IRIS1_SEEK_TIMESTAMP_WINDOW_NS	(5ULL * NSEC_PER_SEC)
++#define IRIS1_SEEK_HOLD_FRAMES		30
++
++static void iris_vdec_reset_rate_window(struct iris_inst *inst)
++{
++	inst->last_buf_ns = 0;
++	inst->rate_min_timestamp = 0;
++	inst->rate_max_timestamp = 0;
++	inst->frame_counter = 0;
++}
++
++int iris_vdec_recycle_pending_output(struct iris_inst *inst)
++{
++	struct iris_buffer *buf = inst->pending_output;
++
++	if (!buf)
++		return 0;
++
++	inst->pending_output = NULL;
++	buf->data_size = 0;
++	buf->flags = 0;
++	buf->timestamp = 0;
++	buf->attr &= ~(BUF_ATTR_QUEUED | BUF_ATTR_DEQUEUED |
++		       BUF_ATTR_BUFFER_DONE);
++
++	return iris_queue_buffer(inst, buf);
++}
++
++int iris_vdec_complete_pending_output(struct iris_inst *inst)
++{
++	struct iris_buffer *buf = inst->pending_output;
++
++	if (!buf)
++		return 0;
++
++	inst->pending_output = NULL;
++
++	return iris_vb2_buffer_done(inst, buf);
++}
++
++int iris_vdec_hold_output(struct iris_inst *inst, struct iris_buffer *buf)
++{
++	if (inst->pending_output)
++		return -EBUSY;
++
++	inst->pending_output = buf;
++
++	return 0;
++}
++
++void iris_vdec_clear_pending_output(struct iris_inst *inst)
++{
++	inst->pending_output = NULL;
++}
++
++static int iris_vdec_track_input_timestamp(struct iris_inst *inst, u64 timestamp)
++{
++	u64 delta;
++	int ret;
++
++	if (!inst->core->iris_platform_data->legacy_vpu5)
++		return 0;
++
++	if (inst->input_timestamp_valid) {
++		delta = timestamp > inst->last_input_timestamp ?
++			timestamp - inst->last_input_timestamp :
++			inst->last_input_timestamp - timestamp;
++		if (delta > IRIS1_TIMESTAMP_DISCONTINUITY_NS) {
++			iris_vdec_reset_rate_window(inst);
++			inst->seek_timestamp = timestamp;
++			inst->seek_timestamp_pending = true;
++			inst->seek_hold_frames = IRIS1_SEEK_HOLD_FRAMES;
++			ret = iris_vdec_recycle_pending_output(inst);
++			if (ret)
++				return ret;
++		}
++	}
++
++	inst->last_input_timestamp = timestamp;
++	inst->input_timestamp_valid = true;
++
++	return 0;
++}
++
++bool iris_vdec_discard_stale_frame(struct iris_inst *inst, u64 timestamp)
++{
++	u64 delta;
++
++	if (!inst->seek_timestamp_pending)
++		return false;
++
++	if (timestamp >= inst->seek_timestamp) {
++		delta = timestamp - inst->seek_timestamp;
++		if (delta <= IRIS1_SEEK_TIMESTAMP_WINDOW_NS) {
++			inst->seek_timestamp_pending = false;
++			return false;
++		}
++	}
++
++	return true;
++}
+ 
+ int iris_vdec_inst_init(struct iris_inst *inst)
+ {
+ 	struct iris_core *core = inst->core;
+ 	struct v4l2_format *f;
++	int ret;
+ 
+ 	inst->fmt_src = kzalloc_obj(*inst->fmt_src);
+ 	inst->fmt_dst = kzalloc_obj(*inst->fmt_dst);
++	if (!inst->fmt_src || !inst->fmt_dst) {
++		ret = -ENOMEM;
++		goto error_free_formats;
++	}
+ 
+ 	inst->fw_min_count = 0;
+ 
+@@ -59,7 +168,31 @@ int iris_vdec_inst_init(struct iris_inst *inst)
+ 	memcpy(&inst->fw_caps[0], &core->inst_fw_caps_dec[0],
+ 	       INST_FW_CAP_MAX * sizeof(struct platform_inst_fw_cap));
+ 
+-	return iris_ctrls_init(inst);
++	ret = iris_ctrls_init(inst);
++	if (ret)
++		goto error_free_formats;
++
++	return 0;
++
++error_free_formats:
++	kfree(inst->fmt_dst);
++	kfree(inst->fmt_src);
++	inst->fmt_dst = NULL;
++	inst->fmt_src = NULL;
++
++	return ret;
++}
++
++u32 iris_vdec_raw_stride(u32 width, u32 pixelformat)
++{
++	switch (pixelformat) {
++	case V4L2_PIX_FMT_P010:
++		return ALIGN(width * 2, 256);
++	case V4L2_PIX_FMT_QC10C:
++		return ALIGN(width * 4 / 3, 256);
++	default:
++		return ALIGN(width, 128);
++	}
+ }
+ 
+ static const u32 iris_vdec_formats_cap[] = {
+@@ -208,7 +341,7 @@ int iris_vdec_s_fmt(struct iris_inst *inst, struct v4l2_format *f)
+ {
+ 	struct v4l2_format *fmt, *output_fmt;
+ 	struct vb2_queue *q;
+-	u32 codec_align;
++	u32 codec_align, raw_pixfmt;
+ 
+ 	q = v4l2_m2m_get_vq(inst->m2m_ctx, f->type);
+ 
+@@ -253,10 +386,13 @@ int iris_vdec_s_fmt(struct iris_inst *inst, struct v4l2_format *f)
+ 		output_fmt->fmt.pix_mp.xfer_func = f->fmt.pix_mp.xfer_func;
+ 		output_fmt->fmt.pix_mp.ycbcr_enc = f->fmt.pix_mp.ycbcr_enc;
+ 		output_fmt->fmt.pix_mp.quantization = f->fmt.pix_mp.quantization;
++		raw_pixfmt = output_fmt->fmt.pix_mp.pixelformat;
+ 
+ 		/* Update capture format based on new ip w/h */
+ 		output_fmt->fmt.pix_mp.width = ALIGN(f->fmt.pix_mp.width, 128);
+ 		output_fmt->fmt.pix_mp.height = ALIGN(f->fmt.pix_mp.height, 32);
++		output_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
++			iris_vdec_raw_stride(f->fmt.pix_mp.width, raw_pixfmt);
+ 		inst->buffers[BUF_OUTPUT].min_count = iris_vpu_buf_count(inst, BUF_OUTPUT);
+ 		inst->buffers[BUF_OUTPUT].size = iris_get_buffer_size(inst, BUF_OUTPUT);
+ 
+@@ -272,26 +408,27 @@ int iris_vdec_s_fmt(struct iris_inst *inst, struct v4l2_format *f)
+ 		fmt = inst->fmt_dst;
+ 		fmt->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+ 		fmt->fmt.pix_mp.pixelformat = f->fmt.pix_mp.pixelformat;
++		raw_pixfmt = f->fmt.pix_mp.pixelformat;
+ 		fmt->fmt.pix_mp.num_planes = 1;
+ 		switch (f->fmt.pix_mp.pixelformat) {
+ 		case V4L2_PIX_FMT_P010:
+ 			fmt->fmt.pix_mp.width = ALIGN(f->fmt.pix_mp.width, 128);
+ 			fmt->fmt.pix_mp.height = ALIGN(f->fmt.pix_mp.height, 32);
+ 			fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+-				ALIGN(f->fmt.pix_mp.width * 2, 256);
++				iris_vdec_raw_stride(f->fmt.pix_mp.width, raw_pixfmt);
+ 			break;
+ 		case V4L2_PIX_FMT_QC10C:
+ 			fmt->fmt.pix_mp.width = roundup(f->fmt.pix_mp.width, 192);
+ 			fmt->fmt.pix_mp.height = ALIGN(f->fmt.pix_mp.height, 16);
+ 			fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+-				ALIGN(f->fmt.pix_mp.width * 4 / 3, 256);
++				iris_vdec_raw_stride(f->fmt.pix_mp.width, raw_pixfmt);
+ 			break;
+ 		case V4L2_PIX_FMT_NV12:
+ 		case V4L2_PIX_FMT_QC08C:
+ 			fmt->fmt.pix_mp.width = ALIGN(f->fmt.pix_mp.width, 128);
+ 			fmt->fmt.pix_mp.height = ALIGN(f->fmt.pix_mp.height, 32);
+ 			fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+-				ALIGN(f->fmt.pix_mp.width, 128);
++				iris_vdec_raw_stride(f->fmt.pix_mp.width, raw_pixfmt);
+ 			break;
+ 		}
+ 		fmt->fmt.pix_mp.plane_fmt[0].sizeimage = iris_get_buffer_size(inst, BUF_OUTPUT);
+@@ -360,12 +497,34 @@ void iris_vdec_src_change(struct iris_inst *inst)
+ 
+ int iris_vdec_streamon_input(struct iris_inst *inst)
+ {
++	const struct iris_hfi_session_ops *hfi_ops = inst->hfi_session_ops;
++	u32 output_order = HFI_OUTPUT_ORDER_DECODE;
+ 	int ret;
+ 
++	inst->streamoff_pending = false;
++	inst->input_timestamp_valid = false;
++	inst->seek_timestamp_pending = false;
++	inst->corrupt_output_drops = 0;
++	inst->pending_output = NULL;
++	inst->seek_hold_frames = 0;
++	inst->frame_rate = MAXIMUM_FPS;
++	inst->frame_rate_down_count = 0;
++
+ 	ret = iris_set_properties(inst, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+ 	if (ret)
+ 		return ret;
+ 
++	if (inst->core->iris_platform_data->legacy_vpu5 &&
++	    inst->display_delay_enable && !inst->display_delay) {
++		ret = hfi_ops->session_set_property(inst,
++				 HFI_PROPERTY_PARAM_VDEC_OUTPUT_ORDER,
++				 HFI_HOST_FLAGS_NONE, HFI_PORT_BITSTREAM,
++				 HFI_PAYLOAD_U32_ENUM, &output_order,
++				 sizeof(output_order));
++		if (ret)
++			return ret;
++	}
++
+ 	ret = iris_alloc_and_queue_persist_bufs(inst, BUF_PERSIST);
+ 	if (ret)
+ 		return ret;
+@@ -384,7 +543,7 @@ int iris_vdec_streamon_input(struct iris_inst *inst)
+ 	if (ret)
+ 		return ret;
+ 
+-	inst->frame_counter = 0;
++	iris_vdec_reset_rate_window(inst);
+ 
+ 	return iris_process_streamon_input(inst);
+ }
+@@ -394,6 +553,8 @@ int iris_vdec_streamon_output(struct iris_inst *inst)
+ 	const struct iris_hfi_session_ops *hfi_ops = inst->hfi_session_ops;
+ 	int ret;
+ 
++	inst->streamoff_pending = false;
++
+ 	ret = hfi_ops->session_set_config_params(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+ 	if (ret)
+ 		return ret;
+@@ -428,7 +589,8 @@ int iris_vdec_qbuf(struct iris_inst *inst, struct vb2_v4l2_buffer *vbuf)
+ {
+ 	struct iris_buffer *buf = to_iris_buffer(vbuf);
+ 	struct vb2_buffer *vb2 = &vbuf->vb2_buf;
+-	u64 cur_buf_ns, delta_ns;
++	u64 cur_buf_ns, delta_ns, timestamp_delta_ns;
++	u32 measured_fps, qbuf_fps, timestamp_fps, target_fps;
+ 	struct vb2_queue *q;
+ 	int ret;
+ 
+@@ -446,18 +608,55 @@ int iris_vdec_qbuf(struct iris_inst *inst, struct vb2_v4l2_buffer *vbuf)
+ 	}
+ 
+ 	if (buf->type == BUF_INPUT) {
++		ret = iris_vdec_track_input_timestamp(inst, buf->timestamp);
++		if (ret)
++			return ret;
++
+ 		cur_buf_ns = ktime_get_ns();
+ 
+-		if (!inst->frame_counter)
++		if (!inst->frame_counter) {
+ 			inst->last_buf_ns = cur_buf_ns;
++			inst->rate_min_timestamp = buf->timestamp;
++			inst->rate_max_timestamp = buf->timestamp;
++		} else {
++			inst->rate_min_timestamp =
++				min(inst->rate_min_timestamp, buf->timestamp);
++			inst->rate_max_timestamp =
++				max(inst->rate_max_timestamp, buf->timestamp);
++		}
+ 
+ 		inst->frame_counter++;
+ 		delta_ns = cur_buf_ns - inst->last_buf_ns;
+ 
+ 		if (delta_ns >= NSEC_PER_SEC) {
+-			inst->frame_rate = clamp_t(u32, inst->frame_counter, DEFAULT_FPS,
+-						   MAXIMUM_FPS);
+-			inst->frame_counter = 0;
++			qbuf_fps = div64_u64((u64)(inst->frame_counter - 1) *
++					       NSEC_PER_SEC + delta_ns - 1,
++					       delta_ns);
++			timestamp_delta_ns = inst->rate_max_timestamp -
++						     inst->rate_min_timestamp;
++			timestamp_fps = 0;
++			if (inst->core->iris_platform_data->legacy_vpu5 &&
++			    timestamp_delta_ns && inst->frame_counter > 1)
++				timestamp_fps = div64_u64((u64)(inst->frame_counter - 1) *
++					NSEC_PER_SEC +
++					timestamp_delta_ns - 1, timestamp_delta_ns);
++
++			measured_fps = clamp_t(u32, max(qbuf_fps, timestamp_fps),
++					       1, MAXIMUM_FPS);
++			target_fps = clamp_t(u32,
++					     DIV_ROUND_UP(measured_fps * 11, 10),
++					     DEFAULT_FPS, MAXIMUM_FPS);
++
++			if (inst->frame_rate == MAXIMUM_FPS ||
++			    target_fps >= inst->frame_rate) {
++				inst->frame_rate = target_fps;
++				inst->frame_rate_down_count = 0;
++			} else if (++inst->frame_rate_down_count >= 3) {
++				inst->frame_rate = target_fps;
++				inst->frame_rate_down_count = 0;
++			}
++
++			iris_vdec_reset_rate_window(inst);
+ 		}
+ 	}
+ 
+diff --git a/drivers/media/platform/qcom/iris/iris_vdec.h b/drivers/media/platform/qcom/iris/iris_vdec.h
+index 5123d2a340e1..999ee4e3b9cb 100644
+--- a/drivers/media/platform/qcom/iris/iris_vdec.h
++++ b/drivers/media/platform/qcom/iris/iris_vdec.h
+@@ -7,12 +7,19 @@
+ #define __IRIS_VDEC_H__
+ 
+ struct iris_inst;
++struct iris_buffer;
+ 
+ int iris_vdec_inst_init(struct iris_inst *inst);
+ int iris_vdec_enum_fmt(struct iris_inst *inst, struct v4l2_fmtdesc *f);
+ int iris_vdec_try_fmt(struct iris_inst *inst, struct v4l2_format *f);
+ int iris_vdec_s_fmt(struct iris_inst *inst, struct v4l2_format *f);
+ int iris_vdec_validate_format(struct iris_inst *inst, u32 pixelformat);
++u32 iris_vdec_raw_stride(u32 width, u32 pixelformat);
++bool iris_vdec_discard_stale_frame(struct iris_inst *inst, u64 timestamp);
++int iris_vdec_recycle_pending_output(struct iris_inst *inst);
++int iris_vdec_complete_pending_output(struct iris_inst *inst);
++int iris_vdec_hold_output(struct iris_inst *inst, struct iris_buffer *buf);
++void iris_vdec_clear_pending_output(struct iris_inst *inst);
+ int iris_vdec_subscribe_event(struct iris_inst *inst, const struct v4l2_event_subscription *sub);
+ void iris_vdec_src_change(struct iris_inst *inst);
+ int iris_vdec_streamon_input(struct iris_inst *inst);
+diff --git a/drivers/media/platform/qcom/iris/iris_vidc.c b/drivers/media/platform/qcom/iris/iris_vidc.c
+index fcbc60016bee..e579e35c9db2 100644
+--- a/drivers/media/platform/qcom/iris/iris_vidc.c
++++ b/drivers/media/platform/qcom/iris/iris_vidc.c
+@@ -89,6 +89,22 @@ static void iris_m2m_job_abort(void *priv)
+ 	v4l2_m2m_job_finish(inst->m2m_dev, m2m_ctx);
+ }
+ 
++static __poll_t iris_poll(struct file *file, struct poll_table_struct *wait)
++{
++	struct iris_inst *inst = iris_get_inst(file);
++	__poll_t ret;
++
++	ret = v4l2_m2m_fop_poll(file, wait);
++	if (inst->domain == DECODER && (ret & EPOLLERR) &&
++	    READ_ONCE(inst->state) != IRIS_INST_ERROR &&
++	    ((ret & EPOLLPRI) ||
++	     (READ_ONCE(inst->state) == IRIS_INST_INPUT_STREAMING &&
++	      !(READ_ONCE(inst->sub_state) & IRIS_INST_SUB_FIRST_IPSC))))
++		ret &= ~EPOLLERR;
++
++	return ret;
++}
++
+ static const struct v4l2_m2m_ops iris_m2m_ops = {
+ 	.device_run = iris_m2m_device_run,
+ 	.job_abort = iris_m2m_job_abort,
+@@ -299,6 +315,7 @@ int iris_close(struct file *filp)
+ 	iris_destroy_all_internal_buffers(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+ 	iris_check_num_queued_internal_buffers(inst, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+ 	iris_check_num_queued_internal_buffers(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
++	iris_vb2_vp9_release_high_iova_hole(inst);
+ 	iris_remove_session(inst);
+ 	mutex_unlock(&inst->lock);
+ 	mutex_destroy(&inst->ctx_q_lock);
+@@ -646,7 +663,7 @@ static const struct v4l2_file_operations iris_v4l2_file_ops = {
+ 	.open                           = iris_open,
+ 	.release                        = iris_close,
+ 	.unlocked_ioctl                 = video_ioctl2,
+-	.poll                           = v4l2_m2m_fop_poll,
++	.poll                           = iris_poll,
+ 	.mmap                           = v4l2_m2m_fop_mmap,
+ };
+ 
+diff --git a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+index faebb5472866..69ce8a832ea2 100644
+--- a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
++++ b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+@@ -2056,6 +2056,9 @@ static int output_min_count(struct iris_inst *inst)
+ 
+ 	/* fw_min_count > 0 indicates reconfig event has already arrived */
+ 	if (inst->fw_min_count) {
++		if (inst->core->iris_platform_data->legacy_vpu5 &&
++		    inst->codec == V4L2_PIX_FMT_VP9)
++			return inst->fw_min_count;
+ 		if (iris_split_mode_enabled(inst) &&
+ 		    (inst->codec == V4L2_PIX_FMT_VP9 ||
+ 		     inst->codec == V4L2_PIX_FMT_AV1))
+diff --git a/drivers/media/platform/qcom/iris/iris_vpu_common.c b/drivers/media/platform/qcom/iris/iris_vpu_common.c
+index dfc2c3e75567..51df5db28aaf 100644
+--- a/drivers/media/platform/qcom/iris/iris_vpu_common.c
++++ b/drivers/media/platform/qcom/iris/iris_vpu_common.c
+@@ -6,6 +6,7 @@
+ #include <linux/iopoll.h>
+ #include <linux/pm_opp.h>
+ #include <linux/reset.h>
++#include <linux/soc/qcom/llcc-qcom.h>
+ 
+ #include "iris_core.h"
+ #include "iris_instance.h"
+@@ -71,18 +72,14 @@ static void iris_vpu_interrupt_init(struct iris_core *core)
+ static void iris_vpu_setup_ucregion_memory_map(struct iris_core *core)
+ {
+ 	u32 cpu_cs_base = iris_vpu_cpu_cs_base(core);
+-	u32 queue_size, region_size, value;
++	u32 region_size, value;
+ 	const struct vpu_ops *vpu_ops = core->iris_platform_data->vpu_ops;
+ 
+-	/* Iris hardware requires 4K queue alignment */
+-	queue_size = ALIGN(sizeof(struct iris_hfi_queue_table_header) +
+-		(IFACEQ_QUEUE_SIZE * IFACEQ_NUMQ), SZ_4K);
+-
+ 	value = (u32)core->iface_q_table_daddr;
+ 	writel(value, core->reg_base + cpu_cs_base + 0x64);
+ 
+-	/* Iris hardware requires 1M queue alignment */
+-	region_size = ALIGN(SFR_SIZE + queue_size, SZ_1M);
++	/* Iris hardware requires a 1 MiB-aligned advertised UC region. */
++	region_size = iris_hfi_queue_region_size(core);
+ 	writel(region_size, core->reg_base + cpu_cs_base + 0x68);
+ 
+ 	value = (u32)core->iface_q_table_daddr;
+@@ -307,6 +304,18 @@ void iris_vpu_power_off_hw(struct iris_core *core)
+ 
+ void iris_vpu_power_off(struct iris_core *core)
+ {
++	int i;
++
++	if (core->llcc_active) {
++		for (i = ARRAY_SIZE(core->llcc_slices) - 1; i >= 0; i--) {
++			llcc_slice_deactivate(core->llcc_slices[i]);
++			llcc_slice_putd(core->llcc_slices[i]);
++			core->llcc_slices[i] = NULL;
++		}
++		core->llcc_active = false;
++		core->syscache_set = false;
++	}
++
+ 	iris_opp_set_rate(core->dev, 0);
+ 	core->iris_platform_data->vpu_ops->power_off_hw(core);
+ 	core->iris_platform_data->vpu_ops->power_off_controller(core);

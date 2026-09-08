@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: mcc45tr <mcc45tr@gmail.com>
 Date: Mon, 31 Aug 2026 01:55:32 +0300
-Subject: [PATCH] senemos: isolate mainline unstable kernel identity
+Subject: [PATCH 022/117] senemos: isolate mainline unstable kernel identity
 
 ---
  senemos/README.md                   | 2 +-

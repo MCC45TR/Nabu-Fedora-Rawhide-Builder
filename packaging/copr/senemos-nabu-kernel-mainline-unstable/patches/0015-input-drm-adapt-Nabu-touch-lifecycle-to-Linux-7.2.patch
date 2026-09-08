@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 18:43:59 +0300
-Subject: [PATCH 15/21] input: drm: adapt Nabu touch lifecycle to Linux 7.2
+Subject: [PATCH 015/117] input: drm: adapt Nabu touch lifecycle to Linux 7.2
 
 ---
  .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      |  2 +-
@@ -30,7 +30,7 @@ index 6bba0ff08c77..08c007afff2e 100644
  		novatek,pen-support;
  		novatek,wgp-stylus;
 diff --git a/drivers/gpu/drm/Makefile b/drivers/gpu/drm/Makefile
-index e97faabcd783..653cb956824b 100644
+index e635fcffd379..91c9953f0a6d 100644
 --- a/drivers/gpu/drm/Makefile
 +++ b/drivers/gpu/drm/Makefile
 @@ -73,6 +73,7 @@ drm-y := \
@@ -77,7 +77,7 @@ index 000000000000..e25791e9428e
 +}
 +EXPORT_SYMBOL_GPL(mi_drm_notifier_call_chain);
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_manager.c b/drivers/gpu/drm/msm/dsi/dsi_manager.c
-index 10d905c8a8b9..772827dab447 100644
+index 72bdc0cdbc83..5e6588b3c26b 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_manager.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_manager.c
 @@ -4,6 +4,7 @@
@@ -88,7 +88,7 @@ index 10d905c8a8b9..772827dab447 100644
  
  #include "msm_kms.h"
  #include "dsi.h"
-@@ -282,6 +283,7 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
+@@ -283,6 +284,7 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge,
  	struct msm_dsi *msm_dsi1 = dsi_mgr_get_dsi(DSI_1);
  	struct mipi_dsi_host *host = msm_dsi->host;
  	bool is_bonded_dsi = IS_BONDED_DSI();
@@ -96,7 +96,7 @@ index 10d905c8a8b9..772827dab447 100644
  	int ret;
  
  	DBG("id=%d", id);
-@@ -296,6 +298,9 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
+@@ -297,6 +299,9 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge,
  		return;
  	}
  
@@ -106,7 +106,7 @@ index 10d905c8a8b9..772827dab447 100644
  	ret = msm_dsi_host_enable(host);
  	if (ret) {
  		pr_err("%s: enable host %d failed, %d\n", __func__, id, ret);
-@@ -338,10 +343,14 @@ static void dsi_mgr_bridge_post_disable(struct drm_bridge *bridge)
+@@ -340,10 +345,14 @@ static void dsi_mgr_bridge_post_disable(struct drm_bridge *bridge,
  	struct msm_dsi *msm_dsi1 = dsi_mgr_get_dsi(DSI_1);
  	struct mipi_dsi_host *host = msm_dsi->host;
  	bool is_bonded_dsi = IS_BONDED_DSI();
@@ -122,10 +122,10 @@ index 10d905c8a8b9..772827dab447 100644
  	 * Do nothing with the host if it is slave-DSI in case of bonded DSI.
  	 * It is safe to call dsi_mgr_phy_disable() here because a single PHY
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index 5f16cd47319d..07ae4f00e097 100644
+index 15dfb13466bc..94f7fc3eb74d 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-@@ -1283,18 +1283,18 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo, bool panel_init)
+@@ -1284,18 +1284,18 @@ static int nt36523_sync_pen_fps(struct panel_info *pinfo, bool panel_init)
  	}
  
  	/* Xiaomi's downstream panel commands synchronize the TDDI scan rate. */

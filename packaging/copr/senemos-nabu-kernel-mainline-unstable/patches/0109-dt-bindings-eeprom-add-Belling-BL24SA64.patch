@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Mon, 7 Sep 2026 21:53:54 +0300
+Subject: [PATCH 109/117] dt-bindings: eeprom: add Belling BL24SA64
+
+---
+ Documentation/devicetree/bindings/eeprom/at24.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/eeprom/at24.yaml b/Documentation/devicetree/bindings/eeprom/at24.yaml
+index ef88f46928a4..7649e60b4d88 100644
+--- a/Documentation/devicetree/bindings/eeprom/at24.yaml
++++ b/Documentation/devicetree/bindings/eeprom/at24.yaml
+@@ -133,6 +133,7 @@ properties:
+           - const: atmel,24c32
+       - items:
+           - enum:
++              - belling,bl24sa64
+               - belling,bl24s64
+               - giantec,gt24p64a
+               - onnn,n24s64b

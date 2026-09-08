@@ -19,12 +19,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Apply the Nabu series to the latest Linux 7.2.y
+      - name: Apply the Nabu series to the latest Linux mainline tag
         run: packaging/copr/senemos-nabu-kernel-mainline-unstable/update-upstream.sh
-      - name: Publish an accepted point update
+      - name: Publish an accepted mainline update
         run: |
           if git diff --quiet; then
-            echo "No upstream point update."
+            echo "No upstream mainline update."
             exit 0
           fi
           git config user.name "SENEMOS kernel updater"

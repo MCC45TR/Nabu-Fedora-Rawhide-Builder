@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Wed, 26 Aug 2026 03:40:22 +0300
-Subject: [PATCH 17/21] senemos: complete Linux 7.2 Nabu hardware port
+Subject: [PATCH 017/117] senemos: complete Linux 7.2 Nabu hardware port
 
 ---
  .../devicetree/bindings/arm/qcom.yaml         |   1 +
@@ -17,7 +17,7 @@ Subject: [PATCH 17/21] senemos: complete Linux 7.2 Nabu hardware port
  .../sm8150-xiaomi-nabu-power-scaffold.dtsi    |   6 +-
  .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      | 215 ++---
  arch/arm64/boot/dts/qcom/sm8150.dtsi          |  10 +-
- drivers/gpu/drm/msm/dsi/dsi_manager.c         |  17 +-
+ drivers/gpu/drm/msm/dsi/dsi_manager.c         |  18 +-
  drivers/hid/Kconfig                           |   3 +-
  drivers/hid/hid-ids.h                         |   2 +
  drivers/hid/hid-xiaomi.c                      |  14 +
@@ -35,7 +35,7 @@ Subject: [PATCH 17/21] senemos: complete Linux 7.2 Nabu hardware port
  include/linux/input/xiaomi-nabu-keyboard.h    |  13 +
  senemos/README.md                             |  58 +-
  senemos/configs/nabu-minimal.config           |   3 +
- 31 files changed, 1880 insertions(+), 159 deletions(-)
+ 31 files changed, 1881 insertions(+), 159 deletions(-)
  create mode 100644 Documentation/devicetree/bindings/input/touchscreen/novatek,nt36523-spi.yaml
  create mode 100644 Documentation/devicetree/bindings/input/xiaomi,nabu-keyboard.yaml
  create mode 100644 Documentation/devicetree/bindings/power/supply/idt,p9418.yaml
@@ -46,10 +46,10 @@ Subject: [PATCH 17/21] senemos: complete Linux 7.2 Nabu hardware port
  create mode 100644 include/linux/input/xiaomi-nabu-keyboard.h
 
 diff --git a/Documentation/devicetree/bindings/arm/qcom.yaml b/Documentation/devicetree/bindings/arm/qcom.yaml
-index 50cc18a6ec5e..f9793dc5f74c 100644
+index ff8a35df7862..0936487e0802 100644
 --- a/Documentation/devicetree/bindings/arm/qcom.yaml
 +++ b/Documentation/devicetree/bindings/arm/qcom.yaml
-@@ -1063,6 +1063,7 @@ properties:
+@@ -1096,6 +1096,7 @@ properties:
                - qcom,sm8150-mtp
                - sony,bahamut-generic
                - sony,griffin-generic
@@ -208,10 +208,10 @@ index 000000000000..62de45a9f55a
 +        wakeup-source;
 +    };
 diff --git a/Documentation/devicetree/bindings/mfd/qcom,spmi-pmic.yaml b/Documentation/devicetree/bindings/mfd/qcom,spmi-pmic.yaml
-index 644c42b5e2e5..87090635a0e0 100644
+index 5e0ed30a9a46..a79e2f53c3ab 100644
 --- a/Documentation/devicetree/bindings/mfd/qcom,spmi-pmic.yaml
 +++ b/Documentation/devicetree/bindings/mfd/qcom,spmi-pmic.yaml
-@@ -189,6 +189,10 @@ patternProperties:
+@@ -194,6 +194,10 @@ patternProperties:
      type: object
      $ref: /schemas/rtc/qcom-pm8xxx-rtc.yaml#
  
@@ -365,12 +365,12 @@ index 000000000000..a601d1c847b3
 +    };
 +...
 diff --git a/Documentation/devicetree/bindings/sound/qcom,sm8250.yaml b/Documentation/devicetree/bindings/sound/qcom,sm8250.yaml
-index dae440ecab59..cfcd952f8592 100644
+index 1536fcd96d68..897d5c46760e 100644
 --- a/Documentation/devicetree/bindings/sound/qcom,sm8250.yaml
 +++ b/Documentation/devicetree/bindings/sound/qcom,sm8250.yaml
-@@ -46,6 +46,7 @@ properties:
-           - qcom,sc7180-qdsp6-sndcard
+@@ -51,6 +51,7 @@ properties:
            - qcom,sc8280xp-sndcard
+           - qcom,sdm660-sndcard
            - qcom,sdm845-sndcard
 +          - qcom,sm8150-sndcard
            - qcom,sm8250-sndcard
@@ -777,7 +777,7 @@ index 08c007afff2e..a496d9f71015 100644
 + * limits have been validated on Nabu.
 + */
 diff --git a/arch/arm64/boot/dts/qcom/sm8150.dtsi b/arch/arm64/boot/dts/qcom/sm8150.dtsi
-index 8d08c9978e40..310d299ee949 100644
+index b7734d84f93e..4cd4200ff375 100644
 --- a/arch/arm64/boot/dts/qcom/sm8150.dtsi
 +++ b/arch/arm64/boot/dts/qcom/sm8150.dtsi
 @@ -4417,12 +4417,12 @@ apr {
@@ -821,14 +821,15 @@ index 8d08c9978e40..310d299ee949 100644
  						reg = <APR_SVC_ADM>;
  						q6routing: routing {
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_manager.c b/drivers/gpu/drm/msm/dsi/dsi_manager.c
-index 772827dab447..4da64103045f 100644
+index 5e6588b3c26b..55efb7d108d1 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_manager.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_manager.c
-@@ -276,6 +276,18 @@ static void dsi_mgr_bridge_power_off(struct drm_bridge *bridge)
+@@ -276,6 +276,19 @@ static void dsi_mgr_bridge_power_off(struct drm_bridge *bridge)
  	dsi_mgr_phy_disable(id);
  }
  
-+static void dsi_mgr_bridge_enable(struct drm_bridge *bridge)
++static void dsi_mgr_bridge_enable(struct drm_bridge *bridge,
++				  struct drm_atomic_commit *commit)
 +{
 +	enum drm_notifier_data notifier_data = MI_DRM_BLANK_UNBLANK;
 +
@@ -840,10 +841,10 @@ index 772827dab447..4da64103045f 100644
 +	mi_drm_notifier_call_chain(MI_DRM_EVENT_BLANK, &notifier_data);
 +}
 +
- static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
+ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge,
+ 				      struct drm_atomic_commit *commit)
  {
- 	int id = dsi_mgr_bridge_get_id(bridge);
-@@ -283,7 +295,6 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
+@@ -284,7 +297,6 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge,
  	struct msm_dsi *msm_dsi1 = dsi_mgr_get_dsi(DSI_1);
  	struct mipi_dsi_host *host = msm_dsi->host;
  	bool is_bonded_dsi = IS_BONDED_DSI();
@@ -851,7 +852,7 @@ index 772827dab447..4da64103045f 100644
  	int ret;
  
  	DBG("id=%d", id);
-@@ -298,9 +309,6 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
+@@ -299,9 +311,6 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge,
  		return;
  	}
  
@@ -861,19 +862,19 @@ index 772827dab447..4da64103045f 100644
  	ret = msm_dsi_host_enable(host);
  	if (ret) {
  		pr_err("%s: enable host %d failed, %d\n", __func__, id, ret);
-@@ -521,6 +529,7 @@ static int dsi_mgr_bridge_attach(struct drm_bridge *bridge,
- static const struct drm_bridge_funcs dsi_mgr_bridge_funcs = {
+@@ -526,6 +535,7 @@ static const struct drm_bridge_funcs dsi_mgr_bridge_funcs = {
+ 	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
  	.attach = dsi_mgr_bridge_attach,
- 	.pre_enable = dsi_mgr_bridge_pre_enable,
-+	.enable = dsi_mgr_bridge_enable,
- 	.post_disable = dsi_mgr_bridge_post_disable,
+ 	.atomic_pre_enable = dsi_mgr_bridge_pre_enable,
++	.atomic_enable = dsi_mgr_bridge_enable,
+ 	.atomic_post_disable = dsi_mgr_bridge_post_disable,
  	.mode_set = dsi_mgr_bridge_mode_set,
  	.mode_valid = dsi_mgr_bridge_mode_valid,
 diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
-index f9bcaeb66385..cb01175f0fe3 100644
+index a81bf51cbcf1..f14fbb882efa 100644
 --- a/drivers/hid/Kconfig
 +++ b/drivers/hid/Kconfig
-@@ -540,7 +540,8 @@ config HID_XIAOMI
+@@ -566,7 +566,8 @@ config HID_XIAOMI
  	tristate "Xiaomi"
  	help
  	  Adds support for side buttons of Xiaomi Mi Dual Mode Wireless
@@ -884,10 +885,10 @@ index f9bcaeb66385..cb01175f0fe3 100644
  config HID_GYRATION
  	tristate "Gyration remote control"
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index 1059922baaac..7c32f19a58ba 100644
+index b3aca5aa9176..aad1375ffb95 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
-@@ -1572,6 +1572,8 @@
+@@ -1605,6 +1605,8 @@
  
  #define USB_VENDOR_ID_XIAOMI		0x2717
  #define USB_DEVICE_ID_MI_SILENT_MOUSE	0x5014
@@ -931,10 +932,10 @@ index ef6598550a40..615163721e34 100644
  module_hid_driver(xiaomi_driver);
  
 diff --git a/drivers/input/misc/Kconfig b/drivers/input/misc/Kconfig
-index c1b5a1aaf672..8bbf6ce00a94 100644
+index f7c57cdfaf29..946333ab0aa6 100644
 --- a/drivers/input/misc/Kconfig
 +++ b/drivers/input/misc/Kconfig
-@@ -994,12 +994,20 @@ config INPUT_STPMIC1_ONKEY
+@@ -1024,12 +1024,20 @@ config INPUT_STPMIC1_ONKEY
  	  module will be called stpmic1_onkey.
  
  config INPUT_XIAOMI_NABU_TABLET_MODE
@@ -960,10 +961,10 @@ index c1b5a1aaf672..8bbf6ce00a94 100644
  	  Say Y when building a kernel for Xiaomi Pad 5 (nabu).
  
 diff --git a/drivers/input/misc/Makefile b/drivers/input/misc/Makefile
-index b7b58921a82f..298bc36bd860 100644
+index 37dfd4f1d320..d8eb619fc0ec 100644
 --- a/drivers/input/misc/Makefile
 +++ b/drivers/input/misc/Makefile
-@@ -96,3 +96,4 @@ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
+@@ -98,3 +98,4 @@ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
  obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
  obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
  obj-$(CONFIG_INPUT_XIAOMI_NABU_TABLET_MODE) += xiaomi-nabu-tablet-mode.o
@@ -1306,10 +1307,10 @@ index 7c2939cbde5f..7faf5e7967cf 100644
  		      ar->running_fw->fw_file.fw_features)) {
  		ath10k_bmi_start(ar);
 diff --git a/drivers/net/wireless/ath/ath10k/snoc.c b/drivers/net/wireless/ath/ath10k/snoc.c
-index 310650227578..a43eca40cf10 100644
+index 8de133fe2a72..265ec3b1e450 100644
 --- a/drivers/net/wireless/ath/ath10k/snoc.c
 +++ b/drivers/net/wireless/ath/ath10k/snoc.c
-@@ -1865,10 +1865,19 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
+@@ -1870,10 +1870,19 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
  	if (ret)
  		goto err_qmi_deinit;
  
@@ -1329,7 +1330,7 @@ index 310650227578..a43eca40cf10 100644
  err_qmi_deinit:
  	ath10k_qmi_deinit(ar);
  
-@@ -1894,6 +1903,7 @@ static int ath10k_snoc_free_resources(struct ath10k *ar)
+@@ -1899,6 +1908,7 @@ static int ath10k_snoc_free_resources(struct ath10k *ar)
  	ath10k_dbg(ar, ATH10K_DBG_SNOC, "snoc free resources\n");
  
  	set_bit(ATH10K_SNOC_FLAG_UNREGISTERING, &ar_snoc->flags);
@@ -1338,10 +1339,10 @@ index 310650227578..a43eca40cf10 100644
  	ath10k_core_unregister(ar);
  	ath10k_fw_deinit(ar);
 diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
-index dd557defcb66..2ff78eb02720 100644
+index ae0b8271f687..e3d49c99d87b 100644
 --- a/drivers/power/supply/Kconfig
 +++ b/drivers/power/supply/Kconfig
-@@ -1183,6 +1183,14 @@ config FUEL_GAUGE_MM8013
+@@ -1199,6 +1199,14 @@ config FUEL_GAUGE_MM8013
  	  the state of charge, temperature, cycle count, actual and design
  	  capacity, etc.
  
@@ -1357,10 +1358,10 @@ index dd557defcb66..2ff78eb02720 100644
  	tristate "Apple SMC Battery and Power Driver"
  	depends on MFD_MACSMC
 diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
-index d052acdf1569..049a81d16193 100644
+index 2fe782dd0a2b..0ffd279733a6 100644
 --- a/drivers/power/supply/Makefile
 +++ b/drivers/power/supply/Makefile
-@@ -132,5 +132,6 @@ obj-$(CONFIG_BATTERY_UG3105)	+= ug3105_battery.o
+@@ -134,5 +134,6 @@ obj-$(CONFIG_BATTERY_UG3105)	+= ug3105_battery.o
  obj-$(CONFIG_BATTERY_QCOM_FG)	+= qcom_fg.o
  obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_smbx.o
  obj-$(CONFIG_FUEL_GAUGE_MM8013)	+= mm8013.o

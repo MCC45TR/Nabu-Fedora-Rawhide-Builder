@@ -1,0 +1,680 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Tue, 8 Sep 2026 01:01:06 +0300
+Subject: [PATCH 024/117] media: qcom: port Nabu SM8150 Iris to Linux 7.3
+
+---
+ .../bindings/media/qcom,sm8150-iris.yaml      |  78 +++++++++
+ arch/arm64/boot/dts/qcom/Makefile             |   2 +
+ .../qcom/sm8150-xiaomi-nabu-iris-camera.dts   |   6 +
+ .../boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts |   5 +
+ .../dts/qcom/sm8150-xiaomi-nabu-iris.dtsi     |  92 +++++++++++
+ .../platform/qcom/iris/iris_platform_common.h |   2 +
+ .../platform/qcom/iris/iris_platform_vpu2.c   |  73 +++++++++
+ drivers/media/platform/qcom/iris/iris_probe.c |   4 +
+ .../platform/qcom/iris/iris_vpu_common.c      | 155 +++++++++++++++---
+ 9 files changed, 393 insertions(+), 24 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/media/qcom,sm8150-iris.yaml
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+
+diff --git a/Documentation/devicetree/bindings/media/qcom,sm8150-iris.yaml b/Documentation/devicetree/bindings/media/qcom,sm8150-iris.yaml
+new file mode 100644
+index 000000000000..4a7f28e1405b
+--- /dev/null
++++ b/Documentation/devicetree/bindings/media/qcom,sm8150-iris.yaml
+@@ -0,0 +1,78 @@
++# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/media/qcom,sm8150-iris.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Qualcomm SM8150 Iris video encode and decode accelerator
++
++maintainers:
++  - mcc45tr <mcc45tr@gmail.com>
++
++description:
++  The SM8150 VIDEO.IR.1.2 block uses the HFI Gen1 protocol and the legacy
++  VPU5 register layout. It contains two video processing cores.
++
++allOf:
++  - $ref: qcom,venus-common.yaml#
++
++properties:
++  compatible:
++    const: qcom,sm8150-iris
++
++  clocks:
++    maxItems: 7
++
++  clock-names:
++    items:
++      - const: core
++      - const: iface
++      - const: bus
++      - const: vcodec0_core
++      - const: vcodec0_bus
++      - const: vcodec1_core
++      - const: vcodec1_bus
++
++  interconnects:
++    maxItems: 2
++
++  interconnect-names:
++    items:
++      - const: video-mem
++      - const: cpu-cfg
++
++  operating-points-v2: true
++  opp-table:
++    type: object
++
++  power-domains:
++    maxItems: 4
++
++  power-domain-names:
++    items:
++      - const: venus
++      - const: vcodec0
++      - const: vcodec1
++      - const: cx
++
++  resets:
++    maxItems: 4
++
++  reset-names:
++    items:
++      - const: bus
++      - const: core
++      - const: vcodec0_bus
++      - const: vcodec1_bus
++
++required:
++  - compatible
++  - interconnects
++  - interconnect-names
++  - iommus
++  - operating-points-v2
++  - power-domain-names
++  - resets
++  - reset-names
++
++unevaluatedProperties: false
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 2e61c8c17f35..e94173be3c0d 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -364,6 +364,8 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-sony-xperia-kumano-bahamut.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-sony-xperia-kumano-griffin.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-xiaomi-nabu.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-xiaomi-nabu-camera.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-xiaomi-nabu-iris.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-xiaomi-nabu-iris-camera.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-hdk.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-mtp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-samsung-r8q.dtb
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts
+new file mode 100644
+index 000000000000..b0497848c33a
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts
+@@ -0,0 +1,6 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/* Xiaomi Pad 5 (nabu) combined Iris/Venus and camera derivative. */
++
++#include "sm8150-xiaomi-nabu.dts"
++#include "sm8150-xiaomi-nabu-iris.dtsi"
++#include "sm8150-xiaomi-nabu-camera.dtsi"
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts
+new file mode 100644
+index 000000000000..6d44f05a5fff
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dts
+@@ -0,0 +1,5 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/* Xiaomi Pad 5 (nabu) Iris/Venus-enabled derivative. */
++
++#include "sm8150-xiaomi-nabu.dts"
++#include "sm8150-xiaomi-nabu-iris.dtsi"
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+new file mode 100644
+index 000000000000..447ba9089e8d
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+@@ -0,0 +1,92 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Iris/Venus additions for Xiaomi Pad 5 (nabu).
++ *
++ * This file appends to the base SM8150 and nabu device trees so that
++ * sm8150.dtsi and sm8150-xiaomi-nabu.dts remain untouched.
++ */
++
++&{/reserved-memory/ramoops@b0000000} {
++	/* Keep the complete printk console across hard resets. */
++	record-size = <0>;
++	console-size = <0x400000>;
++	ecc-size = <0>;
++};
++
++&soc {
++	venus: video-codec@aa00000 {
++		compatible = "qcom,sm8150-iris";
++		reg = <0 0x0aa00000 0 0x100000>;
++		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
++
++		power-domains = <&videocc VENUS_GDSC>,
++				<&videocc VCODEC0_GDSC>,
++				<&videocc VCODEC1_GDSC>,
++				<&rpmhpd SM8150_CX>;
++		power-domain-names = "venus", "vcodec0", "vcodec1", "cx";
++		operating-points-v2 = <&venus_opp_table>;
++
++		clocks = <&videocc VIDEO_CC_MVSC_CORE_CLK>,
++			 <&videocc VIDEO_CC_IRIS_AHB_CLK>,
++			 <&gcc GCC_VIDEO_AXIC_CLK>,
++			 <&videocc VIDEO_CC_MVS0_CORE_CLK>,
++			 <&gcc GCC_VIDEO_AXI0_CLK>,
++			 <&videocc VIDEO_CC_MVS1_CORE_CLK>,
++			 <&gcc GCC_VIDEO_AXI1_CLK>;
++		clock-names = "core", "iface", "bus",
++			      "vcodec0_core", "vcodec0_bus",
++			      "vcodec1_core", "vcodec1_bus";
++
++		resets = <&gcc GCC_VIDEO_AXIC_CLK_BCR>,
++			 <&videocc VIDEO_CC_MVSC_CORE_CLK_BCR>,
++			 <&gcc GCC_VIDEO_AXI0_CLK_BCR>,
++			 <&gcc GCC_VIDEO_AXI1_CLK_BCR>;
++		reset-names = "bus", "core", "vcodec0_bus", "vcodec1_bus";
++
++		interconnects = <&mmss_noc MASTER_VIDEO_P0 0
++					 &mc_virt SLAVE_EBI_CH0 0>,
++				<&gem_noc MASTER_AMPSS_M0 0
++					 &config_noc SLAVE_VENUS_CFG 0>;
++		interconnect-names = "video-mem", "cpu-cfg";
++
++		/* SM8150 v2 moved VIDC stream IDs from 0x13xx to 0x23xx. */
++		iommus = <&apps_smmu 0x2300 0x60>;
++		memory-region = <&venus_mem>;
++
++		status = "disabled";
++
++		venus_opp_table: opp-table {
++			compatible = "operating-points-v2";
++
++			opp-200000000 {
++				opp-hz = /bits/ 64 <200000000>;
++				required-opps = <&rpmhpd_opp_min_svs>;
++			};
++
++			opp-240000000 {
++				opp-hz = /bits/ 64 <240000000>;
++				required-opps = <&rpmhpd_opp_low_svs>;
++			};
++
++			opp-365000000 {
++				opp-hz = /bits/ 64 <365000000>;
++				required-opps = <&rpmhpd_opp_svs>;
++			};
++
++			opp-444000000 {
++				opp-hz = /bits/ 64 <444000000>;
++				required-opps = <&rpmhpd_opp_svs_l1>;
++			};
++
++			opp-533000000 {
++				opp-hz = /bits/ 64 <533000000>;
++				required-opps = <&rpmhpd_opp_nom>;
++			};
++		};
++	};
++};
++
++&venus {
++	firmware-name = "qcom/sm8150/xiaomi/nabu/venus.mbn";
++	status = "okay";
++};
+diff --git a/drivers/media/platform/qcom/iris/iris_platform_common.h b/drivers/media/platform/qcom/iris/iris_platform_common.h
+index 974809509146..01d6c1f66c68 100644
+--- a/drivers/media/platform/qcom/iris/iris_platform_common.h
++++ b/drivers/media/platform/qcom/iris/iris_platform_common.h
+@@ -57,6 +57,7 @@ extern const struct iris_firmware_data iris_hfi_milos_data;
+ extern const struct iris_platform_data milos_data;
+ extern const struct iris_platform_data qcs8300_data;
+ extern const struct iris_platform_data sc7280_data;
++extern const struct iris_platform_data sm8150_data;
+ extern const struct iris_platform_data sm8250_data;
+ extern const struct iris_platform_data sm8550_data;
+ extern const struct iris_platform_data sm8650_data;
+@@ -318,6 +319,7 @@ struct iris_platform_data {
+ 	u32 tz_cp_config_data_size;
+ 	u32 num_vpp_pipe;
+ 	bool no_aon;
++	bool legacy_vpu5;
+ 	u32 max_session_count;
+ 	/* max number of macroblocks per frame supported */
+ 	u32 max_core_mbpf;
+diff --git a/drivers/media/platform/qcom/iris/iris_platform_vpu2.c b/drivers/media/platform/qcom/iris/iris_platform_vpu2.c
+index bbdbf21961d7..cb32355a3f0a 100644
+--- a/drivers/media/platform/qcom/iris/iris_platform_vpu2.c
++++ b/drivers/media/platform/qcom/iris/iris_platform_vpu2.c
+@@ -41,6 +41,12 @@ static const struct iris_firmware_desc iris_vpu20_p4_gen1_desc = {
+ 	.fwname = "qcom/vpu/vpu20_p4.mbn",
+ };
+ 
++static const struct iris_firmware_desc iris_sm8150_gen1_desc = {
++	.firmware_data = &iris_hfi_gen1_data,
++	.get_vpu_buffer_size = iris_vpu_buf_size,
++	.fwname = "qcom/sm8150/xiaomi/nabu/venus.mbn",
++};
++
+ static const u32 iris_fmts_vpu2_dec[] = {
+ 	[IRIS_FMT_H264] = V4L2_PIX_FMT_H264,
+ 	[IRIS_FMT_HEVC] = V4L2_PIX_FMT_HEVC,
+@@ -59,6 +65,18 @@ static struct platform_inst_caps platform_inst_cap_vpu2 = {
+ 	.max_operating_rate = MAXIMUM_FPS,
+ };
+ 
++static struct platform_inst_caps platform_inst_cap_sm8150 = {
++	.min_frame_width = 128,
++	.max_frame_width = 8192,
++	.min_frame_height = 128,
++	.max_frame_height = 8192,
++	.max_mbpf = 138240,
++	.mb_cycles_vsp = 10,
++	.mb_cycles_vpp = 200,
++	.max_frame_rate = MAXIMUM_FPS,
++	.max_operating_rate = MAXIMUM_FPS,
++};
++
+ static const struct icc_info iris_icc_info_vpu2[] = {
+ 	{ "cpu-cfg",    1000, 1000     },
+ 	{ "video-mem",  1000, 15000000 },
+@@ -66,8 +84,33 @@ static const struct icc_info iris_icc_info_vpu2[] = {
+ 
+ static const char * const iris_clk_reset_table_vpu2[] = { "bus", "core" };
+ 
++static const char * const iris_clk_reset_table_sm8150[] = {
++	"bus", "core", "vcodec0_bus", "vcodec1_bus"
++};
++
+ static const char * const iris_pmdomain_table_vpu2[] = { "venus", "vcodec0" };
+ 
++static const char * const iris_pmdomain_table_sm8150[] = {
++	"venus", "vcodec0", "vcodec1"
++};
++
++static const char * const iris_opp_pd_table_sm8150[] = { "cx" };
++
++static const struct platform_clk_data iris_clk_table_sm8150[] = {
++	{ IRIS_CTRL_CLK,    "core"          },
++	{ IRIS_AXI_CLK,     "iface"         },
++	{ IRIS_AHB_CLK,     "bus"           },
++	{ IRIS_HW_CLK,      "vcodec0_core"  },
++	{ IRIS_HW_AHB_CLK,  "vcodec0_bus"   },
++	{ IRIS_VPP0_HW_CLK, "vcodec1_core"  },
++	{ IRIS_BSE_HW_CLK,  "vcodec1_bus"   },
++};
++
++static const char * const iris_opp_clk_table_sm8150[] = {
++	"core",
++	NULL,
++};
++
+ static const struct tz_cp_config tz_cp_config_vpu2[] = {
+ 	{
+ 		.cp_start = 0,
+@@ -135,6 +178,36 @@ const struct iris_platform_data sc7280_data = {
+ 	.max_core_mbps = 4096 * 2176 / 256 * 60,
+ };
+ 
++/* SM8150 uses HFI Gen1 with the older VIDEO.IR.1.2 (VPU5) register map. */
++const struct iris_platform_data sm8150_data = {
++	.firmware_desc_gen1 = &iris_sm8150_gen1_desc,
++	.vpu_ops = &iris_vpu2_ops,
++	.icc_tbl = iris_icc_info_vpu2,
++	.icc_tbl_size = ARRAY_SIZE(iris_icc_info_vpu2),
++	.clk_rst_tbl = iris_clk_reset_table_sm8150,
++	.clk_rst_tbl_size = ARRAY_SIZE(iris_clk_reset_table_sm8150),
++	.bw_tbl_dec = sm8250_bw_table_dec,
++	.bw_tbl_dec_size = ARRAY_SIZE(sm8250_bw_table_dec),
++	.pmdomain_tbl = iris_pmdomain_table_sm8150,
++	.pmdomain_tbl_size = ARRAY_SIZE(iris_pmdomain_table_sm8150),
++	.opp_pd_tbl = iris_opp_pd_table_sm8150,
++	.opp_pd_tbl_size = ARRAY_SIZE(iris_opp_pd_table_sm8150),
++	.clk_tbl = iris_clk_table_sm8150,
++	.clk_tbl_size = ARRAY_SIZE(iris_clk_table_sm8150),
++	.opp_clk_tbl = iris_opp_clk_table_sm8150,
++	.dma_mask = 0xe0000000 - 1,
++	.inst_iris_fmts = iris_fmts_vpu2_dec,
++	.inst_iris_fmts_size = ARRAY_SIZE(iris_fmts_vpu2_dec),
++	.inst_caps = &platform_inst_cap_sm8150,
++	.tz_cp_config_data = tz_cp_config_vpu2,
++	.tz_cp_config_data_size = ARRAY_SIZE(tz_cp_config_vpu2),
++	.num_vpp_pipe = 2,
++	.legacy_vpu5 = true,
++	.max_session_count = 16,
++	.max_core_mbpf = NUM_MBS_8K,
++	.max_core_mbps = ((3840 * 2176) / 256) * 120,
++};
++
+ const struct iris_platform_data sm8250_data = {
+ 	.firmware_desc_gen1 = &iris_vpu20_p4_gen1_desc,
+ 	.vpu_ops = &iris_vpu2_ops,
+diff --git a/drivers/media/platform/qcom/iris/iris_probe.c b/drivers/media/platform/qcom/iris/iris_probe.c
+index e4acf4a74f94..d5f6a75b9901 100644
+--- a/drivers/media/platform/qcom/iris/iris_probe.c
++++ b/drivers/media/platform/qcom/iris/iris_probe.c
+@@ -368,6 +368,10 @@ static const struct of_device_id iris_dt_match[] = {
+ 		.compatible = "qcom,sc7280-venus",
+ 		.data = &sc7280_data,
+ 	},
++	{
++		.compatible = "qcom,sm8150-iris",
++		.data = &sm8150_data,
++	},
+ 	{
+ 		.compatible = "qcom,sm8250-venus",
+ 		.data = &sm8250_data,
+diff --git a/drivers/media/platform/qcom/iris/iris_vpu_common.c b/drivers/media/platform/qcom/iris/iris_vpu_common.c
+index e4847c107709..dfc2c3e75567 100644
+--- a/drivers/media/platform/qcom/iris/iris_vpu_common.c
++++ b/drivers/media/platform/qcom/iris/iris_vpu_common.c
+@@ -31,19 +31,47 @@
+ #define UC_REGION_ADDR				(CPU_CS_BASE_OFFS + 0x64)
+ #define UC_REGION_SIZE				(CPU_CS_BASE_OFFS + 0x68)
+ 
++#define VPU5_CPU_CS_BASE_OFFS			0x000D2000
++#define VPU5_CPU_IC_BASE_OFFS			0x000DF000
++#define VPU5_WRAPPER_BASE_OFFS			0x000E0000
++
++static bool iris_vpu_uses_legacy_vpu5(struct iris_core *core)
++{
++	return core->iris_platform_data->legacy_vpu5;
++}
++
++static u32 iris_vpu_cpu_cs_base(struct iris_core *core)
++{
++	return iris_vpu_uses_legacy_vpu5(core) ?
++		VPU5_CPU_CS_BASE_OFFS : CPU_CS_BASE_OFFS;
++}
++
++static u32 iris_vpu_wrapper_base(struct iris_core *core)
++{
++	return iris_vpu_uses_legacy_vpu5(core) ?
++		VPU5_WRAPPER_BASE_OFFS : WRAPPER_BASE_OFFS;
++}
++
+ static void iris_vpu_interrupt_init(struct iris_core *core)
+ {
++	u32 wrapper_base = iris_vpu_wrapper_base(core);
+ 	u32 mask_val;
+ 
+-	mask_val = readl(core->reg_base + WRAPPER_INTR_MASK);
+-	mask_val &= ~(WRAPPER_INTR_MASK_A2HWD_BMSK |
+-		      WRAPPER_INTR_MASK_A2HCPU_BMSK);
+-	writel(mask_val, core->reg_base + WRAPPER_INTR_MASK);
++	mask_val = readl(core->reg_base + wrapper_base + 0x10);
++	if (iris_vpu_uses_legacy_vpu5(core)) {
++		/* Keep the VPU5 watchdog masked and unmask the normal A2H IRQ. */
++		mask_val |= BIT(4);
++		mask_val &= ~BIT(2);
++	} else {
++		mask_val &= ~(BIT(3) | BIT(2));
++	}
++	writel(mask_val, core->reg_base + wrapper_base + 0x10);
+ }
+ 
+ static void iris_vpu_setup_ucregion_memory_map(struct iris_core *core)
+ {
+-	u32 queue_size, value;
++	u32 cpu_cs_base = iris_vpu_cpu_cs_base(core);
++	u32 queue_size, region_size, value;
+ 	const struct vpu_ops *vpu_ops = core->iris_platform_data->vpu_ops;
+ 
+ 	/* Iris hardware requires 4K queue alignment */
+@@ -51,20 +79,27 @@ static void iris_vpu_setup_ucregion_memory_map(struct iris_core *core)
+ 		(IFACEQ_QUEUE_SIZE * IFACEQ_NUMQ), SZ_4K);
+ 
+ 	value = (u32)core->iface_q_table_daddr;
+-	writel(value, core->reg_base + UC_REGION_ADDR);
++	writel(value, core->reg_base + cpu_cs_base + 0x64);
+ 
+ 	/* Iris hardware requires 1M queue alignment */
+-	value = ALIGN(SFR_SIZE + queue_size, SZ_1M);
+-	writel(value, core->reg_base + UC_REGION_SIZE);
++	region_size = ALIGN(SFR_SIZE + queue_size, SZ_1M);
++	writel(region_size, core->reg_base + cpu_cs_base + 0x68);
+ 
+ 	value = (u32)core->iface_q_table_daddr;
+-	writel(value, core->reg_base + QTBL_ADDR);
++	writel(value, core->reg_base + cpu_cs_base + 0x54);
+ 
+-	writel(QTBL_ENABLE, core->reg_base + QTBL_INFO);
++	writel(QTBL_ENABLE, core->reg_base + cpu_cs_base + 0x50);
++
++	if (iris_vpu_uses_legacy_vpu5(core)) {
++		/* VPU5 exposes a second queue view for its internal DSP. */
++		writel(value, core->reg_base + cpu_cs_base + 0x34);
++		writel(value, core->reg_base + cpu_cs_base + 0x38);
++		writel(region_size, core->reg_base + cpu_cs_base + 0x3c);
++	}
+ 
+ 	if (core->sfr_daddr) {
+ 		value = (u32)core->sfr_daddr + core->iris_firmware_data->core_arch;
+-		writel(value, core->reg_base + SFR_ADDR);
++		writel(value, core->reg_base + cpu_cs_base + 0x5c);
+ 	}
+ 
+ 	if (vpu_ops->program_bootup_registers)
+@@ -73,15 +108,17 @@ static void iris_vpu_setup_ucregion_memory_map(struct iris_core *core)
+ 
+ int iris_vpu_boot_firmware(struct iris_core *core)
+ {
++	u32 cpu_cs_base = iris_vpu_cpu_cs_base(core);
+ 	u32 ctrl_init = BIT(0), ctrl_status = 0, count = 0, max_tries = 1000;
+ 
+ 	iris_vpu_setup_ucregion_memory_map(core);
+ 
+-	writel(ctrl_init, core->reg_base + CTRL_INIT);
+-	writel(0x1, core->reg_base + CPU_CS_SCIACMDARG3);
++	writel(ctrl_init, core->reg_base + cpu_cs_base + 0x48);
++	if (!iris_vpu_uses_legacy_vpu5(core))
++		writel(0x1, core->reg_base + cpu_cs_base + 0x58);
+ 
+ 	while (!ctrl_status && count < max_tries) {
+-		ctrl_status = readl(core->reg_base + CTRL_STATUS);
++		ctrl_status = readl(core->reg_base + cpu_cs_base + 0x4c);
+ 		if ((ctrl_status & CTRL_ERROR_STATUS__M) == 0x4) {
+ 			dev_err(core->dev, "invalid setting for uc_region\n");
+ 			break;
+@@ -96,6 +133,10 @@ int iris_vpu_boot_firmware(struct iris_core *core)
+ 		return -ETIME;
+ 	}
+ 
++	/* The following controls are not present in the VPU5 register window. */
++	if (iris_vpu_uses_legacy_vpu5(core))
++		return 0;
++
+ 	writel(HOST2XTENSA_INTR_ENABLE, core->reg_base + CPU_CS_H2XSOFTINTEN);
+ 	writel(0x0, core->reg_base + CPU_CS_X2RPMH);
+ 
+@@ -104,27 +145,37 @@ int iris_vpu_boot_firmware(struct iris_core *core)
+ 
+ void iris_vpu_raise_interrupt(struct iris_core *core)
+ {
+-	writel(1 << CPU_IC_SOFTINT_H2A_SHFT, core->reg_base + CPU_IC_SOFTINT);
++	if (iris_vpu_uses_legacy_vpu5(core))
++		writel(BIT(15), core->reg_base + VPU5_CPU_IC_BASE_OFFS + 0x18);
++	else
++		writel(BIT(CPU_IC_SOFTINT_H2A_SHFT),
++		       core->reg_base + CPU_IC_SOFTINT);
+ }
+ 
+ void iris_vpu_clear_interrupt(struct iris_core *core)
+ {
++	u32 cpu_cs_base = iris_vpu_cpu_cs_base(core);
++	u32 wrapper_base = iris_vpu_wrapper_base(core);
+ 	u32 intr_status, mask;
+ 
+-	intr_status = readl(core->reg_base + WRAPPER_INTR_STATUS);
+-	mask = (WRAPPER_INTR_STATUS_A2H_BMSK |
+-		WRAPPER_INTR_STATUS_A2HWD_BMSK |
+-		CTRL_INIT_IDLE_MSG_BMSK);
++	intr_status = readl(core->reg_base + wrapper_base + 0x0c);
++	mask = BIT(2) | CTRL_INIT_IDLE_MSG_BMSK;
++	mask |= iris_vpu_uses_legacy_vpu5(core) ? BIT(4) : BIT(3);
+ 
+ 	if (intr_status & mask)
+ 		core->intr_status |= intr_status;
+ 
+-	writel(CLEAR_XTENSA2HOST_INTR, core->reg_base + CPU_CS_A2HSOFTINTCLR);
++	writel(CLEAR_XTENSA2HOST_INTR,
++	       core->reg_base + cpu_cs_base + 0x1c);
++	if (iris_vpu_uses_legacy_vpu5(core))
++		writel(intr_status, core->reg_base + wrapper_base + 0x14);
+ }
+ 
+ int iris_vpu_watchdog(struct iris_core *core, u32 intr_status)
+ {
+-	if (intr_status & WRAPPER_INTR_STATUS_A2HWD_BMSK) {
++	u32 watchdog_mask = iris_vpu_uses_legacy_vpu5(core) ? BIT(4) : BIT(3);
++
++	if (intr_status & watchdog_mask) {
+ 		dev_err(core->dev, "received watchdog interrupt\n");
+ 		return -ETIME;
+ 	}
+@@ -138,6 +189,10 @@ int iris_vpu_prepare_pc(struct iris_core *core)
+ 	u32 ctrl_status, val = 0;
+ 	int ret;
+ 
++	/* The power-collapse sequence below addresses Iris2-only registers. */
++	if (iris_vpu_uses_legacy_vpu5(core))
++		return -EAGAIN;
++
+ 	ctrl_status = readl(core->reg_base + CTRL_STATUS);
+ 	pc_ready = ctrl_status & CTRL_STATUS_PC_READY;
+ 	idle_status = ctrl_status & BIT(30);
+@@ -180,6 +235,15 @@ int iris_vpu_power_off_controller(struct iris_core *core)
+ 	u32 val = 0;
+ 	int ret;
+ 
++	if (iris_vpu_uses_legacy_vpu5(core)) {
++		iris_disable_unprepare_clock(core, IRIS_AHB_CLK);
++		iris_disable_unprepare_clock(core, IRIS_CTRL_CLK);
++		iris_disable_unprepare_clock(core, IRIS_AXI_CLK);
++		iris_disable_power_domains(core,
++			core->pmdomain_tbl->pd_devs[IRIS_CTRL_POWER_DOMAIN]);
++		return 0;
++	}
++
+ 	writel(MSK_SIGNAL_FROM_TENSILICA | MSK_CORE_POWER_ON, core->reg_base + CPU_CS_X2RPMH);
+ 
+ 	if (!core->iris_platform_data->no_aon) {
+@@ -222,6 +286,18 @@ int iris_vpu_power_off_controller(struct iris_core *core)
+ 
+ void iris_vpu_power_off_hw(struct iris_core *core)
+ {
++	if (iris_vpu_uses_legacy_vpu5(core)) {
++		iris_disable_unprepare_clock(core, IRIS_BSE_HW_CLK);
++		iris_disable_unprepare_clock(core, IRIS_VPP0_HW_CLK);
++		iris_disable_unprepare_clock(core, IRIS_HW_AHB_CLK);
++		iris_disable_unprepare_clock(core, IRIS_HW_CLK);
++		iris_disable_power_domains(core,
++			core->pmdomain_tbl->pd_devs[IRIS_VPP0_HW_POWER_DOMAIN]);
++		iris_disable_power_domains(core,
++			core->pmdomain_tbl->pd_devs[IRIS_HW_POWER_DOMAIN]);
++		return;
++	}
++
+ 	dev_pm_genpd_set_hwmode(core->pmdomain_tbl->pd_devs[IRIS_HW_POWER_DOMAIN], false);
+ 	iris_disable_power_domains(core, core->pmdomain_tbl->pd_devs[IRIS_HW_POWER_DOMAIN]);
+ 	iris_disable_unprepare_clock(core, IRIS_BSE_HW_CLK);
+@@ -285,9 +361,16 @@ int iris_vpu_power_on_hw(struct iris_core *core)
+ 	if (ret)
+ 		return ret;
+ 
++	if (iris_vpu_uses_legacy_vpu5(core)) {
++		ret = iris_enable_power_domains(core,
++			core->pmdomain_tbl->pd_devs[IRIS_VPP0_HW_POWER_DOMAIN]);
++		if (ret)
++			goto err_disable_power;
++	}
++
+ 	ret = iris_prepare_enable_clock(core, IRIS_HW_CLK);
+ 	if (ret)
+-		goto err_disable_power;
++		goto err_disable_aux_power;
+ 
+ 	ret = iris_prepare_enable_clock(core, IRIS_HW_AHB_CLK);
+ 	if (ret && ret != -ENOENT)
+@@ -297,12 +380,24 @@ int iris_vpu_power_on_hw(struct iris_core *core)
+ 	if (ret && ret != -ENOENT)
+ 		goto err_disable_hw_ahb_clock;
+ 
++	if (iris_vpu_uses_legacy_vpu5(core)) {
++		ret = iris_prepare_enable_clock(core, IRIS_VPP0_HW_CLK);
++		if (ret)
++			goto err_disable_bse_clock;
++	}
++
+ 	return 0;
+ 
++err_disable_bse_clock:
++	iris_disable_unprepare_clock(core, IRIS_BSE_HW_CLK);
+ err_disable_hw_ahb_clock:
+ 	iris_disable_unprepare_clock(core, IRIS_HW_AHB_CLK);
+ err_disable_hw_clock:
+ 	iris_disable_unprepare_clock(core, IRIS_HW_CLK);
++err_disable_aux_power:
++	if (iris_vpu_uses_legacy_vpu5(core))
++		iris_disable_power_domains(core,
++			core->pmdomain_tbl->pd_devs[IRIS_VPP0_HW_POWER_DOMAIN]);
+ err_disable_power:
+ 	iris_disable_power_domains(core, core->pmdomain_tbl->pd_devs[IRIS_HW_POWER_DOMAIN]);
+ 
+@@ -311,6 +406,9 @@ int iris_vpu_power_on_hw(struct iris_core *core)
+ 
+ int iris_vpu_set_hwmode(struct iris_core *core)
+ {
++	if (iris_vpu_uses_legacy_vpu5(core))
++		return 0;
++
+ 	return dev_pm_genpd_set_hwmode(core->pmdomain_tbl->pd_devs[IRIS_HW_POWER_DOMAIN], true);
+ }
+ 
+@@ -481,7 +579,9 @@ int iris_vpu_power_on(struct iris_core *core)
+ 	freq = core->power.clk_freq ? core->power.clk_freq :
+ 				      (u32)ULONG_MAX;
+ 
+-	iris_opp_set_rate(core->dev, freq);
++	ret = iris_opp_set_rate(core->dev, freq);
++	if (ret)
++		goto err_power_off_hw;
+ 
+ 	iris_vpu_set_preset_registers(core);
+ 
+@@ -491,6 +591,8 @@ int iris_vpu_power_on(struct iris_core *core)
+ 
+ 	return 0;
+ 
++err_power_off_hw:
++	core->iris_platform_data->vpu_ops->power_off_hw(core);
+ err_power_off_ctrl:
+ 	core->iris_platform_data->vpu_ops->power_off_controller(core);
+ err_unvote_icc:
+@@ -503,5 +605,10 @@ int iris_vpu_power_on(struct iris_core *core)
+ 
+ void iris_vpu_set_preset_registers(struct iris_core *core)
+ {
+-	writel(0x0, core->reg_base + 0xb0088);
++	if (iris_vpu_uses_legacy_vpu5(core)) {
++		writel(0, core->reg_base + 0xe2010);
++		writel(0, core->reg_base + 0xe2000);
++	} else {
++		writel(0, core->reg_base + 0xb0088);
++	}
+ }

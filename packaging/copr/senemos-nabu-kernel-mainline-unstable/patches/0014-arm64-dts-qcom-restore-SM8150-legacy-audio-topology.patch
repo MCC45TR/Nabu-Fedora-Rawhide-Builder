@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 17:52:00 +0300
-Subject: [PATCH 14/21] arm64: dts: qcom: restore SM8150 legacy audio topology
+Subject: [PATCH 014/117] arm64: dts: qcom: restore SM8150 legacy audio
+ topology
 
 ---
  arch/arm64/boot/dts/qcom/sm8150-wcd9340.dtsi  | 86 +++++++++++++++++++
@@ -118,7 +119,7 @@ index cc9239e6412b..6bba0ff08c77 100644
  #include "pm8150b.dtsi"
  #include "pm8150l.dtsi"
 diff --git a/arch/arm64/boot/dts/qcom/sm8150.dtsi b/arch/arm64/boot/dts/qcom/sm8150.dtsi
-index fe0fe9ee6400..8d08c9978e40 100644
+index 804669c40818..b7734d84f93e 100644
 --- a/arch/arm64/boot/dts/qcom/sm8150.dtsi
 +++ b/arch/arm64/boot/dts/qcom/sm8150.dtsi
 @@ -9,7 +9,9 @@

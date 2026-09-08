@@ -1,16 +1,18 @@
 %global debug_package %{nil}
 %global __strip /bin/true
 %global nabu_build_stamp 0000000000
-%global uname_r %{version}-nabu-senemos-mainline-unstable
+%global upstream_version 7.3-rc2
+%global kernel_version 7.3.0-rc2
+%global uname_r %{kernel_version}-nabu-senemos-mainline-unstable
 
 Name:           senemos-nabu-kernel-mainline-unstable
-Version:        7.2.3
+Version:        7.3~rc2
 Release:        %{nabu_build_stamp}.unstable%{?dist}
-Summary:        Patch-layered Linux 7.2.y SENEMOS kernel for Xiaomi Pad 5
+Summary:        Patch-layered latest-mainline SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
 ExclusiveArch:  aarch64
-Source0:        https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-%{version}.tar.xz
+Source0:        https://git.kernel.org/torvalds/t/linux-%{upstream_version}.tar.gz
 Source1:        upstream.sha256
 Source2:        patches.sha256
 Source3:        91-nabu-mainline-unstable-omit-early-xhci.conf
@@ -40,117 +42,100 @@ Patch0020:      0020-config-remove-release-kernel-self-tests.patch
 Patch0021:      0021-config-drop-runtime-test-drivers-from-release-builds.patch
 Patch0022:      0022-senemos-isolate-mainline-unstable-kernel-identity.patch
 Patch0023:      0023-media-qcom-add-Xiaomi-Nabu-camera-support.patch
-Patch0024:      0024-media-qcom-port-Nabu-Iris-VA-API-support-to-6.17.patch
-Patch0025:      0025-kernel-overlay-speed-up-VP9-capture-for-FFmpeg.patch
-Patch0026:      0026-kernel-overlay-harden-P010-and-external-module-build.patch
-Patch0027:      0027-kernel-overlay-preserve-usable-legacy-VP9-output.patch
-Patch0028:      0028-kernel-overlay-filter-hidden-VP9-superframes.patch
-Patch0029:      0029-kernel-overlay-make-Nabu-Iris-device-tree-append-onl.patch
-Patch0030:      0030-media-qcom-adapt-current-Nabu-Iris-overlay-to-Linux-.patch
-Patch0031:      0031-arm64-nabu-enable-RTC-and-persistent-suspend-diagnos.patch
-Patch0032:      0032-spi-geni-qcom-bound-timeout-recovery-state.patch
-Patch0033:      0033-Input-nt36523-bound-retries-while-SPI-recovers.patch
-Patch0034:      0034-Input-nt36523-bound-SPI-fault-recovery.patch
-Patch0035:      0035-input-gate-NVT-gestures-during-suspend-preparation.patch
-Patch0036:      0036-misc-fastrpc-harden-Nabu-SDSP-ownership-recovery.patch
-Patch0037:      0037-wifi-ath10k-keep-crash-teardown-local-after-transpor.patch
-Patch0038:      0038-wifi-ath10k-ignore-channel-less-survey-events.patch
-Patch0039:      0039-Bluetooth-hci_qca-demote-setup-only-framing-discard.patch
-Patch0040:      0040-arm64-dts-qcom-nabu-complete-WCN3990-supplies.patch
-Patch0041:      0041-dt-bindings-sound-cs35l41-allow-verified-missing-PDN.patch
-Patch0042:      0042-ASoC-cs35l41-bound-Nabu-power-down-recovery.patch
-Patch0043:      0043-ASoC-cs35l41-defer-accepted-Nabu-PDN-timeout-logging.patch
-Patch0044:      0044-ASoC-cs35l41-demote-accepted-Nabu-PDN-timeout.patch
-Patch0045:      0045-arm64-dts-qcom-nabu-describe-CS35L41-supplies.patch
-Patch0046:      0046-slimbus-qcom-ngd-make-duplicate-UP-work-idempotent.patch
-Patch0047:      0047-input-add-explicit-mode-Nabu-keyboard-cover-support.patch
-Patch0048:      0048-nabu-keep-keyboard-and-legacy-Iris-from-blocking-sus.patch
-Patch0049:      0049-power-supply-integrate-protected-LN8000-charging-on-.patch
-Patch0050:      0050-dt-bindings-power-ln8000-describe-unwired-input-NTC.patch
-Patch0051:      0051-power-supply-ln8000-disable-unwired-Nabu-input-NTC.patch
-Patch0052:      0052-power-supply-add-fail-safe-Nabu-thermal-charging-pol.patch
-Patch0053:      0053-dt-bindings-power-supply-add-SMB5-thermal-policy-dat.patch
-Patch0054:      0054-power-supply-align-Nabu-charging-policy-with-OEM-lim.patch
-Patch0055:      0055-arm64-dts-qcom-nabu-add-OEM-derived-charging-policy.patch
-Patch0056:      0056-dt-bindings-power-supply-describe-SMB5-connector-the.patch
-Patch0057:      0057-power-supply-stop-Nabu-charging-on-connector-overhea.patch
-Patch0058:      0058-power-supply-make-Nabu-charging-policy-fail-safe.patch
-Patch0059:      0059-media-venus-restore-coexistence-with-Iris-on-Linux-7.patch
-Patch0060:      0060-power-supply-adapt-Nabu-charging-to-Linux-7.2-APIs.patch
-Patch0061:      0061-ASoC-cs35l41-include-property-API-for-PDN-policy.patch
-Patch0062:      0062-dt-bindings-power-validate-SMB5-Nabu-policy-arrays.patch
-Patch0063:      0063-usb-nabu-restore-dual-role-VBUS-operation-on-7.2.patch
-Patch0064:      0064-senemos-add-staged-7.2.2-HIL-validation-plan.patch
-Patch0065:      0065-senemos-prune-7.2.2-to-Nabu-hardware.patch
-Patch0066:      0066-senemos-retain-module-signing-helper-in-Nabu-config.patch
-Patch0067:      0067-arm64-dts-qcom-restore-Nabu-display-and-RTC-persiste.patch
-Patch0068:      0068-senemos-retain-nftables-for-Fedora-firewalld.patch
-Patch0069:      0069-senemos-restore-Fedora-zram-and-persistent-diagnosti.patch
-Patch0070:      0070-misc-fastrpc-restore-SM8150-SDSP-IOVA-windows.patch
-Patch0071:      0071-arm64-dts-qcom-fix-Nabu-charging-and-DRP-preference.patch
-Patch0072:      0072-Input-nt36523-drop-obsolete-MediaTek-SPI-setup.patch
-Patch0073:      0073-media-qcom-expose-CAMSS-sensors-as-each-one-binds.patch
-Patch0074:      0074-remoteproc-qcom-q6v5-Make-handover-IRQ-one-shot.patch
-Patch0075:      0075-senemos-keep-shared-GPIO-proxy-built-in-for-Nabu-aud.patch
-Patch0076:      0076-arm64-dts-qcom-persist-Nabu-RTC-time-in-SDAM.patch
-Patch0077:      0077-senemos-activate-SELinux-in-Nabu-LSM-stack.patch
-Patch0078:      0078-senemos-classify-Nabu-SAR-separately-from-proximity.patch
-Patch0079:      0079-iio-light-add-Qualcomm-SSC-color-temperature-endpoin.patch
-Patch0080:      0080-senemos-enable-SSC-CCT-IIO-bridge-in-Nabu-profile.patch
-Patch0081:      0081-iio-light-invalidate-stale-SSC-color-temperature.patch
-Patch0082:      0082-media-qcom-stabilize-Nabu-camera-enumeration.patch
-Patch0083:      0083-ASoC-qcom-restore-Nabu-TDM-framing-and-CAMSS-DMA-wi.patch
-Patch0084:      0084-media-qcom-initialize-SM8150-CSI-PHY-lane-registers.patch
-Patch0085:      0085-senemos-keep-SM8150-video-clock-built-in.patch
-Patch0086:      0086-senemos-restore-Fedora-PSI-and-ALSA-sequencer.patch
-Patch0087:      0087-senemos-retain-SM8150-OSM-L3-interconnect.patch
-Patch0088:      0088-Bluetooth-restore-Fedora-RFCOMM-and-BNEP-protocols.patch
-Patch0089:      0089-drm-msm-Recover-HW-before-retire-hung-submit.patch
-Patch0090:      0090-drm-msm-remove-objects-from-evict-list-after-pinning.patch
-Patch0091:      0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch
-Patch0092:      0092-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch
-Patch0093:      0093-senemos-enable-multigenerational-LRU.patch
-Patch0094:      0094-drm-msm-align-A640-private-VMAs-to-64K.patch
-Patch0095:      0095-ASoC-qcom-keep-q6asm-setup-state-through-trigger-stop.patch
-Patch0096:      0096-HID-enable-UHID-for-Bluetooth-LE-input-devices.patch
-Patch0097:      0097-Input-nabu-use-explicit-modern-workqueue-modes.patch
-Patch0098:      0098-power-supply-qcom_smbx-use-explicit-per-CPU-workqueu.patch
-Patch0099:      0099-power-supply-ln8000-use-explicit-per-CPU-workqueue.patch
-Patch0100:      0100-drm-msm-preserve-firmware-dual-DSI-handoff-clocks.patch
-Patch0101:      0101-Input-nabu-arm-keyboard-wake-only-while-attached.patch
-Patch0102:      0102-HID-enable-hidraw-for-Nabu-pogo-protocol-diagnostics.patch
-Patch0103:      0103-Input-use-Nabu-pogo-edge-protocol-for-computer-mode.patch
-Patch0104:      0104-media-iris-keep-polling-for-initial-source-change.patch
-Patch0105:      0105-media-iris-decouple-split-capture-and-DPB-counts.patch
-Patch0106:      0106-slimbus-qcom-ngd-retry-recovery-after-ADSP-SSR.patch
-Patch0107:      0107-media-iris-honor-VP9-firmware-capture-minimum.patch
-Patch0108:      0108-slimbus-qcom-ngd-use-default-unbound-workqueue.patch
-Patch0109:      0109-ASoC-qcom-drop-unreliable-rendered-EOS-wait.patch
-Patch0110:      0110-input-nabu-sample-pogo-detect-state-instead-of-toggling.patch
-Patch0111:      0111-input-nabu-do-not-treat-controller-irq-as-presence.patch
-Patch0112:      0112-ASoC-qcom-pause-q6asm-capture-streams-on-stop.patch
-Patch0113:      0113-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-level.patch
-Patch0114:      0114-media-qcom-iris-get-instance-from-file-in-streamparm.patch
-Patch0115:      0115-media-qcom-iris-use-vpu5-buffer-count-layout.patch
-Patch0116:      0116-ASoC-wcd934x-do-not-report-normal-port-close-as-xrun.patch
-Patch0117:      0117-media-qcom-iris-use-vb2-buffer-counts-on-vpu5.patch
-Patch0118:      0118-media-qcom-iris-disable-vpu5-power-collapse-at-core-init.patch
-Patch0119:      0119-media-i2c-expose-Nabu-sensor-geometry-and-frame-rate.patch
-Patch0120:      0120-media-connect-Nabu-rear-flash-to-camera.patch
-Patch0121:      0121-media-qcom-remove-Nabu-camera-bring-up-logging.patch
-Patch0122:      0122-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
-Patch0123:      0123-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
-Patch0124:      0124-crypto-enable-Android-data-compatibility-algorithms.patch
-Patch0125:      0125-soc-qcom-ice-support-legacy-Keymaster-wrapped-keys.patch
-Patch0126:      0126-media-qcom-iris-use-VPU5-firmware-encoder-buffer-sizes.patch
-Patch0127:      0127-power-supply-qcom_smbx-fix-SMB5-USB-voltage-reporting.patch
-Patch0128:      0128-media-qcom-iris-keep-VPU5-decoder-counts-sequence-safe.patch
-Patch0129:      0129-media-qcom-iris-reinitialize-legacy-VPU5-across-s2idle.patch
-Patch0130:      0130-dt-bindings-eeprom-add-Belling-BL24SA64.patch
-Patch0131:      0131-dt-bindings-i2c-add-SM8150-CCI-compatible.patch
-Patch0132:      0132-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
-Patch0133:      0133-arm64-dts-qcom-expose-Nabu-camera-calibration-EEPROM.patch
-Patch0134:      0134-arm64-dts-qcom-make-Nabu-nodes-schema-compliant.patch
+Patch0024:      0024-media-qcom-port-Nabu-SM8150-Iris-to-Linux-7.3.patch
+Patch0025:      0025-arm64-nabu-enable-RTC-and-persistent-suspend-diagnos.patch
+Patch0026:      0026-spi-geni-qcom-bound-timeout-recovery-state.patch
+Patch0027:      0027-Input-nt36523-bound-retries-while-SPI-recovers.patch
+Patch0028:      0028-Input-nt36523-bound-SPI-fault-recovery.patch
+Patch0029:      0029-input-gate-NVT-gestures-during-suspend-preparation.patch
+Patch0030:      0030-misc-fastrpc-harden-Nabu-SDSP-ownership-recovery.patch
+Patch0031:      0031-wifi-ath10k-keep-crash-teardown-local-after-transpor.patch
+Patch0032:      0032-wifi-ath10k-ignore-channel-less-survey-events.patch
+Patch0033:      0033-Bluetooth-hci_qca-demote-setup-only-framing-discard.patch
+Patch0034:      0034-arm64-dts-qcom-nabu-complete-WCN3990-supplies.patch
+Patch0035:      0035-dt-bindings-sound-cs35l41-allow-verified-missing-PDN.patch
+Patch0036:      0036-ASoC-cs35l41-bound-Nabu-power-down-recovery.patch
+Patch0037:      0037-ASoC-cs35l41-defer-accepted-Nabu-PDN-timeout-logging.patch
+Patch0038:      0038-ASoC-cs35l41-demote-accepted-Nabu-PDN-timeout.patch
+Patch0039:      0039-arm64-dts-qcom-nabu-describe-CS35L41-supplies.patch
+Patch0040:      0040-slimbus-qcom-ngd-make-duplicate-UP-work-idempotent.patch
+Patch0041:      0041-input-add-explicit-mode-Nabu-keyboard-cover-support.patch
+Patch0042:      0042-nabu-keep-keyboard-and-legacy-Iris-from-blocking-sus.patch
+Patch0043:      0043-power-supply-integrate-protected-LN8000-charging-on-.patch
+Patch0044:      0044-dt-bindings-power-ln8000-describe-unwired-input-NTC.patch
+Patch0045:      0045-power-supply-ln8000-disable-unwired-Nabu-input-NTC.patch
+Patch0046:      0046-power-supply-add-fail-safe-Nabu-thermal-charging-pol.patch
+Patch0047:      0047-dt-bindings-power-supply-add-SMB5-thermal-policy-dat.patch
+Patch0048:      0048-power-supply-align-Nabu-charging-policy-with-OEM-lim.patch
+Patch0049:      0049-arm64-dts-qcom-nabu-add-OEM-derived-charging-policy.patch
+Patch0050:      0050-dt-bindings-power-supply-describe-SMB5-connector-the.patch
+Patch0051:      0051-power-supply-stop-Nabu-charging-on-connector-overhea.patch
+Patch0052:      0052-power-supply-make-Nabu-charging-policy-fail-safe.patch
+Patch0053:      0053-power-supply-adapt-Nabu-charging-to-Linux-7.2-APIs.patch
+Patch0054:      0054-ASoC-cs35l41-include-property-API-for-PDN-policy.patch
+Patch0055:      0055-dt-bindings-power-validate-SMB5-Nabu-policy-arrays.patch
+Patch0056:      0056-usb-nabu-restore-dual-role-VBUS-operation-on-7.2.patch
+Patch0057:      0057-senemos-add-staged-7.2.2-HIL-validation-plan.patch
+Patch0058:      0058-senemos-prune-7.2.2-to-Nabu-hardware.patch
+Patch0059:      0059-senemos-retain-module-signing-helper-in-Nabu-config.patch
+Patch0060:      0060-arm64-dts-qcom-restore-Nabu-display-and-RTC-persiste.patch
+Patch0061:      0061-senemos-retain-nftables-for-Fedora-firewalld.patch
+Patch0062:      0062-senemos-restore-Fedora-zram-and-persistent-diagnosti.patch
+Patch0063:      0063-misc-fastrpc-restore-SM8150-SDSP-IOVA-windows.patch
+Patch0064:      0064-arm64-dts-qcom-fix-Nabu-charging-and-DRP-preference.patch
+Patch0065:      0065-Input-nt36523-drop-obsolete-MediaTek-SPI-setup.patch
+Patch0066:      0066-media-qcom-expose-CAMSS-sensors-as-each-one-binds.patch
+Patch0067:      0067-senemos-keep-shared-GPIO-proxy-built-in-for-Nabu-aud.patch
+Patch0068:      0068-arm64-dts-qcom-persist-Nabu-RTC-time-in-SDAM.patch
+Patch0069:      0069-senemos-activate-SELinux-in-Nabu-LSM-stack.patch
+Patch0070:      0070-senemos-classify-Nabu-SAR-separately-from-proximity.patch
+Patch0071:      0071-iio-light-add-Qualcomm-SSC-color-temperature-endpoin.patch
+Patch0072:      0072-senemos-enable-SSC-CCT-IIO-bridge-in-Nabu-profile.patch
+Patch0073:      0073-iio-light-invalidate-stale-SSC-color-temperature.patch
+Patch0074:      0074-media-qcom-stabilize-Nabu-camera-enumeration.patch
+Patch0075:      0075-ASoC-qcom-restore-Nabu-TDM-framing-and-CAMSS-DMA-wid.patch
+Patch0076:      0076-media-qcom-initialize-SM8150-CSI-PHY-lane-registers.patch
+Patch0077:      0077-senemos-keep-SM8150-video-clock-built-in.patch
+Patch0078:      0078-senemos-restore-Fedora-PSI-and-ALSA-sequencer.patch
+Patch0079:      0079-senemos-retain-SM8150-OSM-L3-interconnect.patch
+Patch0080:      0080-Bluetooth-restore-Fedora-RFCOMM-and-BNEP-protocols.patch
+Patch0081:      0081-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch
+Patch0082:      0082-senemos-enable-multigenerational-LRU.patch
+Patch0083:      0083-drm-msm-align-A640-private-VMAs-to-64K.patch
+Patch0084:      0084-ASoC-qcom-keep-q6asm-setup-state-through-trigger-sto.patch
+Patch0085:      0085-HID-enable-UHID-for-Bluetooth-LE-input-devices.patch
+Patch0086:      0086-Input-nabu-use-explicit-modern-workqueue-modes.patch
+Patch0087:      0087-power-supply-qcom_smbx-use-explicit-per-CPU-workqueu.patch
+Patch0088:      0088-power-supply-ln8000-use-explicit-per-CPU-workqueue.patch
+Patch0089:      0089-drm-msm-preserve-firmware-dual-DSI-handoff-clocks.patch
+Patch0090:      0090-Input-nabu-arm-keyboard-wake-only-while-attached.patch
+Patch0091:      0091-HID-enable-hidraw-for-Nabu-pogo-protocol-diagnostics.patch
+Patch0092:      0092-Input-derive-Nabu-computer-mode-from-pogo-edge-proto.patch
+Patch0093:      0093-slimbus-qcom-ngd-retry-recovery-after-ADSP-SSR.patch
+Patch0094:      0094-slimbus-qcom-ngd-use-default-unbound-workqueue.patch
+Patch0095:      0095-ASoC-qcom-drop-unreliable-rendered-EOS-wait.patch
+Patch0096:      0096-input-nabu-sample-pogo-detect-state-instead-of-toggl.patch
+Patch0097:      0097-input-nabu-do-not-treat-controller-IRQ-as-presence.patch
+Patch0098:      0098-ASoC-qcom-pause-q6asm-capture-streams-on-stop.patch
+Patch0099:      0099-media-qcom-keep-CAMSS-frame-diagnostics-at-debug-lev.patch
+Patch0100:      0100-ASoC-wcd934x-do-not-report-normal-port-close-as-xrun.patch
+Patch0101:      0101-media-i2c-expose-Nabu-sensor-geometry-and-frame-rate.patch
+Patch0102:      0102-media-connect-Nabu-rear-flash-to-camera.patch
+Patch0103:      0103-media-qcom-remove-Nabu-camera-bring-up-logging.patch
+Patch0104:      0104-dm-add-Nabu-Android-wrappedkey_v0-data-path.patch
+Patch0105:      0105-ufs-qcom-preserve-Nabu-device-reference-clock-timing.patch
+Patch0106:      0106-crypto-enable-Android-data-compatibility-algorithms-.patch
+Patch0107:      0107-soc-qcom-ice-support-legacy-Keymaster-wrapped-keys.patch
+Patch0108:      0108-power-supply-qcom_smbx-fix-SMB5-USB-voltage-reportin.patch
+Patch0109:      0109-dt-bindings-eeprom-add-Belling-BL24SA64.patch
+Patch0110:      0110-dt-bindings-i2c-add-SM8150-CCI-compatible.patch
+Patch0111:      0111-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
+Patch0112:      0112-arm64-dts-qcom-expose-Nabu-camera-calibration-EEPROM.patch
+Patch0113:      0113-arm64-dts-qcom-make-Nabu-nodes-schema-compliant.patch
+Patch0114:      0114-media-qcom-complete-Nabu-VPU5-port-for-Linux-7.3.patch
+Patch0115:      0115-senemos-document-Linux-7.3-rc2-source-identity.patch
+Patch0116:      0116-senemos-pin-Iris-and-exclude-Venus-in-Nabu-profile.patch
+Patch0117:      0117-senemos-document-the-canonical-7.3.0-rc2-ABI.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -158,6 +143,7 @@ BuildRequires:  clang
 BuildRequires:  elfutils-libelf-devel
 BuildRequires:  findutils
 BuildRequires:  flex
+BuildRequires:  gzip
 BuildRequires:  git-core
 BuildRequires:  kmod
 BuildRequires:  lld
@@ -178,18 +164,19 @@ Requires(posttrans): coreutils
 Requires(postun): kmod
 
 %description
-Official Linux 7.2.y plus a checksum-locked, ordered Xiaomi Pad 5 (nabu)
-patch series. This is a separate unstable family with its own kernel ABI,
-RPM ownership, maintenance queue and SENEMOS7U UKI namespace. It neither
-obsoletes nor conflicts with the validated 6.17 or existing 7.2 alpha kernels.
+Official latest-mainline Linux (currently 7.3-rc2) plus a checksum-locked,
+ordered Xiaomi Pad 5 (nabu) patch series. This is a separate unstable family
+with its own kernel ABI, RPM ownership, maintenance queue and SENEMOS7U UKI
+namespace. It coexists with the stable mainline package, the validated 6.17
+fallback and Android return entry.
 
 %prep
 [[ '%{nabu_build_stamp}' =~ ^[0-9]{10}$ ]]
 grep -Fxq '%{nabu_build_stamp}' %{SOURCE5}
-grep -Fq "linux-%{version}.tar.xz" %{SOURCE1}
+grep -Fq "linux-%{upstream_version}.tar.gz" %{SOURCE1}
 (cd %{_sourcedir} && sha256sum -c %{SOURCE1})
 (cd %{_sourcedir} && sha256sum -c %{SOURCE2})
-%autosetup -n linux-%{version} -S git_am
+%autosetup -n linux-%{upstream_version} -S git_am
 
 %build
 export KBUILD_BUILD_USER=mcc45tr
@@ -370,6 +357,25 @@ grep -A7 -F 'front_camera_eeprom: eeprom@50' \
 ! grep -Fq 'SM8150_MMCX>, <&rpmhpd SM8150_MX' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
 grep -Fq 'ranges = <0 0xb100 0x100>;' arch/arm64/boot/dts/qcom/pm8150.dtsi
+iris_dir=drivers/media/platform/qcom/iris
+iris_gen1=$iris_dir/iris_hfi_gen1_command.c
+iris_response=$iris_dir/iris_hfi_gen1_response.c
+grep -Fq 'case HFI_BUFFER_INTERNAL_SCRATCH_2:' $iris_response
+grep -Fq 'inst->fw_buffer_sizes[buffer_type]' $iris_dir/iris_buffer.c
+grep -Fq 'Stateful decoders have no CAPTURE buffers' $iris_gen1
+grep -Fq 'inst->domain == ENCODER' $iris_gen1
+grep -Fq '#define IFACEQ_LEGACY_MAX_BUF_COUNT' $iris_dir/iris_hfi_queue.h
+grep -Fq 'struct iris_hfi_legacy_queue_table_header' $iris_dir/iris_hfi_queue.h
+grep -Fq 'return ALIGN(SFR_SIZE + iris_hfi_queue_used_size(core), SZ_1M);' \
+    $iris_dir/iris_hfi_queue.c
+grep -Fq 'iris_hfi_gen1_syscache_config(inst->core)' $iris_gen1
+grep -Fq 'core1_load > core2_load' $iris_gen1
+grep -Fq 'fmt.format = HFI_COLOR_FORMAT_P010;' $iris_gen1
+grep -Fq 'The leading hidden frame in a VP9 superframe' $iris_response
+grep -Fq 'V4L2_CID_MPEG_VIDEO_DEC_DISPLAY_DELAY_ENABLE' $iris_dir/iris_ctrls.c
+grep -Fq 'module_param(cached_capture, bool, 0444);' $iris_dir/iris_vb2.c
+grep -Fq 'frame_rate_down_count >= 3' $iris_dir/iris_vdec.c
+grep -Fq 'inst->streamoff_pending || inst->last_buffer_dequeued' $iris_response
 ! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' %{buildroot}/boot/config-%{uname_r}
 test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
 # Built-in platform prerequisites (I2C_QCOM_CCI, SM_CAMCC_8150 and DMA-BUF
@@ -420,6 +426,13 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.3~rc2-%{nabu_build_stamp}.unstable
+- Rebase the unstable channel onto Torvalds' official v7.3-rc2 tag.
+- Preserve Linux 7.3's Iris architecture while completing the legacy Nabu
+  VPU5 protocol, buffer, VP9/P010, dual-core and suspend adaptations.
+- Keep the stable 7.2.2 mainline package and SENEMOS7U unstable ABI side by
+  side, with checksum-locked sources and an ordered 117-patch series.
+
 * Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Expose both read-only Nabu camera calibration EEPROMs through at24.
 - Report the physical panel revision for automatic per-variant ICC selection.

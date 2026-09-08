@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mcc45tr@users.noreply.github.com>
 Date: Tue, 25 Aug 2026 17:33:03 +0300
-Subject: [PATCH 11/21] nabu: quarantine 90 Hz and preserve Night Light
+Subject: [PATCH 011/117] nabu: quarantine 90 Hz and preserve Night Light
  modesets on 7.2
 
 ---
@@ -66,10 +66,10 @@ index 72a25482a789..c9d1db0ce682 100644
  			state->allow_modeset = true;
  		}
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index 755b71826045..5f16cd47319d 100644
+index 528832b511cc..15dfb13466bc 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-@@ -23,6 +23,11 @@
+@@ -24,6 +24,11 @@
  
  #define DSI_NUM_MIN 1
  
@@ -81,7 +81,7 @@ index 755b71826045..5f16cd47319d 100644
  struct panel_info {
  	struct drm_panel panel;
  	struct mipi_dsi_device *dsi[2];
-@@ -1402,12 +1407,22 @@ static int nt36523_get_modes(struct drm_panel *panel,
+@@ -1403,12 +1408,22 @@ static int nt36523_get_modes(struct drm_panel *panel,
  			       struct drm_connector *connector)
  {
  	struct panel_info *pinfo = to_panel_info(panel);
@@ -105,7 +105,7 @@ index 755b71826045..5f16cd47319d 100644
  		mode = drm_mode_duplicate(connector->dev, m);
  		if (!mode) {
  			dev_err(panel->dev, "failed to add mode %ux%u@%u\n",
-@@ -1416,18 +1431,19 @@ static int nt36523_get_modes(struct drm_panel *panel,
+@@ -1417,18 +1432,19 @@ static int nt36523_get_modes(struct drm_panel *panel,
  		}
  
  		mode->type = DRM_MODE_TYPE_DRIVER;

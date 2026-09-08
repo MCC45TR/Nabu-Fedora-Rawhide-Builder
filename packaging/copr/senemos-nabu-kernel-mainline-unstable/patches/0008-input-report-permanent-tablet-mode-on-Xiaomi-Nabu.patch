@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mursitcancihan@gmail.com>
 Date: Sat, 22 Aug 2026 18:49:37 +0300
-Subject: [PATCH 08/21] input: report permanent tablet mode on Xiaomi Nabu
+Subject: [PATCH 008/117] input: report permanent tablet mode on Xiaomi Nabu
 
 ---
  drivers/input/misc/Kconfig                   | 10 ++++
@@ -11,10 +11,10 @@ Subject: [PATCH 08/21] input: report permanent tablet mode on Xiaomi Nabu
  create mode 100644 drivers/input/misc/xiaomi-nabu-tablet-mode.c
 
 diff --git a/drivers/input/misc/Kconfig b/drivers/input/misc/Kconfig
-index 1f6c57dba030..c1b5a1aaf672 100644
+index 169768e3d5bb..f7c57cdfaf29 100644
 --- a/drivers/input/misc/Kconfig
 +++ b/drivers/input/misc/Kconfig
-@@ -993,4 +993,14 @@ config INPUT_STPMIC1_ONKEY
+@@ -1023,4 +1023,14 @@ config INPUT_STPMIC1_ONKEY
  	  To compile this driver as a module, choose M here: the
  	  module will be called stpmic1_onkey.
  
@@ -30,10 +30,10 @@ index 1f6c57dba030..c1b5a1aaf672 100644
 +
  endif
 diff --git a/drivers/input/misc/Makefile b/drivers/input/misc/Makefile
-index 2281d6803fce..b7b58921a82f 100644
+index 1339619f0769..37dfd4f1d320 100644
 --- a/drivers/input/misc/Makefile
 +++ b/drivers/input/misc/Makefile
-@@ -95,3 +95,4 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
+@@ -97,3 +97,4 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
  obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
  obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
  obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o

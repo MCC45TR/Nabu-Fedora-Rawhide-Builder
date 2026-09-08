@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Tue, 8 Sep 2026 07:49:51 +0300
+Subject: [PATCH 116/117] senemos: pin Iris and exclude Venus in Nabu profile
+
+---
+ senemos/configs/nabu-minimal.config | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 998090161003..d0279aa31115 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -207,7 +207,11 @@ CONFIG_DMABUF_HEAPS_SYSTEM=y
+ CONFIG_DMABUF_HEAPS_CMA=y
+ CONFIG_CMA_SIZE_MBYTES=256
+ 
+-# SM8150 Iris1/Venus hardware video decoder.
++# SM8150 uses the Iris1/VPU5 path. Keep it explicit so upstream defconfig
++# changes cannot silently drop acceleration, and exclude the competing Venus
++# driver from this single-device package.
++CONFIG_VIDEO_QCOM_IRIS=m
++# CONFIG_VIDEO_QCOM_VENUS is not set
+ 
+ # Fedora-compatible module packaging.
+ CONFIG_MODULES=y
