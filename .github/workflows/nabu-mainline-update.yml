@@ -1,8 +1,8 @@
-name: Update Nabu mainline unstable kernel
+name: Update Nabu stable mainline kernel
 
 on:
   schedule:
-    - cron: "27 4 * * *"
+    - cron: "7 4 * * *"
   workflow_dispatch:
 
 permissions:
@@ -20,21 +20,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Apply the Nabu series to the latest Linux mainline tag
+      - name: Apply the Nabu series to the latest Linux stable release
         env:
           TMPDIR: ${{ runner.temp }}
-        run: packaging/copr/senemos-nabu-kernel-mainline-unstable/update-upstream.sh
-      - name: Publish an accepted mainline update
+        run: packaging/copr/senemos-nabu-kernel-mainline/update-upstream.sh
+      - name: Publish an accepted stable update
         run: |
           if git diff --quiet; then
-            echo "No upstream mainline update."
+            echo "No upstream stable update."
             exit 0
           fi
           git config user.name "SENEMOS kernel updater"
           git config user.email "mcc45tr@gmail.com"
           git add \
-            packaging/copr/senemos-nabu-kernel-mainline-unstable/upstream.sha256 \
-            packaging/copr/senemos-nabu-kernel-mainline-unstable/senemos-nabu-kernel-mainline-unstable.spec
-          git commit -m "packaging: update Nabu mainline unstable kernel"
+            packaging/copr/senemos-nabu-kernel-mainline/upstream.sha256 \
+            packaging/copr/senemos-nabu-kernel-mainline/senemos-nabu-kernel-mainline.spec
+          git commit -m "packaging: update Nabu stable mainline kernel"
           git pull --rebase origin main
           git push origin HEAD:main

@@ -4,9 +4,9 @@
 %global uname_r %{version}-nabu-senemos-mainline
 
 Name:           senemos-nabu-kernel-mainline
-Version:        7.2.2
+Version:        7.2.4
 Release:        2%{?dist}
-Summary:        Patch-layered Linux 7.2.y SENEMOS kernel for Xiaomi Pad 5
+Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
 ExclusiveArch:  aarch64
@@ -422,8 +422,12 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
-* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.2-2
-- Freeze the validated 134-patch Nabu series as the stable mainline channel.
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-2
+- Follow kernel.org's stable release stream after the 7.2.3 channel promotion.
+- Accept 7.2.4 only after the complete 134-patch Nabu gate passes.
+
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-2
+- Freeze the final pre-7.3, validated 134-patch Nabu 7.2.3 series as stable mainline.
 - Include camera EEPROM, panel revision, VPU5, charging, GPU and suspend fixes.
 - Make the stable source snapshot independent from mainline-unstable updates.
 

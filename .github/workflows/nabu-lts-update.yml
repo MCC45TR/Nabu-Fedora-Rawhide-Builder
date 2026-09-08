@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: nabu-lts-update
+  group: nabu-kernel-updates
   cancel-in-progress: false
 
 jobs:
@@ -33,4 +33,5 @@ jobs:
             packaging/copr/senemos-nabu-kernel-lts/upstream.sha256 \
             packaging/copr/senemos-nabu-kernel-lts/senemos-nabu-kernel-lts.spec
           git commit -m "packaging: update Nabu LTS kernel"
+          git pull --rebase origin main
           git push origin HEAD:main
