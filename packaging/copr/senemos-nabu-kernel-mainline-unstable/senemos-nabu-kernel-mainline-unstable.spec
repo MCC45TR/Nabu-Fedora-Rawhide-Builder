@@ -136,6 +136,7 @@ Patch0114:      0114-media-qcom-complete-Nabu-VPU5-port-for-Linux-7.3.patch
 Patch0115:      0115-senemos-document-Linux-7.3-rc2-source-identity.patch
 Patch0116:      0116-senemos-pin-Iris-and-exclude-Venus-in-Nabu-profile.patch
 Patch0117:      0117-senemos-document-the-canonical-7.3.0-rc2-ABI.patch
+Patch0118:      0118-senemos-pin-Nabu-early-relocations-and-ESP32-S3-CDC.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -265,7 +266,13 @@ grep -Fxq 'CONFIG_SM_VIDEOCC_8150=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_DMABUF_HEAPS_SYSTEM=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_DMABUF_HEAPS_CMA=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_CN3927=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq '# CONFIG_RELR is not set' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_USB_XHCI_HCD=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_USB_XHCI_PLATFORM=m' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_USB_DWC3=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_USB_DWC3_QCOM=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_USB_ROLE_SWITCH=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_USB_GADGET=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_REGULATOR_QCOM_REFGEN=y' %{buildroot}/boot/config-%{uname_r}
@@ -427,11 +434,16 @@ fi
 
 %changelog
 * Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.3~rc2-%{nabu_build_stamp}.unstable
+- Pin the complete Nabu host-side USB path for ESP32-S3 CDC-ACM HIL.
+- Disable 7.3's new RELR default as one isolated pre-ramoops boot variable.
+- Fail the COPR build if either early-relocation or CDC invariants drift.
+
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.3~rc2-%{nabu_build_stamp}.unstable
 - Rebase the unstable channel onto Torvalds' official v7.3-rc2 tag.
 - Preserve Linux 7.3's Iris architecture while completing the legacy Nabu
   VPU5 protocol, buffer, VP9/P010, dual-core and suspend adaptations.
-- Keep the stable 7.2.2 mainline package and SENEMOS7U unstable ABI side by
-  side, with checksum-locked sources and an ordered 117-patch series.
+- Keep the stable 7.2.x mainline package and SENEMOS7U unstable ABI side by
+  side, with checksum-locked sources and an ordered 118-patch series.
 
 * Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.3-%{nabu_build_stamp}.unstable
 - Expose both read-only Nabu camera calibration EEPROMs through at24.

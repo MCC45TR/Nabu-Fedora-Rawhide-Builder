@@ -24,6 +24,11 @@ panel revision is exported for per-variant ICC selection, SMB5 charging stays
 fail-safe, and the existing display, touch, audio, GPU, USB, storage, sensor,
 security and power fixes remain in the series.
 
+For ESP32-S3 bring-up, CDC ACM and the primary DWC3/QCOM/role-switch path are
+built in; the optional xHCI platform controller remains a late-loaded module.
+The 7.3 qualification build also pins RELR off so early boot is compared with
+the stable RELA relocation path as one controlled HIL variable.
+
 `test-patch-series.sh` verifies the upstream archive, all patch checksums,
 `git am` semantics, the final Nabu configuration and critical source invariants.
 The COPR build separately compiles the kernel Image, modules and the composed

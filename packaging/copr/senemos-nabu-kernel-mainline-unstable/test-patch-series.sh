@@ -120,6 +120,16 @@ fi
 test -s "$work/linux-$upstream_version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dts"
 grep -Fxq 'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     "$work/linux-$upstream_version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_USB_DWC3_QCOM=y' \
+    "$work/linux-$upstream_version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_USB_ROLE_SWITCH=y' \
+    "$work/linux-$upstream_version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_USB_XHCI_PLATFORM=m' \
+    "$work/linux-$upstream_version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_USB_ACM=y' \
+    "$work/linux-$upstream_version/senemos/configs/nabu-minimal.config"
+grep -Fxq '# CONFIG_RELR is not set' \
+    "$work/linux-$upstream_version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_REGULATOR_QCOM_USB_VBUS=y' \
     "$work/linux-$upstream_version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_REGULATOR_QCOM_REFGEN=y' \
@@ -198,7 +208,12 @@ for setting in \
 	'CONFIG_SCSI_UFS_QCOM=y' \
     'CONFIG_TOUCHSCREEN_NT36523_SPI=m' \
     'CONFIG_ATH10K_SNOC=m' \
+    'CONFIG_USB_XHCI_HCD=m' \
+    'CONFIG_USB_XHCI_PLATFORM=m' \
+    'CONFIG_USB_DWC3=y' \
+    'CONFIG_USB_DWC3_QCOM=y' \
     'CONFIG_USB_DWC3_DUAL_ROLE=y' \
+    'CONFIG_USB_ROLE_SWITCH=y' \
     'CONFIG_USB_ACM=y' \
     'CONFIG_MODULE_SIG=y' \
     'CONFIG_GPIO_SHARED_PROXY=y' \
@@ -212,6 +227,10 @@ for setting in \
         exit 1
     fi
 done
+if ! grep -Fxq '# CONFIG_RELR is not set' "$config_dir/.config"; then
+    printf 'ERROR: final Nabu config unexpectedly enables RELR\n' >&2
+    exit 1
+fi
 dm_inlinecrypt="$work/linux-$upstream_version/drivers/md/dm-inlinecrypt.c"
 grep -Eq '^[[:space:]]*\.name[[:space:]]*=[[:space:]]*"default-key"' \
     "$dm_inlinecrypt"

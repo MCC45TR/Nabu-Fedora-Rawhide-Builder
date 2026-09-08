@@ -115,3 +115,4 @@ b852fbe474c1f31dfd8089c8c1db445a11148278e6ef289d7b4fc4aeb293d60b  0114-media-qco
 651d1a3515ead6ddc941749d27366162b3a7c00c2b606435e11450d8b1eb2d01  0115-senemos-document-Linux-7.3-rc2-source-identity.patch
 5845780a72917f5c58e6794bb657c7041f368929ea2c7272b35c9f78b6c8fed7  0116-senemos-pin-Iris-and-exclude-Venus-in-Nabu-profile.patch
 6709da75e50f3a826d18fc8b258fe37358ae858c9598f24b6f48e3596fb94820  0117-senemos-document-the-canonical-7.3.0-rc2-ABI.patch
+4936aa3aeeb031e5b5b81e985fa4a19aa5de228a2d245374eb17cf68f75543af  0118-senemos-pin-Nabu-early-relocations-and-ESP32-S3-CDC.patch
