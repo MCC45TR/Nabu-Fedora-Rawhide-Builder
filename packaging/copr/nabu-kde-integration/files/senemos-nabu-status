@@ -55,6 +55,15 @@ else
     result FAIL slpi-fastrpc unavailable
 fi
 
+registry_root=/run/senemos-nabu-sensors/hexagonfs/sensors/registry
+if systemctl is-active --quiet nabu-sensor-registry-runtime.service &&
+        [[ -d $registry_root && -r $registry_root/lsm6dso_0_platform.config ]]; then
+    registry_owner="$(stat -c '%U:%G %a' "$registry_root" 2>/dev/null || true)"
+    result OK sensor-registry-runtime "$registry_owner"
+else
+    result FAIL sensor-registry-runtime unavailable
+fi
+
 mount_matrix='-1, 0, 0; 0, -1, 0; 0, 0, 1'
 matrix_path=''
 for candidate in /sys/class/misc/fastrpc-sdsp/mount_matrix \
