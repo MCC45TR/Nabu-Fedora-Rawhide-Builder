@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        78%{?dist}
+Release:        80%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -41,12 +41,14 @@ BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  meson
 BuildRequires:  openssh
+BuildRequires:  python3
 BuildRequires:  pkgconfig(gio-2.0)
 BuildRequires:  libssc-nabu-devel >= 0.4.4-9.nabu8.test
 BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  pkgconfig(Qt6DBus)
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  systemd-udev
+BuildRequires:  tuned-ppd
 
 # Mainline 7.2.3 is the default release kernel. The 6.17 fallback and the
 # development channel remain optional, independently updatable families.
@@ -137,6 +139,8 @@ Provides:       nabu-flashlight-integration = %{version}-%{release}
 Provides:       nabu-flashlight-integration = 1.0.0-10.fc46
 Provides:       nabu-flashlight-integration = 1.0.0-14.fc46
 Provides:       nabu-flashlight-integration = 1.0.0-15.fc46
+Provides:       nabu-flashlight-integration = 1.0.0-16.fc46
+Provides:       nabu-flashlight-integration = 1.0.0-17.fc46
 Provides:       nabu-sar-service = %{version}-%{release}
 Provides:       nabu-ssc-probe = %{version}-%{release}
 Provides:       nabu-camera-stack = %{version}-%{release}
@@ -316,6 +320,7 @@ grep -Fq 'node.hidden = true' %{SOURCE29}
 ! grep -Fq 'module-echo-cancel' %{SOURCE29}
 (cd system-integration && bash tests/test-ssh-host-key-guard.sh)
 (cd system-integration && bash tests/test-update-recovery-policy.sh)
+(cd system-integration && %{python3} tests/test-tuned-profiles.py)
 bash -n system-integration/runtime/senemos-nabu-status
 udevadm verify %{buildroot}%{_udevrulesdir}/99-libinput-calibration-matrix.rules
 udevadm verify %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
@@ -330,6 +335,9 @@ bash -n sar-service/tools/nabu-cct-iio-setup
 bash -n sar-service/tools/nabu-sar-capture
 test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-flashlight)" = 2755
 test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-accessory-state)" = 755
+grep -Fq 'V4L2_CID_FLASH_TORCH_INTENSITY' flashlight-integration/src/nabu-flashlight.c
+grep -Fq 'mode == V4L2_FLASH_LED_MODE_FLASH' flashlight-integration/src/nabu-flashlight.c
+bash flashlight-integration/tests/test-usb-role.sh
 grep -Fq '/usr/libexec/nabu-usb-role' %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
 grep -Fq '/usr/libexec/nabu-sar-control' %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
 
@@ -411,6 +419,13 @@ fi
 %{_unitdir}/sshd.service.d/20-nabu-host-key-persistence.conf
 %dir %{_unitdir}/system-update-cleanup.service.d
 %{_unitdir}/system-update-cleanup.service.d/90-nabu-dnf5-offline-cleanup.conf
+%dir %{_unitdir}/tuned-ppd.service.d
+%{_unitdir}/tuned-ppd.service.d/90-senemos-nabu-profiles.conf
+%{_datadir}/senemos-nabu/tuned-ppd.conf
+%{_prefix}/lib/tuned/profiles/senemos-nabu-balanced/
+%{_prefix}/lib/tuned/profiles/senemos-nabu-balanced-battery/
+%{_prefix}/lib/tuned/profiles/senemos-nabu-power-saver/
+%{_prefix}/lib/tuned/profiles/senemos-nabu-performance/
 %{_udevrulesdir}/80-nabu-disable-efi-rtc-wakeup.rules
 %{_udevrulesdir}/81-nabu-suspend-wake.rules
 %{_udevrulesdir}/99-libinput-calibration-matrix.rules
@@ -471,6 +486,7 @@ if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable --now hexagonrpcd-adsp-sensorspd.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable rmtfs.service tqftpserv.service mnt-vendor-persist.mount hexagonrpcd-sdsp.service hexagonrpcd-adsp-rootpd.service iio-sensor-proxy.service nabu-sensor-session-gate.service nabu-sar-service.service nabu-cct-iio-bridge.service >/dev/null 2>&1 || :
     /usr/bin/systemctl try-restart nabu-cct-iio-bridge.service >/dev/null 2>&1 || :
+    /usr/bin/systemctl try-restart tuned-ppd.service >/dev/null 2>&1 || :
 fi
 
 %preun
@@ -483,6 +499,16 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-80
+- Permit USB host and off mode when the optional gadget service is absent.
+- Preserve the fail-closed stop gate for an installed or active USB gadget.
+
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-79
+- Map desktop power modes to Nabu-specific TuneD CPU and GPU profiles while
+  retaining schedutil, idle residency and safe Android-vetted frequency caps.
+- Keep Tablet Control torch actions functional while libcamera owns the flash
+  subdevice, without taking over a camera-armed strobe.
+
 * Mon Sep 07 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-78
 - Keep ADUX1050 sampling and grip transitions responsive while limiting
   unchanged D-Bus telemetry to one update per second.
