@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        80%{?dist}
+Release:        81%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -141,6 +141,7 @@ Provides:       nabu-flashlight-integration = 1.0.0-14.fc46
 Provides:       nabu-flashlight-integration = 1.0.0-15.fc46
 Provides:       nabu-flashlight-integration = 1.0.0-16.fc46
 Provides:       nabu-flashlight-integration = 1.0.0-17.fc46
+Provides:       nabu-flashlight-integration = 1.0.0-18.fc46
 Provides:       nabu-sar-service = %{version}-%{release}
 Provides:       nabu-ssc-probe = %{version}-%{release}
 Provides:       nabu-camera-stack = %{version}-%{release}
@@ -499,6 +500,11 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-81
+- Configure source, sink and automatic USB-C choices as connection policy so
+  ESP32 peripherals can be prepared before attachment.
+- Report that policy accurately in the Plasma Tablet Control widget.
+
 * Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-80
 - Permit USB host and off mode when the optional gadget service is absent.
 - Preserve the fail-closed stop gate for an installed or active USB gadget.
