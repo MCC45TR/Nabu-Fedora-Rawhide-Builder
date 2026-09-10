@@ -20,8 +20,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-curl -L --fail --retry 3 --output "$work/linux-$version.tar.xz" \
-    "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-$version.tar.xz"
+if [[ -n ${NABU_UPSTREAM_ARCHIVE:-} ]]; then
+    install -m0644 "$NABU_UPSTREAM_ARCHIVE" "$work/linux-$version.tar.xz"
+else
+    curl -L --fail --retry 3 --output "$work/linux-$version.tar.xz" \
+        "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-$version.tar.xz"
+fi
 (cd "$work" && sha256sum -c "$root/upstream.sha256")
 tar -xf "$work/linux-$version.tar.xz" -C "$work"
 git -C "$work/linux-$version" init -q
@@ -144,6 +148,18 @@ grep -Fq 'qcom,derive-bd-address-from-soc-serial;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 ! grep -Fq 'local-bd-address = [ 21 00 00 00 5a ad ];' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
+test -s "$work/linux-$version/senemos/configs/nabu-security.config"
+test -s "$work/linux-$version/senemos/configs/nabu-rng.config"
+test -s "$work/linux-$version/senemos/hil/nabu-rng-hil.md"
+grep -A7 -F 'rng: rng@793000' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150.dtsi" \
+    | grep -Fq 'compatible = "qcom,prng-ee";'
+grep -A7 -F 'rng: rng@793000' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150.dtsi" \
+    | grep -Fq 'GCC_PRNG_AHB_CLK'
+grep -A3 -F 'qcom_prng_ee_match_data' \
+    "$work/linux-$version/drivers/crypto/qcom-rng.c" \
+    | grep -Fq '.hwrng_support = false'
 
 config_dir="$work/config"
 make -C "$work/linux-$version" O="$config_dir" ARCH=arm64 HOSTCC=gcc defconfig
@@ -153,6 +169,11 @@ KCONFIG_CONFIG="$config_dir/.config" \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 "$work/linux-$version/senemos/configs/prune-nabu-config.sh" \
     "$config_dir/.config"
+KCONFIG_CONFIG="$config_dir/.config" \
+    "$work/linux-$version/scripts/kconfig/merge_config.sh" -m -r \
+    "$config_dir/.config" \
+    "$work/linux-$version/senemos/configs/nabu-security.config" \
+    "$work/linux-$version/senemos/configs/nabu-rng.config"
 make -C "$work/linux-$version" O="$config_dir" ARCH=arm64 HOSTCC=gcc olddefconfig
 make -s -C "$work/linux-$version" O="$config_dir" \
     ARCH=arm64 HOSTCC=gcc syncconfig
@@ -233,6 +254,27 @@ for setting in \
     'CONFIG_FORTIFY_SOURCE=y' \
     'CONFIG_HARDENED_USERCOPY=y' \
     'CONFIG_HARDENED_USERCOPY_DEFAULT_ON=y' \
+    'CONFIG_AUDIT=y' \
+    'CONFIG_AUDITSYSCALL=y' \
+    'CONFIG_SECURITY_DMESG_RESTRICT=y' \
+    'CONFIG_STRICT_KERNEL_RWX=y' \
+    'CONFIG_STRICT_MODULE_RWX=y' \
+    'CONFIG_VMAP_STACK=y' \
+    'CONFIG_RANDOMIZE_BASE=y' \
+    'CONFIG_RANDOMIZE_KSTACK_OFFSET_DEFAULT=y' \
+    'CONFIG_STACKPROTECTOR=y' \
+    'CONFIG_STACKPROTECTOR_STRONG=y' \
+    'CONFIG_SLAB_FREELIST_RANDOM=y' \
+    'CONFIG_SLAB_FREELIST_HARDENED=y' \
+    'CONFIG_LIST_HARDENED=y' \
+    'CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y' \
+    'CONFIG_STRICT_DEVMEM=y' \
+    'CONFIG_IO_STRICT_DEVMEM=y' \
+    'CONFIG_SECCOMP=y' \
+    'CONFIG_SECCOMP_FILTER=y' \
+    'CONFIG_HW_RANDOM=y' \
+    'CONFIG_HW_RANDOM_ARM_SMCCC_TRNG=y' \
+    'CONFIG_CRYPTO_DEV_QCOM_RNG=y' \
     'CONFIG_PLATFORM_PROFILE=y' \
     'CONFIG_XIAOMI_NABU_POWER_PROFILE=y' \
     'CONFIG_QCOM_SSC_CCT=m' \
@@ -243,6 +285,12 @@ for setting in \
         exit 1
     fi
 done
+if grep -Eq \
+    '^CONFIG_(MODULE_SIG_FORCE|VIRTUALIZATION|KVM|TCG_FTPM_TEE|IMA|EVM)=(y|m)$' \
+    "$config_dir/.config"; then
+    printf 'ERROR: final Nabu config crossed the stage-one security boundary\n' >&2
+    exit 1
+fi
 dm_inlinecrypt="$work/linux-$version/drivers/md/dm-inlinecrypt.c"
 grep -Eq '^[[:space:]]*\.name[[:space:]]*=[[:space:]]*"default-key"' \
     "$dm_inlinecrypt"

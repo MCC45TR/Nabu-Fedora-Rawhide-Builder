@@ -1,0 +1,115 @@
+From eb1803f4c095815056fd7a645b1790c46b7b5a79 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Thu, 10 Sep 2026 20:50:35 +0300
+Subject: [PATCH 139/139] arm64: dts: qcom: describe SM8150 PRNG safely
+
+Qualcomm downstream SM8150 device trees describe the execution-environment
+PRNG block at 0x793000 behind GCC_PRNG_AHB_CLK. Add the corresponding
+upstream binding-compatible node so Linux owns the block and its clock
+state.
+
+Keep the upstream trust boundary intact: qcom,prng-ee remains
+ineligible for HWRNG registration, while the architectural SMCCC provider
+registers only when higher firmware advertises a true TRNG. Pin both
+decisions in the final Nabu config and document static and device HIL
+gates.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/sm8150.dtsi |  7 +++++
+ senemos/configs/nabu-rng.config      | 10 ++++++
+ senemos/hil/nabu-rng-hil.md          | 47 ++++++++++++++++++++++++++++
+ 3 files changed, 64 insertions(+)
+ create mode 100644 senemos/configs/nabu-rng.config
+ create mode 100644 senemos/hil/nabu-rng-hil.md
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150.dtsi b/arch/arm64/boot/dts/qcom/sm8150.dtsi
+index 310d299ee..e81f0e4db 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8150.dtsi
+@@ -997,6 +997,13 @@ gpu_speed_bin: gpu-speed-bin@133 {
+ 			};
+ 		};
+ 
++		rng: rng@793000 {
++			compatible = "qcom,prng-ee";
++			reg = <0 0x00793000 0 0x1000>;
++			clocks = <&gcc GCC_PRNG_AHB_CLK>;
++			clock-names = "core";
++		};
++
+ 		qupv3_id_0: geniqup@8c0000 {
+ 			compatible = "qcom,geni-se-qup";
+ 			reg = <0x0 0x008c0000 0x0 0x6000>;
+diff --git a/senemos/configs/nabu-rng.config b/senemos/configs/nabu-rng.config
+new file mode 100644
+index 000000000..0aac92cc9
+--- /dev/null
++++ b/senemos/configs/nabu-rng.config
+@@ -0,0 +1,10 @@
++# Nabu entropy-source support.
++#
++# SM8150 exposes the legacy PRNG execution-environment block. Keep the
++# upstream qcom-rng classification: qcom,prng-ee is not a NIST SP800-90B TRNG
++# and must not be credited as trusted kernel entropy. Also build the standard
++# SMCCC TRNG provider; it registers only when higher firmware advertises the
++# architectural TRNG interface.
++CONFIG_HW_RANDOM=y
++CONFIG_HW_RANDOM_ARM_SMCCC_TRNG=y
++CONFIG_CRYPTO_DEV_QCOM_RNG=y
+diff --git a/senemos/hil/nabu-rng-hil.md b/senemos/hil/nabu-rng-hil.md
+new file mode 100644
+index 000000000..01cfd4b14
+--- /dev/null
++++ b/senemos/hil/nabu-rng-hil.md
+@@ -0,0 +1,47 @@
++# Nabu RNG validation
++
++## Trust boundary
++
++SM8150 vendor sources describe the execution-environment PRNG at `0x793000`
++with `GCC_PRNG_AHB_CLK`. Linux represents this block as `qcom,prng-ee`.
++The upstream qcom-rng driver deliberately does not register PRNG or PRNG-EE
++blocks as `hwrng`; only hardware described as `qcom,trng` is treated as a true
++entropy source. Do not relabel this node as `qcom,trng` and do not change the
++driver's `hwrng_support` flag without silicon documentation and independent
++entropy validation.
++
++The arm64 SMCCC TRNG driver is built in as a second, fail-closed path. It
++registers `smccc_trng` only when the higher exception-level firmware advertises
++the architectural TRNG interface. EFI random-seed input, a described PRNG
++block and a registered HWRNG are separate claims and must be reported
++separately.
++
++## Static gates
++
++1. Require `CONFIG_HW_RANDOM=y`, `CONFIG_HW_RANDOM_ARM_SMCCC_TRNG=y` and
++   `CONFIG_CRYPTO_DEV_QCOM_RNG=y` in the final merged configuration.
++2. Run `dtbs_check` for the Nabu Iris/camera DTB and require the PRNG node to
++   match `Documentation/devicetree/bindings/crypto/qcom,prng.yaml`.
++3. Decompile the built DTB and verify the compatible, register range and GCC
++   clock phandle instead of accepting source text alone.
++4. Keep `qcom_prng_ee_match_data.hwrng_support` false.
++
++## Device gates
++
++After a clean boot, record the kernel release, DTB and UKI hashes, then collect:
++
++```text
++dmesg -T | grep -Ei 'random|rng|smccc'
++cat /sys/class/misc/hw_random/rng_available
++cat /sys/class/misc/hw_random/rng_current
++cat /proc/sys/kernel/random/entropy_avail
++```
++
++If `smccc_trng` is available, read at least 16 MiB from `/dev/hwrng`, reject
++I/O errors, short reads and an all-zero stream, and repeat after ten suspend /
++resume cycles. Run repetition-count and adaptive-proportion health tests before
++crediting the provider in production. Generic statistical suites can detect
++obvious failures but cannot certify entropy.
++
++If no provider registers, report the result as `firmware TRNG unavailable`.
++Do not work around it by forcing the SM8150 PRNG-EE node into the HWRNG class.
+-- 
+2.55.0
+
