@@ -9,7 +9,9 @@ archive=linux-$version.tar.xz
 url=https://cdn.kernel.org/pub/linux/kernel/v7.x/$archive
 
 mkdir -p "$top"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
-if [[ ! -s $top/SOURCES/$archive ]]; then
+if [[ -n ${NABU_UPSTREAM_ARCHIVE:-} ]]; then
+    install -m0644 "$NABU_UPSTREAM_ARCHIVE" "$top/SOURCES/$archive"
+elif [[ ! -s $top/SOURCES/$archive ]]; then
     curl -L --fail --retry 3 --output "$top/SOURCES/$archive" "$url"
 fi
 

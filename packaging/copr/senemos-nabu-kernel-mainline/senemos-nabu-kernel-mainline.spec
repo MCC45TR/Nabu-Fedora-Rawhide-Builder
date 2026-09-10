@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -151,6 +151,8 @@ Patch0131:      0131-dt-bindings-i2c-add-SM8150-CCI-compatible.patch
 Patch0132:      0132-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
 Patch0133:      0133-arm64-dts-qcom-expose-Nabu-camera-calibration-EEPROM.patch
 Patch0134:      0134-arm64-dts-qcom-make-Nabu-nodes-schema-compliant.patch
+Patch0135:      0135-senemos-add-Nabu-production-security-baseline.patch
+Patch0136:      0136-arm64-dts-qcom-describe-SM8150-PRNG-safely.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -206,6 +208,11 @@ KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
 # module set and the legacy Venus driver; Nabu uses Iris for video acceleration.
 # Debug information and BTF are not part of the runtime-only device payload.
 senemos/configs/prune-nabu-config.sh .config
+# Security and entropy policy is merged after device pruning so neither the
+# release build nor a future pruning update can silently discard these gates.
+KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
+    .config senemos/configs/nabu-security.config \
+    senemos/configs/nabu-rng.config
 make ARCH=arm64 LLVM=1 olddefconfig
 # Refresh auto.conf after merging the Nabu identity fragment. Otherwise the
 # immediately following release gate can retain defconfig's SCM suffix.
@@ -316,6 +323,39 @@ grep -Fxq 'CONFIG_CRYPTO_HCTR2=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_F2FS_FS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_F2FS_FS_SECURITY=y' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_QCOM_INLINE_CRYPTO_ENGINE=y' %{buildroot}/boot/config-%{uname_r}
+for setting in \
+    'CONFIG_AUDIT=y' \
+    'CONFIG_AUDITSYSCALL=y' \
+    'CONFIG_SECURITY_DMESG_RESTRICT=y' \
+    'CONFIG_STRICT_KERNEL_RWX=y' \
+    'CONFIG_STRICT_MODULE_RWX=y' \
+    'CONFIG_VMAP_STACK=y' \
+    'CONFIG_RANDOMIZE_BASE=y' \
+    'CONFIG_RANDOMIZE_KSTACK_OFFSET_DEFAULT=y' \
+    'CONFIG_STACKPROTECTOR_STRONG=y' \
+    'CONFIG_SLAB_FREELIST_RANDOM=y' \
+    'CONFIG_SLAB_FREELIST_HARDENED=y' \
+    'CONFIG_FORTIFY_SOURCE=y' \
+    'CONFIG_HARDENED_USERCOPY=y' \
+    'CONFIG_HARDENED_USERCOPY_DEFAULT_ON=y' \
+    'CONFIG_LIST_HARDENED=y' \
+    'CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y' \
+    'CONFIG_STRICT_DEVMEM=y' \
+    'CONFIG_IO_STRICT_DEVMEM=y' \
+    'CONFIG_SECCOMP=y' \
+    'CONFIG_SECCOMP_FILTER=y' \
+    'CONFIG_SECURITY_YAMA=y' \
+    'CONFIG_SECURITY_LANDLOCK=y' \
+    'CONFIG_SECURITY_LOCKDOWN_LSM=y' \
+    'CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y' \
+    'CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y' \
+    'CONFIG_HW_RANDOM=y' \
+    'CONFIG_HW_RANDOM_ARM_SMCCC_TRNG=y' \
+    'CONFIG_CRYPTO_DEV_QCOM_RNG=y'; do
+    grep -Fxq "$setting" %{buildroot}/boot/config-%{uname_r}
+done
+! grep -Eq '^CONFIG_(MODULE_SIG_FORCE|VIRTUALIZATION|KVM|TCG_FTPM_TEE|IMA|EVM)=(y|m)$' \
+    %{buildroot}/boot/config-%{uname_r}
 grep -Eq '^[[:space:]]*\.name[[:space:]]*=[[:space:]]*"default-key"' \
     drivers/md/dm-inlinecrypt.c
 grep -Fq 'ctx->key_type = BLK_CRYPTO_KEY_TYPE_HW_WRAPPED;' \
@@ -331,8 +371,21 @@ retire_line=$(grep -n -F 'retire_submits(gpu);' \
 test "$recover_line" -lt "$retire_line"
 grep -A18 -F 'msm_gem_vm_bo_validate' drivers/gpu/drm/msm/msm_gem_vma.c \
     | grep -Fq 'drm_gpuvm_bo_evict(vm_bo, false);'
-grep -Fxq 'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"' \
+grep -Fxq 'CONFIG_LSM="landlock,lockdown,yama,selinux"' \
     %{buildroot}/boot/config-%{uname_r}
+grep -A7 -F 'rng: rng@793000' arch/arm64/boot/dts/qcom/sm8150.dtsi \
+    | grep -Fq 'compatible = "qcom,prng-ee";'
+grep -A7 -F 'rng: rng@793000' arch/arm64/boot/dts/qcom/sm8150.dtsi \
+    | grep -Fq 'GCC_PRNG_AHB_CLK'
+grep -A3 -F 'qcom_prng_ee_match_data' drivers/crypto/qcom-rng.c \
+    | grep -Fq '.hwrng_support = false'
+scripts/dtc/dtc -I dtb -O dts \
+    -o %{_builddir}/nabu-final.dts \
+    %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
+grep -A8 -F 'rng@793000' %{_builddir}/nabu-final.dts \
+    | grep -Fq 'compatible = "qcom,prng-ee";'
+grep -A8 -F 'rng@793000' %{_builddir}/nabu-final.dts \
+    | grep -Fq 'clock-names = "core";'
 grep -Fxq '# CONFIG_ACPI is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_PCI is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ARCH_MEDIATEK is not set' %{buildroot}/boot/config-%{uname_r}
@@ -422,6 +475,12 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-3
+- Add a fail-closed Nabu production security profile after device pruning.
+- Pin SELinux, audit, sandboxing and arm64 self-protection in the final config.
+- Describe the SM8150 PRNG-EE without falsely crediting it as trusted entropy.
+- Enable firmware-advertised SMCCC TRNG and add source, config and DTB gates.
+
 * Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-2
 - Follow kernel.org's stable release stream after the 7.2.3 channel promotion.
 - Accept 7.2.4 only after the complete 134-patch Nabu gate passes.

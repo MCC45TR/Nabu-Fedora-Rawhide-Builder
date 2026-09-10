@@ -132,3 +132,5 @@ e88d93dd98cd149665c0c31d1d6d6bb79a26c15cc700934b15f1823fe44c1371  0127-power-sup
 7eb8ff28c48e74f48a341d0b8d4ebe44d42dbab2f20d8f2edf7fd48b82646d97  0132-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
 88baf71a3177c1d860ffa0f5671c6518d71da43d31eea3a8550cee7ab928cbbb  0133-arm64-dts-qcom-expose-Nabu-camera-calibration-EEPROM.patch
 653d37263f9ce15c15ee7a611b33d309eed2b7471869afd99a944bd65320aa8e  0134-arm64-dts-qcom-make-Nabu-nodes-schema-compliant.patch
+c01942fa81b0e5b471533a577b259f2d42e76fe0aecfe61daa7d40a68561c3cc  0135-senemos-add-Nabu-production-security-baseline.patch
+ac03df65cc0f283f576e6cf240c6db3af22e0a5a2ae6b9af061239f2490ef690  0136-arm64-dts-qcom-describe-SM8150-PRNG-safely.patch

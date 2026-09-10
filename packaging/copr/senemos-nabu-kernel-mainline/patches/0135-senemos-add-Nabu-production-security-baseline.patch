@@ -1,0 +1,100 @@
+From a395e12ce7e11d3dcee45b824c432afd491bb7d6 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Thu, 10 Sep 2026 20:49:55 +0300
+Subject: [PATCH 135/136] senemos: add Nabu production security baseline
+
+The device-focused prune stage previously left several low-overhead kernel
+self-protection and sandboxing choices dependent on defconfig defaults. A
+future default change could therefore weaken the installed kernel without
+failing the package gate.
+
+Add a dedicated post-prune fragment that pins SELinux, audit, Landlock,
+Yama, Lockdown readiness and the arm64 hardening baseline. Keep forced
+lockdown, IMA/EVM, fTPM, KVM and mandatory module signatures outside this
+first stage because they require separate boot-chain and hardware
+validation.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ senemos/configs/nabu-minimal.config  |  6 ++--
+ senemos/configs/nabu-security.config | 47 ++++++++++++++++++++++++++++
+ 2 files changed, 50 insertions(+), 3 deletions(-)
+ create mode 100644 senemos/configs/nabu-security.config
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 995d7db6b..6b85b3b69 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -214,13 +214,13 @@ CONFIG_VIDEO_QCOM_IRIS=m
+ CONFIG_MODULES=y
+ CONFIG_MODULE_COMPRESS_ZSTD=y
+ 
+-# Fedora installs and boots with SELinux policy. SECURITY_SELINUX alone only
+-# compiles the LSM; it must also be present in CONFIG_LSM to become active.
++# Fedora installs and boots with SELinux policy. The final LSM order and the
++# additional production hardening controls live in nabu-security.config so
++# pruning cannot silently remove them.
+ CONFIG_SECURITY=y
+ CONFIG_SECURITY_SELINUX=y
+ CONFIG_DEFAULT_SECURITY_SELINUX=y
+ # CONFIG_DEFAULT_SECURITY_DAC is not set
+-CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"
+ # The RPM installation stage signs every installed module explicitly.  Keep
+ # the kernel signing helper available without signing twice during make.
+ CONFIG_MODULE_SIG=y
+diff --git a/senemos/configs/nabu-security.config b/senemos/configs/nabu-security.config
+new file mode 100644
+index 000000000..5a7971772
+--- /dev/null
++++ b/senemos/configs/nabu-security.config
+@@ -0,0 +1,47 @@
++# SENEMOS Nabu production security baseline.
++#
++# Merge this fragment after prune-nabu-config.sh. The prune stage removes
++# unrelated hardware, while these settings are board-independent kernel
++# self-protection and Fedora security interfaces that must survive pruning.
++
++# Preserve security telemetry required by SELinux and auditd.
++CONFIG_AUDIT=y
++CONFIG_AUDITSYSCALL=y
++CONFIG_SECURITY_DMESG_RESTRICT=y
++
++# Pin the low-overhead arm64 kernel self-protection baseline.
++CONFIG_STRICT_KERNEL_RWX=y
++CONFIG_STRICT_MODULE_RWX=y
++CONFIG_VMAP_STACK=y
++CONFIG_RANDOMIZE_BASE=y
++CONFIG_RANDOMIZE_KSTACK_OFFSET_DEFAULT=y
++CONFIG_STACKPROTECTOR=y
++CONFIG_STACKPROTECTOR_STRONG=y
++CONFIG_SLAB_FREELIST_RANDOM=y
++CONFIG_SLAB_FREELIST_HARDENED=y
++CONFIG_FORTIFY_SOURCE=y
++CONFIG_HARDENED_USERCOPY=y
++CONFIG_HARDENED_USERCOPY_DEFAULT_ON=y
++CONFIG_LIST_HARDENED=y
++CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
++CONFIG_STRICT_DEVMEM=y
++CONFIG_IO_STRICT_DEVMEM=y
++CONFIG_SECCOMP=y
++CONFIG_SECCOMP_FILTER=y
++
++# SELinux remains the system MAC policy. Landlock enables unprivileged
++# application sandboxes, Yama tightens ptrace policy, and Lockdown is ready to
++# enter integrity mode when managed Secure Boot is deployed in a later stage.
++CONFIG_SECURITY=y
++CONFIG_SECURITY_NETWORK=y
++CONFIG_SECURITY_SELINUX=y
++CONFIG_DEFAULT_SECURITY_SELINUX=y
++# CONFIG_DEFAULT_SECURITY_DAC is not set
++CONFIG_SECURITY_YAMA=y
++CONFIG_SECURITY_LANDLOCK=y
++CONFIG_SECURITY_LOCKDOWN_LSM=y
++CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y
++CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y
++# CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY is not set
++# CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY is not set
++CONFIG_LSM="landlock,lockdown,yama,selinux"
+-- 
+2.55.0
+
