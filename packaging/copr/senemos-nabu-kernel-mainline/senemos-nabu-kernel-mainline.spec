@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        2%{?dist}
+Release:        4%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -151,6 +151,9 @@ Patch0131:      0131-dt-bindings-i2c-add-SM8150-CCI-compatible.patch
 Patch0132:      0132-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
 Patch0133:      0133-arm64-dts-qcom-expose-Nabu-camera-calibration-EEPROM.patch
 Patch0134:      0134-arm64-dts-qcom-make-Nabu-nodes-schema-compliant.patch
+Patch0135:      0135-senemos-restore-Fedora-hardening-and-LED-pattern-tri.patch
+Patch0136:      0136-senemos-add-kernel-backed-Nabu-power-profiles.patch
+Patch0137:      0137-senemos-derive-stable-Nabu-wireless-addresses.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -422,6 +425,19 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-4
+- Replace Nabu's invalid placeholder Bluetooth address with a stable,
+  per-device locally administered address derived from Qualcomm SoC serial.
+- Give ath10k the matching stable per-device fallback when Xiaomi factory NV
+  contains no valid WLAN address, while preserving future firmware addresses.
+
+* Wed Sep 09 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-3
+- Restore feedbackd's standard LED pattern trigger for the camera flash.
+- Restore Fedora's FORTIFY, hardened-usercopy, Yama, Landlock, Lockdown, IPE
+  and BPF-LSM protections in the pruned Nabu release configuration.
+- Expose low-power, balanced and performance policies through Linux's standard
+  platform-profile class and apply their CPU/GPU ceilings with frequency QoS.
+
 * Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-2
 - Follow kernel.org's stable release stream after the 7.2.3 channel promotion.
 - Accept 7.2.4 only after the complete 134-patch Nabu gate passes.

@@ -1,0 +1,270 @@
+From 59e285b2b45f47b4ab22da9d2de4e66fa4eb7efa Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Thu, 10 Sep 2026 19:12:11 +0300
+Subject: [PATCH] senemos: derive stable Nabu wireless addresses
+
+---
+ .../net/bluetooth/qcom,bluetooth-common.yaml  |  7 +++
+ .../bindings/net/wireless/qcom,ath10k.yaml    |  6 +++
+ .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      |  3 +-
+ drivers/bluetooth/hci_qca.c                   | 50 +++++++++++++++++++
+ drivers/net/wireless/ath/ath10k/snoc.c        | 32 ++++++++++++
+ drivers/soc/qcom/smem.c                       | 29 +++++++++++
+ include/linux/soc/qcom/smem.h                 |  1 +
+ 7 files changed, 127 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/net/bluetooth/qcom,bluetooth-common.yaml b/Documentation/devicetree/bindings/net/bluetooth/qcom,bluetooth-common.yaml
+index c8e9c55c1..8a062ea50 100644
+--- a/Documentation/devicetree/bindings/net/bluetooth/qcom,bluetooth-common.yaml
++++ b/Documentation/devicetree/bindings/net/bluetooth/qcom,bluetooth-common.yaml
+@@ -22,4 +22,11 @@ properties:
+     description:
+       boot firmware is incorrectly passing the address in big-endian order
+ 
++  qcom,derive-bd-address-from-soc-serial:
++    type: boolean
++    description:
++      Derive a stable locally administered Bluetooth address from the
++      Qualcomm SoC serial number when firmware does not provide a valid
++      factory address.
++
+ additionalProperties: true
+diff --git a/Documentation/devicetree/bindings/net/wireless/qcom,ath10k.yaml b/Documentation/devicetree/bindings/net/wireless/qcom,ath10k.yaml
+index d4f4d72ee..6297b5956 100644
+--- a/Documentation/devicetree/bindings/net/wireless/qcom,ath10k.yaml
++++ b/Documentation/devicetree/bindings/net/wireless/qcom,ath10k.yaml
+@@ -188,6 +188,12 @@ properties:
+     description:
+       XO cal offset to be configured in XO trim register.
+ 
++  qcom,derive-mac-address-from-soc-serial:
++    type: boolean
++    description:
++      Derive a stable locally administered MAC address from the Qualcomm SoC
++      serial number when firmware does not provide a valid factory address.
++
+   vdd-0.8-cx-mx-supply:
+     description: Main logic power rail
+ 
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index c57e1752c..665ed6dcb 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -1225,7 +1225,7 @@ bluetooth: bluetooth {
+ 		vddrf-supply = <&vreg_l2c_1p3>;
+ 		vddch0-supply = <&vreg_l11c_3p3>;
+ 		max-speed = <3200000>;
+-		local-bd-address = [ 21 00 00 00 5a ad ];
++		qcom,derive-bd-address-from-soc-serial;
+ 	};
+ };
+ 
+@@ -1317,6 +1317,7 @@ &usb_2_dwc3 {
+ 
+ &wifi {
+ 	status = "okay";
++	qcom,derive-mac-address-from-soc-serial;
+ 
+ 	vdd-0.8-cx-mx-supply = <&vreg_l1a_0p75>;
+ 	vdd-1.8-xo-supply = <&vreg_l7a_1p8>;
+diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
+index beda41f96..ce30fa0ce 100644
+--- a/drivers/bluetooth/hci_qca.c
++++ b/drivers/bluetooth/hci_qca.c
+@@ -30,6 +30,7 @@
+ #include <linux/pwrseq/consumer.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/serdev.h>
++#include <linux/soc/qcom/smem.h>
+ #include <linux/string_choices.h>
+ #include <linux/mutex.h>
+ #include <linux/unaligned.h>
+@@ -228,6 +229,7 @@ struct qca_serdev {
+ 	u32 init_speed;
+ 	u32 oper_speed;
+ 	bool bdaddr_property_broken;
++	bool derive_bdaddr_from_soc_serial;
+ 	bool support_hfp_hw_offload;
+ 	const char *firmware_name[2];
+ };
+@@ -1914,6 +1916,49 @@ static int qca_configure_hfp_offload(struct hci_dev *hdev)
+ 	return 0;
+ }
+ 
++static void qca_derive_bdaddr_from_soc_serial(struct hci_dev *hdev,
++					      struct qca_serdev *qcadev)
++{
++#if IS_REACHABLE(CONFIG_QCOM_SMEM)
++	bdaddr_t property_addr;
++	u32 serial;
++	int ret;
++
++	if (!qcadev || !qcadev->derive_bdaddr_from_soc_serial)
++		return;
++
++	/* Prefer a valid address supplied by firmware or a future DT overlay. */
++	ret = fwnode_property_read_u8_array(dev_fwnode(hdev->dev.parent),
++					    "local-bd-address",
++					    (u8 *)&property_addr,
++					    sizeof(property_addr));
++	if (!ret && bacmp(&property_addr, BDADDR_ANY)) {
++		hci_set_quirk(hdev, HCI_QUIRK_USE_BDADDR_PROPERTY);
++		return;
++	}
++
++	ret = qcom_smem_get_soc_serial(&serial);
++	if (ret || !serial || serial == U32_MAX) {
++		bt_dev_warn(hdev,
++			    "failed to get a valid SoC serial for BD_ADDR: %d",
++			    ret ?: -ENODATA);
++		return;
++	}
++
++	/* bdaddr_t is stored least-significant byte first. */
++	hdev->public_addr.b[0] = serial;
++	hdev->public_addr.b[1] = serial >> 8;
++	hdev->public_addr.b[2] = serial >> 16;
++	hdev->public_addr.b[3] = serial >> 24;
++	hdev->public_addr.b[4] = 0x42;
++	hdev->public_addr.b[5] = 0x02;
++	hci_set_quirk(hdev, HCI_QUIRK_USE_BDADDR_PROPERTY);
++
++	bt_dev_info(hdev, "using stable SoC-derived BD_ADDR %pMR",
++		    &hdev->public_addr);
++#endif
++}
++
+ static int qca_setup(struct hci_uart *hu)
+ {
+ 	struct hci_dev *hdev = hu->hdev;
+@@ -2085,6 +2130,8 @@ static int qca_setup(struct hci_uart *hu)
+ 	else
+ 		hu->hdev->set_bdaddr = qca_set_bdaddr;
+ 
++	qca_derive_bdaddr_from_soc_serial(hdev, qcadev);
++
+ 	if (qcadev && qcadev->support_hfp_hw_offload)
+ 		qca_configure_hfp_offload(hdev);
+ 
+@@ -2419,6 +2466,9 @@ static int qca_serdev_probe(struct serdev_device *serdev)
+ 
+ 	qcadev->bdaddr_property_broken = device_property_read_bool(&serdev->dev,
+ 			"qcom,local-bd-address-broken");
++	qcadev->derive_bdaddr_from_soc_serial =
++		device_property_read_bool(&serdev->dev,
++					  "qcom,derive-bd-address-from-soc-serial");
+ 
+ 	if (data)
+ 		qcadev->btsoc_type = data->soc_type;
+diff --git a/drivers/net/wireless/ath/ath10k/snoc.c b/drivers/net/wireless/ath/ath10k/snoc.c
+index a43eca40c..a2e1c315f 100644
+--- a/drivers/net/wireless/ath/ath10k/snoc.c
++++ b/drivers/net/wireless/ath/ath10k/snoc.c
+@@ -17,6 +17,7 @@
+ #include <linux/remoteproc/qcom_rproc.h>
+ #include <linux/of_reserved_mem.h>
+ #include <linux/iommu.h>
++#include <linux/soc/qcom/smem.h>
+ 
+ #include "ce.h"
+ #include "coredump.h"
+@@ -1367,6 +1368,36 @@ static void ath10k_snoc_quirks_init(struct ath10k *ar)
+ 		set_bit(ATH10K_SNOC_FLAG_SKIP_HOST_CAP_QUIRK, &ar_snoc->flags);
+ }
+ 
++static void ath10k_snoc_derive_mac_address(struct ath10k *ar)
++{
++	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
++	struct device *dev = &ar_snoc->dev->dev;
++	u32 serial;
++	int ret;
++
++	if (!device_property_read_bool(dev,
++				       "qcom,derive-mac-address-from-soc-serial"))
++		return;
++
++	ret = qcom_smem_get_soc_serial(&serial);
++	if (ret || !serial || serial == U32_MAX) {
++		ath10k_warn(ar, "failed to get a valid SoC serial for MAC address: %d\n",
++			    ret ?: -ENODATA);
++		return;
++	}
++
++	/* 02:57 is a local/unicast namespace; the remaining bytes are unique. */
++	ar->mac_addr[0] = 0x02;
++	ar->mac_addr[1] = 0x57;
++	ar->mac_addr[2] = serial >> 24;
++	ar->mac_addr[3] = serial >> 16;
++	ar->mac_addr[4] = serial >> 8;
++	ar->mac_addr[5] = serial;
++
++	ath10k_info(ar, "using stable SoC-derived MAC address %pM\n",
++		    ar->mac_addr);
++}
++
+ int ath10k_snoc_fw_indication(struct ath10k *ar, u64 type)
+ {
+ 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+@@ -1763,6 +1794,7 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
+ 	msa_size = drv_data->msa_size;
+ 
+ 	ath10k_snoc_quirks_init(ar);
++	ath10k_snoc_derive_mac_address(ar);
+ 
+ 	ret = ath10k_snoc_resource_init(ar);
+ 	if (ret) {
+diff --git a/drivers/soc/qcom/smem.c b/drivers/soc/qcom/smem.c
+index afb21a778..b74facb42 100644
+--- a/drivers/soc/qcom/smem.c
++++ b/drivers/soc/qcom/smem.c
+@@ -827,6 +827,35 @@ int qcom_smem_get_soc_id(u32 *id)
+ }
+ EXPORT_SYMBOL_GPL(qcom_smem_get_soc_id);
+ 
++/**
++ * qcom_smem_get_soc_serial() - return the SoC serial number
++ * @serial: On success, we return the SoC serial number here.
++ *
++ * Look up the serial number from HW/SW build ID.  The field was added in
++ * socinfo format 0.10, so also verify that the SMEM item is large enough
++ * before accessing it.
++ *
++ * Return: 0 on success, negative errno on failure.
++ */
++int qcom_smem_get_soc_serial(u32 *serial)
++{
++	struct socinfo *info;
++	size_t size;
++
++	info = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_HW_SW_BUILD_ID, &size);
++	if (IS_ERR(info))
++		return PTR_ERR(info);
++
++	if (size < offsetofend(struct socinfo, serial_num) ||
++	    __le32_to_cpu(info->fmt) < SOCINFO_VERSION(0, 10))
++		return -EOPNOTSUPP;
++
++	*serial = __le32_to_cpu(info->serial_num);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(qcom_smem_get_soc_serial);
++
+ /**
+  * qcom_smem_get_feature_code() - return the feature code
+  * @code: On success, return the feature code here.
+diff --git a/include/linux/soc/qcom/smem.h b/include/linux/soc/qcom/smem.h
+index f946e3bec..21ccdb761 100644
+--- a/include/linux/soc/qcom/smem.h
++++ b/include/linux/soc/qcom/smem.h
+@@ -13,6 +13,7 @@ int qcom_smem_get_free_space(unsigned host);
+ phys_addr_t qcom_smem_virt_to_phys(void *p);
+ 
+ int qcom_smem_get_soc_id(u32 *id);
++int qcom_smem_get_soc_serial(u32 *serial);
+ int qcom_smem_get_feature_code(u32 *code);
+ 
+ int qcom_smem_bust_hwspin_lock_by_host(unsigned int host);
+-- 
+2.55.0
+

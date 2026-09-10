@@ -129,6 +129,9 @@ e88d93dd98cd149665c0c31d1d6d6bb79a26c15cc700934b15f1823fe44c1371  0127-power-sup
 876ba266ac79edc292dd4864edd66b157cbb890f67db23aa659159997fd3c91b  0129-media-qcom-iris-reinitialize-legacy-VPU5-across-s2idle.patch
 22399d88bed7726339632ae74eb73a2c11aa43e4d1b0306c7b742dc03e78117f  0130-dt-bindings-eeprom-add-Belling-BL24SA64.patch
 7c3790e3dce313f27ee357f02e523d38af82c91ac058034f0d92fee20c688a63  0131-dt-bindings-i2c-add-SM8150-CCI-compatible.patch
-7eb8ff28c48e74f48a341d0b8d4ebe44d42dbab2f20d8f2edf7fd48b82646d97  0132-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
+0a5cf2cb796def69c0606f5d3d5bd527da0ea704eee15e1db33addf4b67a8cb7  0132-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
 88baf71a3177c1d860ffa0f5671c6518d71da43d31eea3a8550cee7ab928cbbb  0133-arm64-dts-qcom-expose-Nabu-camera-calibration-EEPROM.patch
 653d37263f9ce15c15ee7a611b33d309eed2b7471869afd99a944bd65320aa8e  0134-arm64-dts-qcom-make-Nabu-nodes-schema-compliant.patch
+90231a68771898e7f25b2dcf21b46a71c61829afc062f2f3c50a6aa86ad7e3a4  0135-senemos-restore-Fedora-hardening-and-LED-pattern-tri.patch
+4cd1370eb8f2e7db8115a446514648dd7ae7e0803f3ca147ca2a7d36bde82cae  0136-senemos-add-kernel-backed-Nabu-power-profiles.patch
+c572e30bf0fc58d55b44e9478be5264ee7674f4cb1590614aa7a8569df043a0b  0137-senemos-derive-stable-Nabu-wireless-addresses.patch

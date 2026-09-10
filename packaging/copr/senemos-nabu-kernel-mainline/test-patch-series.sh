@@ -67,6 +67,17 @@ grep -A7 -F 'front_camera_eeprom: eeprom@50' "$camera_dtsi" \
 ! grep -Fq 'SM8150_MMCX>, <&rpmhpd SM8150_MX' "$camera_dtsi"
 grep -Fq 'static DEVICE_ATTR_RO(panel_revision);' \
     "$work/linux-$version/drivers/gpu/drm/panel/panel-novatek-nt36523.c"
+panel_driver="$work/linux-$version/drivers/gpu/drm/panel/panel-novatek-nt36523.c"
+grep -Fq 'L"DisplayPanelConfiguration"' "$panel_driver"
+grep -Fq 'efi_rt_services_supported(EFI_RT_SUPPORTED_GET_VARIABLE)' \
+    "$panel_driver"
+grep -Fq 'NABU_PANEL_LOCKDOWN_LEN 8' "$panel_driver"
+grep -Fq 'NABU_PANEL_REVISION_ATTEMPTS 3' "$panel_driver"
+grep -Fq 'mipi_dsi_dcs_read(pinfo->dsi[link], i + 1,' "$panel_driver"
+grep -Fq 'if (!ret)' "$panel_driver"
+grep -Fq 'pinfo->nabu_revision_read = true;' "$panel_driver"
+grep -Fq 'devm_device_add_group(dev, &nt36523_nabu_attr_group)' \
+    "$panel_driver"
 grep -Fq 'belling,bl24sa64' \
     "$work/linux-$version/Documentation/devicetree/bindings/eeprom/at24.yaml"
 grep -Fq 'qcom,sm8150-cci' \
@@ -106,6 +117,33 @@ grep -Fxq 'CONFIG_REGULATOR_QCOM_REFGEN=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
 grep -Fxq 'CONFIG_MODULE_SIG=y' \
     "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_LEDS_TRIGGER_PATTERN=m' \
+    "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_FORTIFY_SOURCE=y' \
+    "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_HARDENED_USERCOPY=y' \
+    "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fxq 'CONFIG_XIAOMI_NABU_POWER_PROFILE=y' \
+    "$work/linux-$version/senemos/configs/nabu-minimal.config"
+grep -Fq 'compatible = "xiaomi,nabu-power-profile";' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
+grep -Fq 'dev_pm_qos_add_request(nabu->gpu_dev' \
+    "$work/linux-$version/drivers/soc/qcom/xiaomi-nabu-power-profile.c"
+grep -Fq 'platform_profile_register(&pdev->dev' \
+    "$work/linux-$version/drivers/soc/qcom/xiaomi-nabu-power-profile.c"
+test -s "$work/linux-$version/Documentation/devicetree/bindings/soc/qcom/xiaomi,nabu-power-profile.yaml"
+grep -Fq 'int qcom_smem_get_soc_serial(u32 *serial)' \
+    "$work/linux-$version/drivers/soc/qcom/smem.c"
+grep -Fq 'qcom,derive-mac-address-from-soc-serial' \
+    "$work/linux-$version/drivers/net/wireless/ath/ath10k/snoc.c"
+grep -Fq 'qcom,derive-bd-address-from-soc-serial' \
+    "$work/linux-$version/drivers/bluetooth/hci_qca.c"
+grep -Fq 'qcom,derive-mac-address-from-soc-serial;' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
+grep -Fq 'qcom,derive-bd-address-from-soc-serial;' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
+! grep -Fq 'local-bd-address = [ 21 00 00 00 5a ad ];' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 
 config_dir="$work/config"
 make -C "$work/linux-$version" O="$config_dir" ARCH=arm64 HOSTCC=gcc defconfig
@@ -181,9 +219,22 @@ for setting in \
     'CONFIG_USB_DWC3_DUAL_ROLE=y' \
     'CONFIG_USB_ACM=y' \
     'CONFIG_MODULE_SIG=y' \
+    'CONFIG_LEDS_TRIGGER_PATTERN=m' \
     'CONFIG_GPIO_SHARED_PROXY=y' \
+    'CONFIG_BPF_LSM=y' \
+    'CONFIG_SECURITY_YAMA=y' \
+    'CONFIG_SECURITY_LOCKDOWN_LSM=y' \
+    'CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y' \
+    'CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y' \
+    'CONFIG_SECURITY_LANDLOCK=y' \
+    'CONFIG_SECURITY_IPE=y' \
     'CONFIG_SECURITY_SELINUX=y' \
     'CONFIG_DEFAULT_SECURITY_SELINUX=y' \
+    'CONFIG_FORTIFY_SOURCE=y' \
+    'CONFIG_HARDENED_USERCOPY=y' \
+    'CONFIG_HARDENED_USERCOPY_DEFAULT_ON=y' \
+    'CONFIG_PLATFORM_PROFILE=y' \
+    'CONFIG_XIAOMI_NABU_POWER_PROFILE=y' \
     'CONFIG_QCOM_SSC_CCT=m' \
     'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"'; do
     if ! grep -Fxq "$setting" "$config_dir/.config"; then
