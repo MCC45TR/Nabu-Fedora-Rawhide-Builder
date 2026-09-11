@@ -8,7 +8,8 @@ Manager and Plasma Setup, masks the CORE CDC logger, and removes the CORE root-S
 policy. It retains exactly the CORE mainline kernel and copies the Android/SENEMOS7 ESP
 byte-for-byte.
 
-The build fails on missing RPM-owned locale files, insufficient Plasma translation catalogs,
+The build reinstalls owners of missing normal-state RPM locale files and fails if any remain;
+it also fails on insufficient Plasma translation catalogs,
 missing Nabu camera/Iris/sensor packages, a second kernel, test-COPR configuration, overflow
 ownership, lost RPM special modes, invalid SELinux labels, or a changed ESP.
 

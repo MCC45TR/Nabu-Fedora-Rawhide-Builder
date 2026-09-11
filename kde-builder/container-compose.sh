@@ -117,31 +117,44 @@ plasma_catalogs=$(find "$TARGET/usr/share/locale" -path '*/LC_MESSAGES/plasmashe
 (( plasma_catalogs >= KDE_PLASMASHELL_LOCALE_MIN )) || die "Plasmashell locale count too low: $plasma_catalogs"
 printf 'locale_dirs=%s\nplasmashell_catalogs=%s\n' "$locale_dirs" "$plasma_catalogs" >"$META/locale-counts.txt"
 
-# Detect the earlier failure mode where RPMDB listed translations absent from the filesystem.
-python3 - "$TARGET" "$META/locale-rpm-files.txt" <<'PY'
+# Detect and repair the earlier failure mode where normal-state RPMDB
+# translations were absent from the filesystem. Language-filtered, non-normal
+# RPM file states are intentionally excluded.
+cat >/work/verify-rpm-locales.py <<'PY'
 import os, subprocess, sys
-root, report = sys.argv[1:]
+root, report, packages = sys.argv[1:]
 listing = subprocess.check_output([
-    "rpm", "--root", root, "-qa", "--qf", "[%{FILENAMES}|%{FILESTATES}\\n]"
+    "rpm", "--root", root, "-qa", "--qf",
+    "[%{FILENAMES}|%{FILESTATES}|%{NAME}\\n]"
 ], text=True, errors="surrogateescape")
-expected = []
+owners = {}
 for row in listing.splitlines():
     try:
-        path, state = row.rsplit("|", 1)
+        path, state, package = row.rsplit("|", 2)
     except ValueError:
         continue
-    # RPM keeps metadata for language-filtered payloads with a non-normal file
-    # state. Only state 0 promises that the file was installed on this image.
     if state == "0" and path.startswith("/usr/share/locale/"):
-        expected.append(path)
-expected = sorted(set(expected))
-missing = [p for p in expected if not os.path.lexists(root + p)]
+        owners[path] = package
+missing = [path for path in sorted(owners) if not os.path.lexists(root + path)]
 with open(report, "w", encoding="utf-8") as out:
-    out.write(f"normal_state_expected={len(expected)}\nmissing={len(missing)}\n")
-    out.writelines(p + "\n" for p in missing)
-if missing:
-    raise SystemExit(f"{len(missing)} RPM-owned locale files are missing")
+    out.write(f"normal_state_expected={len(owners)}\nmissing={len(missing)}\n")
+    out.writelines(f"{owners[path]}|{path}\n" for path in missing)
+with open(packages, "w", encoding="utf-8") as out:
+    out.writelines(package + "\n" for package in sorted({owners[path] for path in missing}))
 PY
+python3 /work/verify-rpm-locales.py "$TARGET" "$META/locale-rpm-files-before.txt" \
+    "$META/locale-repair-packages.txt"
+if [[ -s "$META/locale-repair-packages.txt" ]]; then
+    mapfile -t locale_repair_packages <"$META/locale-repair-packages.txt"
+    "${dnf_command[@]}" reinstall "${locale_repair_packages[@]}" \
+        >"$LOGS/dnf-locale-repair.log" 2>&1
+fi
+python3 /work/verify-rpm-locales.py "$TARGET" "$META/locale-rpm-files.txt" \
+    "$META/locale-repair-packages-after.txt"
+if [[ -s "$META/locale-repair-packages-after.txt" ]]; then
+    sed -n '1,160p' "$META/locale-rpm-files.txt" >&2
+    die 'RPM-owned normal-state locale files remain missing after reinstall repair'
+fi
 
 find "$TARGET/var/cache/dnf" "$TARGET/var/cache/libdnf5" "$TARGET/var/tmp" "$TARGET/tmp" \
     -mindepth 1 -delete 2>/dev/null || :
