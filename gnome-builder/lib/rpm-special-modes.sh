@@ -10,11 +10,6 @@ nabu_capture_rpm_special_modes() {
 
     : >"$output"
     while IFS='|' read -r path mode owner group; do
-        case "${mode: -4:1}" in
-            2|4|6) ;;
-            *) continue ;;
-        esac
-
         uid=$(awk -F: -v name="$owner" '$1 == name { print $3; exit }' "$root/etc/passwd")
         gid=$(awk -F: -v name="$group" '$1 == name { print $3; exit }' "$root/etc/group")
         [[ $uid =~ ^[0-9]+$ && $gid =~ ^[0-9]+$ ]] || {
@@ -22,7 +17,18 @@ nabu_capture_rpm_special_modes() {
             return 65
         }
         printf '%s|%s|%s|%s\n' "$path" "${mode: -4}" "$uid" "$gid" >>"$output"
-    done < <(rpm --root="$root" -qa --qf '[%{FILENAMES}|%{FILEMODES:octal}|%{FILEUSERNAME}|%{FILEGROUPNAME}\n]')
+    done < <(
+        rpm --root="$root" -qa --dump | awk '
+            NF >= 11 {
+                mode = $(NF - 6)
+                special = substr(mode, length(mode) - 3, 1)
+                if (special !~ /^[246]$/) next
+                path = $1
+                for (i = 2; i <= NF - 10; i++) path = path " " $i
+                print path "|" mode "|" $(NF - 5) "|" $(NF - 4)
+            }
+        '
+    )
 
     [[ -s $output ]] || {
         echo 'RPM metadata did not expose any setuid/setgid files' >&2

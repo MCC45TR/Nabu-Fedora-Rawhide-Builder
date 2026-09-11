@@ -46,7 +46,7 @@ jobs:
           set -Eeuo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            attr dosfstools e2fsprogs fuse2fs mtools policycoreutils rpm zstd
+            attr dosfstools e2fsprogs fuse2fs mtools policycoreutils python3-selinux rpm zstd
 
       - name: Build CORE with the shared local/CI entry point
         env:
