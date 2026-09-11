@@ -348,9 +348,12 @@ grep -Fqx 'CONFIG_DMABUF_HEAPS_CMA=y' "$root/boot/config-$mainline_kver" || core
 grep -Fqx 'CONFIG_USB_ACM=y' "$root/boot/config-$mainline_kver" || core_die "CDC ACM is not built in"
 
 chroot "$root" /usr/bin/nabu-regenerate-uki --family SENEMOS7 "$mainline_kver" >"$reports/uki-mainline-generation.log" 2>&1
-mainline_efi="$(sed -nE 's@^efi[[:space:]]+(/EFI/fedora/[^/]+[.]efi)$@\1@p' \
-    "$esp_tree/loader/entries/senemos-SENEMOS7.conf" | head -n1)"
-[[ -n "$mainline_efi" && -s "$esp_tree$mainline_efi" ]] || core_die "Mainline default UKI was not generated"
+mapfile -t generated_mainline_ukis < <(find "$esp_tree/EFI/fedora" -maxdepth 1 -type f \
+    -name 'SENEMOS7-*.efi' -printf '/EFI/fedora/%f\n' | sort)
+(( ${#generated_mainline_ukis[@]} == 1 )) || \
+    core_die "Expected exactly one generated SENEMOS7 UKI, found ${#generated_mainline_ukis[@]}"
+mainline_efi=${generated_mainline_ukis[0]}
+[[ -s "$esp_tree$mainline_efi" ]] || core_die "Mainline default UKI was not generated"
 install -d -m0755 "$esp_tree/EFI/fedora"
 mainline_name="senemos-nabu-kernel-mainline-7.2-$CORE_RELEASE_TAG.efi"
 mv "$esp_tree$mainline_efi" "$esp_tree/EFI/fedora/$mainline_name"

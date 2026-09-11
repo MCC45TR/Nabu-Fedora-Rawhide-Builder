@@ -41,7 +41,7 @@ check 'stable and test COPR gates fail closed, verify signatures and pin candida
 check 'nobody and initramfs setid gates are present' \
     bash -c 'grep -Fq "core_verify_no_overflow_ownership" "$1" && grep -Fq "core_verify_initramfs_listing" "$1" && grep -Fq "User:[[:space:]]+0" "$2"' _ "$COMPOSE" "$VERIFY"
 check 'only SENEMOS7 is generated and moved under the Fedora EFI directory' \
-    bash -c 'grep -Fq -- "--family SENEMOS7" "$1" && ! grep -Fq -- "--family SENEMOS6" "$1" && ! grep -Fq -- "--family SENEMOS616" "$1" && grep -Fq "/EFI/fedora/\$mainline_name" "$1" && grep -Fq "mainline-kernel-uname.txt" "$1" && grep -Fq "SENEMOS Nabu Mainline 7.2.x" "$1" && grep -Fq "An unstable EFI artifact entered" "$1"' _ "$COMPOSE"
+    bash -c 'grep -Fq -- "--family SENEMOS7" "$1" && ! grep -Fq -- "--family SENEMOS6" "$1" && ! grep -Fq -- "--family SENEMOS616" "$1" && grep -Fq "Expected exactly one generated SENEMOS7 UKI" "$1" && ! grep -Fq "senemos-SENEMOS7.conf" "$1" && grep -Fq "/EFI/fedora/\$mainline_name" "$1" && grep -Fq "mainline-kernel-uname.txt" "$1" && grep -Fq "SENEMOS Nabu Mainline 7.2.x" "$1" && grep -Fq "An unstable EFI artifact entered" "$1"' _ "$COMPOSE"
 check 'rEFInd verification enforces exactly Fedora and Android entries' \
     bash -c 'grep -Fq "scanfor manual" "$1" && grep -Fq "exactly Fedora and Android entries" "$1" && grep -Fq "exactly one Fedora kernel entry" "$1" && grep -Fq "/EFI/android/Reboot2Android.efi" "$1"' _ "$VERIFY"
 check 'ESP32 recovery starts after switch-root without adding CDC logging to initramfs' \
