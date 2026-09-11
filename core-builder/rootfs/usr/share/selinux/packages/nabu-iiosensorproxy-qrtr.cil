@@ -1,0 +1,11 @@
+(block nabu_iiosensorproxy_qrtr
+    ; iio-sensor-proxy talks only to the local Qualcomm QRTR bus.  Scope the
+    ; exception to its existing confined domain and self-owned QRTR sockets.
+    (allow iiosensorproxy_t self
+        (qipcrtr_socket
+            (create getattr setattr read write ioctl lock append map bind
+             connect getopt setopt shutdown recvfrom sendto name_bind)))
+    (allow iiosensorproxy_t passwd_file_t
+        (file (getattr open read map)))
+    (allow xdm_t systemd_unit_file_t
+        (service (status))))

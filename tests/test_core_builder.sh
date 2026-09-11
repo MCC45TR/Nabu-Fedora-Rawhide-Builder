@@ -8,6 +8,10 @@ PROFILE="$ROOT/core-builder/profile.env"
 WRAPPER="$ROOT/core-builder/build-core.sh"
 COMPOSE="$ROOT/core-builder/container-compose.sh"
 VERIFY="$ROOT/core-builder/lib/verify.sh"
+SELINUX_RELABEL="$ROOT/tools/lib/relabel-ext4-selinux.sh"
+SELINUX_HELPER="$ROOT/tools/lib/ext4-selinux-labels.py"
+DRACUT_POLICY="$ROOT/core-builder/rootfs/etc/dracut.conf.d/90-nabu-release.conf"
+DRACUT_MODULE="$ROOT/core-builder/rootfs/usr/lib/dracut/modules.d/90nabu-release-policy/module-setup.sh"
 WORKFLOW="$ROOT/.github/workflows/build-core-manual.yml"
 passed=0
 failed=0
@@ -24,15 +28,36 @@ check() {
     fi
 }
 
-check 'CORE scripts have valid Bash syntax' bash -n "$WRAPPER" "$COMPOSE" "$VERIFY"
-check 'profile selects Rawhide AArch64 EXT4 bash alpha and rEFInd' \
-    bash -c 'source "$1"; [[ "$CORE_TARGET_ARCH" == aarch64 && "$CORE_RELEASEVER" == rawhide && "$CORE_FILESYSTEM" == ext4 && "$CORE_DEFAULT_KERNEL_PACKAGE" == senemos-nabu-kernel-alpha && "$CORE_BOOTLOADER" == refind && "$CORE_IMAGE_SIZE" == 8G ]]' _ "$PROFILE"
-check 'compose explicitly installs CORE meta, alpha and rEFInd' \
-    bash -c 'grep -Fq "\"\$CORE_META_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_DEFAULT_KERNEL_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_BOOT_PACKAGE\"" "$1" && grep -Fq "systemd-boot-unsigned" "$1"' _ "$COMPOSE"
-check 'DNF gates fail closed and disable weak dependencies' \
-    bash -c 'grep -Fq "skip_if_unavailable=False" "$1" && grep -Fq "gpgcheck=1" "$1" && grep -Fq "install_weak_deps=False" "$1" && grep -Fq "dnf-forward-sync.log" "$1" && grep -Fq "core_dnf_retry" "$1" && grep -Fq "dnf-bootstrap.log" "$1" && grep -Fq " dracut " "$1" && grep -Fq "rc=\$?" "$1"' _ "$COMPOSE"
+check 'CORE scripts have valid Bash syntax' \
+    bash -n "$WRAPPER" "$COMPOSE" "$VERIFY" "$SELINUX_RELABEL" "$DRACUT_MODULE"
+check 'offline SELinux inode helper has valid Python syntax' \
+    python3 -m py_compile "$SELINUX_HELPER"
+check 'profile selects Rawhide AArch64 EXT4 stable 7.2.x, test meta, camera, Plymouth and rEFInd' \
+    bash -c 'source "$1"; [[ "$CORE_PROFILE_VERSION" == 3 && "$CORE_BUILD_FLAVOR" == release && "$CORE_TARGET_ARCH" == aarch64 && "$CORE_RELEASEVER" == rawhide && "$CORE_FILESYSTEM" == ext4 && "$CORE_KERNEL_PACKAGE" == senemos-nabu-kernel-mainline && "$CORE_KERNEL_VERSION" == 7.2.4 && "$CORE_KERNEL_RELEASE" == 5 && "$CORE_META_VERSION" == 3.0.0 && "$CORE_META_RELEASE" == 84 && "$CORE_CAMERA_SUPPORT_PACKAGE" == nabu-camera-support && "$CORE_IRIS_VAAPI_PACKAGE" == iris-vaapi-nabu && "$CORE_BOOTLOADER" == refind && "$CORE_PLYMOUTH_PACKAGE" == senemos-nabu-plymouth && "$CORE_IMAGE_SIZE" == 8G && "$CORE_RELEASE_TAG" == 2609110702 ]]' _ "$PROFILE"
+check 'compose explicitly installs CORE meta, one stable 7.2.x kernel, camera stack, Plymouth and rEFInd' \
+    bash -c 'grep -Fq "\"\$CORE_META_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_KERNEL_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_CAMERA_SUPPORT_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_IRIS_VAAPI_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_PLYMOUTH_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_BOOT_PACKAGE\"" "$1" && grep -Fq -- "--exclude=senemos-nabu-kernel-alpha" "$1"' _ "$COMPOSE"
+check 'stable and test COPR gates fail closed, verify signatures and pin candidate EVRs' \
+    bash -c 'source "$1"; [[ "$CORE_COPR_STABLE_BASEURL" == *"/nabu-linux/fedora-rawhide-aarch64/" && "$CORE_COPR_TEST_BASEURL" == *"/nabu-linux-test/fedora-rawhide-aarch64/" ]] && [[ "$CORE_COPR_STABLE_GPGKEY" != "$CORE_COPR_TEST_GPGKEY" ]] && grep -Fq "skip_if_unavailable=False" "$2" && grep -Fq "gpgcheck=1" "$2" && grep -Fq "priority=10" "$2" && grep -Fq "Unexpected mainline kernel EVR" "$2" && grep -Fq "Unexpected test-channel CORE meta EVR" "$2" && grep -Fq "install_weak_deps=False" "$2" && grep -Fq "dnf-forward-sync.log" "$2" && grep -Fq "core_dnf_retry" "$2" && grep -Fq "dnf-bootstrap.log" "$2" && grep -Fq " dracut " "$2" && grep -Fq "rc=\$?" "$2"' _ "$PROFILE" "$COMPOSE"
 check 'nobody and initramfs setid gates are present' \
     bash -c 'grep -Fq "core_verify_no_overflow_ownership" "$1" && grep -Fq "core_verify_initramfs_listing" "$1" && grep -Fq "User:[[:space:]]+0" "$2"' _ "$COMPOSE" "$VERIFY"
+check 'only SENEMOS7 is generated and moved under the Fedora EFI directory' \
+    bash -c 'grep -Fq -- "--family SENEMOS7" "$1" && ! grep -Fq -- "--family SENEMOS6" "$1" && ! grep -Fq -- "--family SENEMOS616" "$1" && grep -Fq "/EFI/fedora/\$mainline_name" "$1" && grep -Fq "mainline-kernel-uname.txt" "$1" && grep -Fq "SENEMOS Nabu Mainline 7.2.x" "$1" && grep -Fq "An unstable EFI artifact entered" "$1"' _ "$COMPOSE"
+check 'rEFInd verification enforces exactly Fedora and Android entries' \
+    bash -c 'grep -Fq "scanfor manual" "$1" && grep -Fq "exactly Fedora and Android entries" "$1" && grep -Fq "exactly one Fedora kernel entry" "$1" && grep -Fq "/EFI/android/Reboot2Android.efi" "$1"' _ "$VERIFY"
+check 'ESP32 recovery starts after switch-root without adding CDC logging to initramfs' \
+    bash -c '! grep -RqE "dmesg --follow|journalctl --boot --follow|add_dracutmodules.*nabu-esp32|add_drivers.*cdc_acm" "$1/core-builder/rootfs" && grep -Fq "ESP32/CDC logging entered" "$2" && grep -Fq "nabu-esp32-cdc-log.service nabu-mainline-late-xhci.service" "$3" && grep -Fq "ln_r /dev/null /etc/systemd/system/debug-shell.service" "$4" && grep -Fq "nabu-release-policy" "$5"' _ "$ROOT" "$VERIFY" "$COMPOSE" "$DRACUT_MODULE" "$DRACUT_POLICY"
+check 'recovery networking avoids wait-online and enables bounded SSH access' \
+    bash -c 'grep -Fq "enable NetworkManager.service firewalld.service sshd.service" "$1" && grep -Fq "mask initial-setup.service NetworkManager-wait-online.service" "$1" && grep -Fq "PermitRootLogin yes" "$1" && grep -Fq "firewall-offline-cmd --add-service=ssh" "$1"' _ "$COMPOSE"
+check 'UKI and serialized ESP verify exact kernel, DTB and uname payloads' \
+    bash -c 'grep -Fq "objcopy --dump-section .linux" "$1" && grep -Fq "objcopy --dump-section .dtb" "$1" && grep -Fq "UKI .linux payload differs" "$1" && grep -Fq "Serialized ESP UKI uname differs" "$2" && grep -Fq "kernel_hash" "$2" && grep -Fq "dtb_hash" "$2"' _ "$COMPOSE" "$VERIFY"
+check 'SELinux labels are applied before EXT4 and read back from the image' \
+    bash -c 'grep -Fq "setfiles -F -r" "$1" && grep -Fq "system_u:object_r:init_exec_t:s0" "$1" && grep -Fq "ea_get /usr/lib/systemd/systemd security.selinux" "$2" && grep -Fq "relabel-ext4-selinux.sh" "$1" && grep -Fq "all_inodes" "$3" && grep -Fq "UNSAFE_TYPES" "$3"' _ "$COMPOSE" "$VERIFY" "$SELINUX_HELPER"
+check 'release policy enables root, masks onboarding and removes noisy boot options' \
+    bash -c 'source "$1"; [[ " $CORE_KERNEL_CMDLINE " == *" quiet "* && " $CORE_KERNEL_CMDLINE " == *" splash "* && " $CORE_KERNEL_CMDLINE " == *" loglevel=3 "* && " $CORE_KERNEL_CMDLINE " == *" console=tty0 "* && " $CORE_KERNEL_CMDLINE " == *" rw "* && " $CORE_KERNEL_CMDLINE " != *" ro "* && " $CORE_KERNEL_CMDLINE " != *" rd.driver.pre=cdc_acm "* && " $CORE_KERNEL_CMDLINE " != *" deferred_probe_timeout=0 "* ]] && grep -Fq "root:1234" "$2" && grep -Fq "enable NetworkManager.service firewalld.service sshd.service" "$2" && grep -Fq "mask initial-setup.service" "$2" && grep -Fq "mask debug-shell.service" "$2" && grep -Fq "scsi_debug" "$3"' _ "$PROFILE" "$COMPOSE" "$DRACUT_POLICY"
+check 'writable root, persistent ESP and ordered Initial Setup are image contracts' \
+    bash -c 'grep -Eq "^PARTLABEL=linux[[:space:]]+/[[:space:]]+ext4[[:space:]]+rw,[^[:space:]]*x-systemd.growfs" "$1" && grep -Eq "^LABEL=ESPNABU[[:space:]]+/boot/efi[[:space:]]+vfat[[:space:]]+rw," "$1" && grep -Fq "Requires=systemd-remount-fs.service systemd-logind.service" "$2" && grep -Fqx "ConditionPathIsReadWrite=/" "$2" && ! grep -Fq "mountpoint -q -w" "$2" && grep -Fq "Release UKI does not request a writable root" "$3"' _ "$ROOT/core-builder/rootfs/etc/fstab" "$ROOT/core-builder/rootfs/etc/systemd/system/initial-setup.service.d/10-nabu-writable-root.conf" "$VERIFY"
+check 'confined iio-sensor-proxy QRTR SELinux policy is installed by compose' \
+    bash -c 'grep -Fq "iiosensorproxy_t self" "$1" && grep -Fq "qipcrtr_socket" "$1" && grep -Fq "semodule -p" "$2" && grep -Fq "nabu-iiosensorproxy-qrtr" "$2"' _ "$ROOT/core-builder/rootfs/usr/share/selinux/packages/nabu-iiosensorproxy-qrtr.cil" "$COMPOSE"
 check 'ESP contract is 320 MiB with 4096-byte sectors and Android hash pinning' \
     bash -c 'source "$1"; [[ "$CORE_ESP_SIZE_BYTES" == 335544320 && "$CORE_ESP_LOGICAL_SECTOR_SIZE" == 4096 && ${#CORE_REBOOT2ANDROID_SHA256} == 64 ]]' _ "$PROFILE"
 check 'mandatory SLPI firmware is source and hash pinned' \
