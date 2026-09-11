@@ -83,7 +83,8 @@ trap cleanup EXIT
 fuse2fs -o fakeroot,ro "$system_image" "$mount_dir" >"$logs/final-fuse-mount.log" 2>&1
 mountpoint -q "$mount_dir" || core_die 'Could not mount final KDE image'
 core_verify_no_overflow_ownership "$mount_dir" "$reports/final-overflow-ownership.txt"
-rpm --root "$mount_dir" -q "$KDE_META_PACKAGE" "$KDE_KERNEL_PACKAGE" nabu-core-meta \
+rpm --root "$mount_dir" --dbpath /usr/lib/sysimage/rpm -q \
+    "$KDE_META_PACKAGE" "$KDE_KERNEL_PACKAGE" nabu-core-meta \
     plasma-login-manager glibc-all-langpacks >"$meta/final-selection.txt"
 chroot "$mount_dir" /usr/bin/passwd -S root | grep -Eq '^root[[:space:]]+L[[:space:]]' || core_die 'Final KDE root is not locked'
 [[ -L "$mount_dir/etc/systemd/system/nabu-esp32-cdc-log.service" && \

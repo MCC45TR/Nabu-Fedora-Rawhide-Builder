@@ -11,5 +11,6 @@ check 'DE locks root and masks CDC while keeping onboarding userless' bash -c 'g
 check 'locale regression repair and driver stack have hard gates' bash -c 'grep -Fq "locale-rpm-files.txt" "$1" && grep -Fq "FILESTATES" "$1" && grep -Fq "state == \"0\"" "$1" && grep -Fq "locale_repair_packages" "$1" && grep -Fq "dnf-locale-repair.log" "$1" && grep -Fq "normal-state locale files remain missing" "$1" && grep -Fq "glibc-all-langpacks" "$1" && grep -Fq "nabu-camera-support iris-vaapi-nabu iio-sensor-proxy-nabu libssc-nabu python3-ssc-nabu" "$1"' _ "$COMPOSE"
 check 'KDE preserves ESP byte-for-byte and relabels SELinux' bash -c 'grep -Fq "cmp -s \"\$CORE_ESP\" \"\$esp_image\"" "$1" && grep -Fq "relabel-ext4-selinux.sh" "$1" && grep -Fq "core_verify_ext4_root_identity" "$1" && grep -Fq "nabu_restore_rpm_special_modes" "$1"' _ "$HOST"
 check 'RPM 6-safe special-mode capture and SELinux host bindings are required' bash -c 'grep -Fq -- "-qa --dump" "$1" && ! grep -Fq "FILEMODES:octal" "$1" && grep -Fq "python3-selinux" "$2"' _ "$ROOT/gnome-builder/lib/rpm-special-modes.sh" "$ROOT/.github/workflows/build-core-manual.yml"
+check 'Ubuntu host final readback uses the Fedora rpmdb path' grep -Fq -- '--dbpath /usr/lib/sysimage/rpm' "$HOST"
 printf '1..%d\n# %d passed, %d failed\n' "$((passed+failed))" "$passed" "$failed"
 [[ $failed -eq 0 ]]
