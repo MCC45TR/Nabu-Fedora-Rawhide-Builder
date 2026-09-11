@@ -40,6 +40,14 @@ jobs:
           set -Eeuo pipefail
           make test
 
+      - name: Install host image finalization tools
+        if: ${{ ! inputs.solve_only }}
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            attr dosfstools e2fsprogs fuse2fs mtools policycoreutils rpm zstd
+
       - name: Build CORE with the shared local/CI entry point
         env:
           CORE_KEEP_UNCOMPRESSED: '1'
