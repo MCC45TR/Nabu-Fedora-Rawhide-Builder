@@ -84,6 +84,14 @@ for command in cmp debugfs e2fsck fsck.vfat fuse2fs fusermount3 getfattr lsinitr
 done
 stage_pass "Compose tools installed"
 
+# Fedora's minimal compose container pins RPM to en_US. DNF transactions run
+# in that host process even with --installroot, so set the composer policy
+# before the first target package is installed.
+install -d -m0755 /etc/rpm
+printf '%%_install_langs all\n' >/etc/rpm/macros.zz-nabu-languages
+rpm --showrc | grep -Eq '^[^:]*:[[:space:]]+_install_langs[[:space:]]+all$' || \
+    core_die "Compose RPM language policy is not all"
+
 cat >/etc/yum.repos.d/nabu-core-stable-compose.repo <<EOF
 [nabu-core-stable-compose]
 name=Nabu CORE stable compose
@@ -173,6 +181,12 @@ kernel_evr=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' "$CORE_KERNEL_
 meta_evr=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' "$CORE_META_PACKAGE")
 [[ $meta_evr =~ ^${CORE_META_VERSION}-${CORE_META_RELEASE}[.]fc[0-9]+$ ]] || \
     core_die "Unexpected stable-channel CORE meta EVR: $meta_evr"
+boot_evr=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' "$CORE_BOOT_PACKAGE")
+[[ $boot_evr =~ ^${CORE_BOOT_VERSION}-${CORE_BOOT_RELEASE}[.]fc[0-9]+$ ]] || \
+    core_die "Unexpected rEFInd integration EVR: $boot_evr"
+plymouth_release=$(rpm --root "$root" -q --qf '%{RELEASE}\n' plymouth)
+[[ $plymouth_release == 7.nabu1.fc* ]] || \
+    core_die "Nabu Plymouth console-viewer fix is absent: $plymouth_release"
 for forbidden_kernel in senemos-nabu-kernel senemos-nabu-kernel-alpha senemos-nabu-kernel-mainline-alpha \
     senemos-nabu-kernel-mainline-unstable senemos-nabu-kernel-legacy-stable senemos-nabu-kernel-lts; do
     ! rpm --root "$root" -q "$forbidden_kernel" >/dev/null 2>&1 || \
@@ -191,13 +205,17 @@ stage_pass "CORE, single 7.2.x kernel, camera/Iris stack, rEFInd, Bash and Plymo
 
 stage_begin rootfs-policy "Applying boot, service and Plymouth policy"
 printf 'LANG=%s\n' "$CORE_LOCALE" >"$root/etc/locale.conf"
+printf 'nabu\n' >"$root/etc/hostname"
+install -d -m0755 "$root/etc/rpm"
+printf '%%_install_langs all\n' >"$root/etc/rpm/macros.nabu-languages"
 ln -sfn "../usr/share/zoneinfo/$CORE_TIMEZONE" "$root/etc/localtime"
 printf '%s\n' "$CORE_TIMEZONE" >"$root/etc/timezone"
 printf 'root:1234\n' | chroot "$root" /usr/sbin/chpasswd
 chroot "$root" /usr/bin/passwd -S root | tee "$metadata/root-password-status.txt" | \
     grep -Eq '^root[[:space:]]+P[[:space:]]' || core_die "Root account is not password-enabled"
 systemctl --root="$root" enable NetworkManager.service firewalld.service sshd.service \
-    getty@tty1.service nabu-esp32-cdc-log.service nabu-mainline-late-xhci.service >/dev/null
+    getty@tty1.service nabu-esp32-cdc-log.service nabu-mainline-late-xhci.service \
+    nabu-refind-sync.service >/dev/null
 systemctl --root="$root" mask initial-setup.service NetworkManager-wait-online.service >/dev/null 2>&1 || :
 systemctl --root="$root" set-default multi-user.target >/dev/null
 systemctl --root="$root" mask debug-shell.service >/dev/null
@@ -230,6 +248,7 @@ chroot "$root" plymouth-set-default-theme "$CORE_PLYMOUTH_THEME" >/dev/null
 grep -Eq "^Theme=$CORE_PLYMOUTH_THEME$" "$root/etc/plymouth/plymouthd.conf" || \
     core_die "Plymouth theme was not selected"
 [[ -s "$root/usr/bin/bash" ]] || core_die "Bash is absent"
+[[ "$(cat "$root/etc/hostname")" == nabu ]] || core_die "Default hostname is not nabu"
 [[ -L "$root/etc/systemd/system/debug-shell.service" && \
    "$(readlink "$root/etc/systemd/system/debug-shell.service")" == /dev/null ]] || \
     core_die "debug-shell is not masked"
@@ -249,7 +268,7 @@ grep -Eq '^LABEL=ESPNABU[[:space:]]+/boot/efi[[:space:]]+vfat[[:space:]]+rw,' "$
    "$(readlink "$root/etc/systemd/system/initial-setup.service")" == /dev/null ]] || \
     core_die "CORE Initial Setup is not masked"
 for enabled_unit in NetworkManager.service firewalld.service sshd.service getty@tty1.service \
-    nabu-esp32-cdc-log.service nabu-mainline-late-xhci.service; do
+    nabu-esp32-cdc-log.service nabu-mainline-late-xhci.service nabu-refind-sync.service; do
     systemctl --root="$root" is-enabled "$enabled_unit" | grep -Eq '^(enabled|static)$' || \
         core_die "Recovery service is not enabled: $enabled_unit"
 done
@@ -263,6 +282,22 @@ semodule -p "$root" -X 300 -i \
 semodule -p "$root" -X 300 -lfull | grep -Eq '^[[:space:]]*300[[:space:]]+nabu-iiosensorproxy-qrtr[[:space:]]+cil' || \
     core_die "Nabu iio-sensor-proxy QRTR SELinux policy was not installed"
 stage_pass "Recovery networking, SSH, late XHCI, CDC logging, SELinux and Plymouth policy selected"
+
+stage_begin locale-payloads "Restoring every RPM-owned Fedora translation payload in CORE"
+python3 /workspace/tools/lib/find-missing-rpm-locales.py "$root" \
+    "$metadata/locale-rpm-files-before.txt" "$work_dir/locale-repair-packages.txt"
+if [[ -s "$work_dir/locale-repair-packages.txt" ]]; then
+    mapfile -t locale_repair_packages <"$work_dir/locale-repair-packages.txt"
+    core_dnf_retry "$reports/dnf-locale-repair.log" \
+        "${dnf_args[@]}" reinstall "${locale_repair_packages[@]}"
+fi
+python3 /workspace/tools/lib/find-missing-rpm-locales.py "$root" \
+    "$metadata/locale-rpm-files.txt" "$work_dir/locale-repair-packages-after.txt"
+if [[ -s "$work_dir/locale-repair-packages-after.txt" ]]; then
+    sed -n '1,160p' "$metadata/locale-rpm-files.txt" >&2
+    core_die "RPM-owned Fedora translations remain absent from CORE"
+fi
+stage_pass "All RPM-owned Fedora translation payloads are present before first boot"
 
 stage_begin dnf-forward-gates "Checking DNF integrity and future Rawhide solve"
 dnf5 "${dnf_args[@]}" check >"$reports/dnf-check.log" 2>&1

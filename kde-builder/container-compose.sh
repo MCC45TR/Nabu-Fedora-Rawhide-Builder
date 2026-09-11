@@ -19,6 +19,13 @@ dnf5 -y --disablerepo='*openh264*' --setopt=install_weak_deps=False install \
     ca-certificates curl dnf5 e2fsprogs findutils fuse3 python3 rpm systemd util-linux \
     >"$LOGS/container-tools.log" 2>&1
 
+# --use-host-config makes RPM evaluate the compose container's macro. Set it
+# here so KDE translations are unpacked during compose, not repaired at login.
+install -d -m0755 /etc/rpm
+printf '%%_install_langs all\n' >/etc/rpm/macros.zz-nabu-languages
+rpm --showrc | grep -Eq '^[^:]*:[[:space:]]+_install_langs[[:space:]]+all$' || \
+    die 'Compose RPM language policy is not all'
+
 fuse2fs -o fakeroot /work/system.img "$TARGET" >"$LOGS/fuse-mount.log" 2>&1
 mountpoint -q "$TARGET" || die 'Could not mount cloned CORE image'
 cleanup_target() {
@@ -67,6 +74,8 @@ set -e
 
 meta_evr=$(rpm --root "$TARGET" -q --qf '%{VERSION}-%{RELEASE}\n' "$KDE_META_PACKAGE")
 [[ $meta_evr =~ ^${KDE_META_VERSION}-${KDE_META_RELEASE}[.]fc[0-9]+$ ]] || die "Unexpected KDE meta: $meta_evr"
+powerdevil_release=$(rpm --root "$TARGET" -q --qf '%{RELEASE}\n' powerdevil)
+[[ $powerdevil_release == 3.nabu1.fc* ]] || die "Nabu PowerDevil keyboard-backlight fix is absent: $powerdevil_release"
 [[ $(find "$TARGET/usr/lib/modules" -mindepth 1 -maxdepth 1 -type d | wc -l) -eq 1 ]] || die 'KDE changed kernel module cardinality'
 for forbidden in senemos-nabu-kernel senemos-nabu-kernel-alpha senemos-nabu-kernel-mainline-alpha \
     senemos-nabu-kernel-mainline-unstable senemos-nabu-kernel-legacy-stable senemos-nabu-kernel-lts; do
@@ -106,7 +115,7 @@ touch "$TARGET/.unconfigured"
 
 rpm --root "$TARGET" -q "$KDE_META_PACKAGE" glibc-all-langpacks plasma-login-manager \
     plasma-desktop plasma-workspace kwin plasma-discover plasma-discover-offline-updates \
-    dolphin konsole spectacle kwrite kde-gtk-config xsettingsd breeze-gtk-gtk3 breeze-gtk-gtk4 \
+    dolphin konsole spectacle kwrite plasma-camera kde-gtk-config xsettingsd breeze-gtk-gtk3 breeze-gtk-gtk4 \
     nabu-camera-support iris-vaapi-nabu iio-sensor-proxy-nabu libssc-nabu python3-ssc-nabu \
     xiaomi-nabu-firmware \
     >"$META/kde-selection.txt"
@@ -117,49 +126,23 @@ plasma_catalogs=$(find "$TARGET/usr/share/locale" -path '*/LC_MESSAGES/plasmashe
 (( plasma_catalogs >= KDE_PLASMASHELL_LOCALE_MIN )) || die "Plasmashell locale count too low: $plasma_catalogs"
 printf 'locale_dirs=%s\nplasmashell_catalogs=%s\n' "$locale_dirs" "$plasma_catalogs" >"$META/locale-counts.txt"
 
-# Detect and repair the earlier failure mode where installed RPM translations
-# were absent from the filesystem.  `rpm -Va` already honours RPM file states
-# and language filtering, and avoids unsafe parallel-array header queries.
-cat >/work/verify-rpm-locales.py <<'PY'
-import os, re, subprocess, sys
-root, report, packages = sys.argv[1:]
-verify = subprocess.run(
-    ["rpm", "--root", root, "-Va", "--nodeps"],
-    text=True, errors="surrogateescape", stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE, check=False)
-if verify.returncode not in (0, 1):
-    sys.stderr.write(verify.stderr)
-    raise SystemExit(f"rpm -Va failed with status {verify.returncode}")
-missing = []
-for row in verify.stdout.splitlines():
-    match = re.match(r"^missing\\s+(/usr/share/locale/.*)$", row)
-    if match:
-        missing.append(match.group(1))
-owners = {}
-for path in sorted(set(missing)):
-    owner = subprocess.check_output(
-        ["rpm", "--root", root, "-qf", "--qf", "%{NAME}\\n", path],
-        text=True, errors="surrogateescape").strip()
-    owners[path] = owner
-with open(report, "w", encoding="utf-8") as out:
-    out.write(f"rpm_verify_status={verify.returncode}\nmissing={len(owners)}\n")
-    out.writelines(f"{owners[path]}|{path}\n" for path in sorted(owners))
-with open(packages, "w", encoding="utf-8") as out:
-    out.writelines(package + "\n" for package in sorted(set(owners.values())))
-PY
-python3 /work/verify-rpm-locales.py "$TARGET" "$META/locale-rpm-files-before.txt" \
+python3 /builder-source/tools/lib/find-missing-rpm-locales.py "$TARGET" "$META/locale-rpm-files-before.txt" \
     "$META/locale-repair-packages.txt"
 if [[ -s "$META/locale-repair-packages.txt" ]]; then
     mapfile -t locale_repair_packages <"$META/locale-repair-packages.txt"
     "${dnf_command[@]}" reinstall "${locale_repair_packages[@]}" \
         >"$LOGS/dnf-locale-repair.log" 2>&1
 fi
-python3 /work/verify-rpm-locales.py "$TARGET" "$META/locale-rpm-files.txt" \
+python3 /builder-source/tools/lib/find-missing-rpm-locales.py "$TARGET" "$META/locale-rpm-files.txt" \
     "$META/locale-repair-packages-after.txt"
 if [[ -s "$META/locale-repair-packages-after.txt" ]]; then
     sed -n '1,160p' "$META/locale-rpm-files.txt" >&2
     die 'RPM-owned installed locale files remain missing after reinstall repair'
 fi
+
+rpm --root "$TARGET" -q plasma-camera >/dev/null || die 'Plasma Camera is absent from KDE'
+! rpm --root "$TARGET" -q kamoso >/dev/null 2>&1 || die 'Kamoso entered KDE instead of Plasma Camera'
+[[ "$(cat "$TARGET/etc/hostname")" == nabu ]] || die 'KDE did not inherit the nabu hostname'
 
 find "$TARGET/var/cache/dnf" "$TARGET/var/cache/libdnf5" "$TARGET/var/tmp" "$TARGET/tmp" \
     -mindepth 1 -delete 2>/dev/null || :
