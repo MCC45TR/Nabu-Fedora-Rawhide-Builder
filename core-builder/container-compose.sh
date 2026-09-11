@@ -292,7 +292,8 @@ stage_pass "DNF forward solve and nobody:nobody rootfs gates passed"
 stage_begin pinned-payloads "Installing hash-pinned SLPI and Android payloads"
 slpi_firmware="$root/usr/lib/firmware/qcom/sm8150/xiaomi/nabu/slpi_nb.mbn"
 install -d -m0755 "${slpi_firmware%/*}"
-curl -fL --retry 5 --retry-all-errors --connect-timeout 30 \
+curl -fL --retry 12 --retry-all-errors --retry-delay 10 --retry-max-time 300 \
+    --connect-timeout 30 --max-time 180 \
     "$CORE_SLPI_FIRMWARE_URL" -o "$slpi_firmware.partial"
 printf '%s  %s\n' "$CORE_SLPI_FIRMWARE_SHA256" "$slpi_firmware.partial" \
     | sha256sum -c - >"$reports/slpi-firmware-sha256.log"
