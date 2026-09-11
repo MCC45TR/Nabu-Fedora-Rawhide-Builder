@@ -80,18 +80,26 @@ jobs:
           finished=$(date +%s)
           printf 'KDE-from-CORE compose seconds: %s\n' "$((finished-started))" | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - name: Prune uncompressed CORE images when not requested
-        if: ${{ !inputs.solve_only && !inputs.keep_uncompressed }}
+      - name: Prune uncompressed images before artifact upload
+        if: ${{ always() && !inputs.solve_only && !inputs.keep_uncompressed }}
         run: |
           set -Eeuo pipefail
-          artifact=$(find output/core -mindepth 1 -maxdepth 1 -type d -print -quit)
-          find "$artifact" -maxdepth 1 -type f -name '*.img' -delete
-          (
-            cd "$artifact"
-            find . -type f ! -name SHA256SUMS ! -name sha256-verify.log -print0 \
-              | sort -z | xargs -0 sha256sum >SHA256SUMS
-            sha256sum -c SHA256SUMS >reports/sha256-verify.log
-          )
+          for output_kind in core kde; do
+            output_root="output/$output_kind"
+            [[ -d "$output_root" ]] || continue
+            find "$output_root" -type f -name '*.img' -delete
+            while IFS= read -r artifact; do
+              (
+                cd "$artifact"
+                find . -type f ! -name SHA256SUMS ! -name sha256-verify.log -print0 \
+                  | sort -z | xargs -0 -r sha256sum >SHA256SUMS
+                if [[ -s SHA256SUMS ]]; then
+                  mkdir -p reports
+                  sha256sum -c SHA256SUMS >reports/sha256-verify.log
+                fi
+              )
+            done < <(find "$output_root" -mindepth 1 -maxdepth 1 -type d -print)
+          done
 
       - name: Upload CORE artifacts and validation evidence
         if: ${{ always() }}

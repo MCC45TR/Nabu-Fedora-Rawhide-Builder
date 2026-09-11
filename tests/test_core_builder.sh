@@ -65,7 +65,7 @@ check 'ESP contract is 320 MiB with 4096-byte sectors and Android hash pinning' 
 check 'mandatory SLPI firmware is source and hash pinned' \
     bash -c 'source "$1"; [[ "$CORE_SLPI_FIRMWARE_URL" =~ /raw/[0-9a-f]{40}/slpi_nb[.]mbn$ && ${#CORE_SLPI_FIRMWARE_SHA256} == 64 ]] && grep -Fq "slpi-firmware-sha256.log" "$2" && grep -Fq -- "--retry-max-time 300" "$2" && grep -Fq "install -m0644 \"\$slpi_firmware.partial\" \"\$slpi_firmware\"" "$2"' _ "$PROFILE" "$COMPOSE"
 check 'workflow is manual-only on native ARM64 and derives KDE from its CORE' \
-    bash -c '[[ -f "$1" ]] && grep -Eq "^[[:space:]]*workflow_dispatch:" "$1" && ! grep -Eq "^[[:space:]]*(push|pull_request|schedule):" "$1" && grep -Fq "runs-on: ubuntu-24.04-arm" "$1" && grep -Fq "kde-builder/build-kde.sh" "$1" && grep -Fq "KDE-from-CORE compose seconds" "$1"' _ "$WORKFLOW"
+    bash -c '[[ -f "$1" ]] && grep -Eq "^[[:space:]]*workflow_dispatch:" "$1" && ! grep -Eq "^[[:space:]]*(push|pull_request|schedule):" "$1" && grep -Fq "runs-on: ubuntu-24.04-arm" "$1" && grep -Fq "kde-builder/build-kde.sh" "$1" && grep -Fq "KDE-from-CORE compose seconds" "$1" && grep -Fq "always() && !inputs.solve_only && !inputs.keep_uncompressed" "$1" && grep -Fq "find \"\$output_root\" -type f -name '\''*.img'\'' -delete" "$1"' _ "$WORKFLOW"
 
 printf '1..%d\n' "$((passed + failed))"
 printf '# %d passed, %d failed\n' "$passed" "$failed"
