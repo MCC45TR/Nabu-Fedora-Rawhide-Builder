@@ -752,7 +752,7 @@ index 000000000000..970e14094c80
 + */
 +
 +/ {
-+	model = "Xiaomi Pad 5 (nabu) with cameras";
++	model = "Xiaomi Pad 5";
 +
 +	camera_vdig_1p2: camera-vdig-regulator {
 +		compatible = "regulator-fixed";
@@ -2526,4 +2526,3 @@ index af66292977c6..4dc8f3187cd3 100644
  CONFIG_MODULE_COMPRESS_ZSTD=y
 -- 
 2.55.0
-

@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -388,6 +388,8 @@ grep -A3 -F 'qcom_prng_ee_match_data' drivers/crypto/qcom-rng.c \
 scripts/dtc/dtc -I dtb -O dts \
     -o %{_builddir}/nabu-final.dts \
     %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
+grep -Fq 'model = "Xiaomi Pad 5";' %{_builddir}/nabu-final.dts
+! grep -Fq 'with cameras' %{_builddir}/nabu-final.dts
 grep -A8 -F 'rng@793000' %{_builddir}/nabu-final.dts \
     | grep -Fq 'compatible = "qcom,prng-ee";'
 grep -A8 -F 'rng@793000' %{_builddir}/nabu-final.dts \
@@ -481,6 +483,9 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Fri Sep 11 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-6
+- Keep camera support while exposing the clean product name Xiaomi Pad 5.
+
 * Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-5
 - Pin the remaining low-overhead Nabu arm64 hardening after device pruning.
 - Preserve the existing Fedora SELinux, BPF-LSM and IPE policy ordering.

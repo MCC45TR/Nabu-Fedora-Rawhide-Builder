@@ -8,6 +8,8 @@ the complete Nabu patch and configuration gate passes. The accepted commit then
 triggers the COPR SCM package's automatic rebuild; a failed port leaves the last
 working repository result untouched.
 
+Release 7.2.4-6 keeps the same production security, entropy and camera payload
+while exposing the user-facing Device Tree product name as `Xiaomi Pad 5`.
 Release 7.2.4-5 layers the remaining production security and entropy policy on
 top of the release-4 hardening, power-profile and stable wireless-address work.
 It preserves Fedora's SELinux/BPF/IPE LSM order, adds the remaining low-overhead
