@@ -1,0 +1,40 @@
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 11 Sep 2026 23:55:00 +0300
+Subject: [PATCH] keyboard backlight: require a positive brightness range
+
+UPower deliberately exports its compatibility KbdBacklight object when no
+physical keyboard backlight exists. In that case both brightness values are
+zero. Do not advertise the PowerDevil action or applet item for a 0..0 range.
+---
+ applets/brightness/plugin/keyboardbrightnesscontrol.cpp | 2 +-
+ daemon/controllers/keyboardbrightnesscontroller.cpp     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/applets/brightness/plugin/keyboardbrightnesscontrol.cpp b/applets/brightness/plugin/keyboardbrightnesscontrol.cpp
+index 7513ca2..c575724 100644
+--- a/applets/brightness/plugin/keyboardbrightnesscontrol.cpp
++++ b/applets/brightness/plugin/keyboardbrightnesscontrol.cpp
+@@ -198,7 +198,7 @@ QCoro::Task<void> KeyboardBrightnessControl::onActionSupported()
+         co_return;
+     }
+ 
+-    m_isBrightnessAvailable = true;
++    m_isBrightnessAvailable = m_maxBrightness > 0;
+ }
+ 
+ void KeyboardBrightnessControl::onActionUnsupported()
+diff --git a/daemon/controllers/keyboardbrightnesscontroller.cpp b/daemon/controllers/keyboardbrightnesscontroller.cpp
+index e7921a4..f0a6c59 100644
+--- a/daemon/controllers/keyboardbrightnesscontroller.cpp
++++ b/daemon/controllers/keyboardbrightnesscontroller.cpp
+@@ -35,7 +35,7 @@ KeyboardBrightnessController::KeyboardBrightnessController()
+     rep.waitForFinished();
+     if (rep.isValid()) {
+         m_maxBrightness = rep.value();
+-        m_isSupported = true;
++        m_isSupported = m_maxBrightness > 0;
+         m_cachedBrightness = brightness();
+         qCDebug(POWERDEVIL) << "current keyboard backlight brightness value: " << m_cachedBrightness;
+         connect(m_kbdBacklight,
+-- 
+2.53.0
