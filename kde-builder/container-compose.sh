@@ -122,13 +122,23 @@ python3 - "$TARGET" "$META/locale-rpm-files.txt" <<'PY'
 import os, subprocess, sys
 root, report = sys.argv[1:]
 listing = subprocess.check_output([
-    "rpm", "--root", root, "-qa", "--qf", "[%{FILENAMES}\\n]"
+    "rpm", "--root", root, "-qa", "--qf", "[%{FILENAMES}|%{FILESTATES}\\n]"
 ], text=True, errors="surrogateescape")
-expected = sorted({p for p in listing.splitlines() if p.startswith("/usr/share/locale/")})
+expected = []
+for row in listing.splitlines():
+    try:
+        path, state = row.rsplit("|", 1)
+    except ValueError:
+        continue
+    # RPM keeps metadata for language-filtered payloads with a non-normal file
+    # state. Only state 0 promises that the file was installed on this image.
+    if state == "0" and path.startswith("/usr/share/locale/"):
+        expected.append(path)
+expected = sorted(set(expected))
 missing = [p for p in expected if not os.path.lexists(root + p)]
 with open(report, "w", encoding="utf-8") as out:
-    out.write(f"expected={len(expected)}\\nmissing={len(missing)}\\n")
-    out.writelines(p + "\\n" for p in missing)
+    out.write(f"normal_state_expected={len(expected)}\nmissing={len(missing)}\n")
+    out.writelines(p + "\n" for p in missing)
 if missing:
     raise SystemExit(f"{len(missing)} RPM-owned locale files are missing")
 PY
