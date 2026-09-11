@@ -84,9 +84,9 @@ rm -f -- "$TARGET/etc/ssh/sshd_config.d/20-nabu-recovery.conf"
 chroot "$TARGET" /usr/bin/firewall-offline-cmd --remove-service=ssh >"$LOGS/firewalld-ssh-remove.log" 2>&1 || :
 
 systemctl --root="$TARGET" enable NetworkManager.service firewalld.service bluetooth.service \
-    plasma-login-manager.service >/dev/null
+    plasmalogin.service >/dev/null
 ln -sfn /usr/lib/systemd/system/graphical.target "$TARGET/etc/systemd/system/default.target"
-ln -sfn /usr/lib/systemd/system/plasma-login-manager.service \
+ln -sfn /usr/lib/systemd/system/plasmalogin.service \
     "$TARGET/etc/systemd/system/display-manager.service"
 mkdir -p "$TARGET/etc/nabu-image"
 cat >"$TARGET/etc/nabu-image/desktop-profile" <<'EOF'
