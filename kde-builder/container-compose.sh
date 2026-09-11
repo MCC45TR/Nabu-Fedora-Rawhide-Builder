@@ -117,30 +117,35 @@ plasma_catalogs=$(find "$TARGET/usr/share/locale" -path '*/LC_MESSAGES/plasmashe
 (( plasma_catalogs >= KDE_PLASMASHELL_LOCALE_MIN )) || die "Plasmashell locale count too low: $plasma_catalogs"
 printf 'locale_dirs=%s\nplasmashell_catalogs=%s\n' "$locale_dirs" "$plasma_catalogs" >"$META/locale-counts.txt"
 
-# Detect and repair the earlier failure mode where normal-state RPMDB
-# translations were absent from the filesystem. Language-filtered, non-normal
-# RPM file states are intentionally excluded.
+# Detect and repair the earlier failure mode where installed RPM translations
+# were absent from the filesystem.  `rpm -Va` already honours RPM file states
+# and language filtering, and avoids unsafe parallel-array header queries.
 cat >/work/verify-rpm-locales.py <<'PY'
-import os, subprocess, sys
+import os, re, subprocess, sys
 root, report, packages = sys.argv[1:]
-listing = subprocess.check_output([
-    "rpm", "--root", root, "-qa", "--qf",
-    "[%{FILENAMES}|%{FILESTATES}|%{NAME}\\n]"
-], text=True, errors="surrogateescape")
+verify = subprocess.run(
+    ["rpm", "--root", root, "-Va", "--nodeps"],
+    text=True, errors="surrogateescape", stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE, check=False)
+if verify.returncode not in (0, 1):
+    sys.stderr.write(verify.stderr)
+    raise SystemExit(f"rpm -Va failed with status {verify.returncode}")
+missing = []
+for row in verify.stdout.splitlines():
+    match = re.match(r"^missing\\s+(/usr/share/locale/.*)$", row)
+    if match:
+        missing.append(match.group(1))
 owners = {}
-for row in listing.splitlines():
-    try:
-        path, state, package = row.rsplit("|", 2)
-    except ValueError:
-        continue
-    if state == "0" and path.startswith("/usr/share/locale/"):
-        owners[path] = package
-missing = [path for path in sorted(owners) if not os.path.lexists(root + path)]
+for path in sorted(set(missing)):
+    owner = subprocess.check_output(
+        ["rpm", "--root", root, "-qf", "--qf", "%{NAME}\\n", path],
+        text=True, errors="surrogateescape").strip()
+    owners[path] = owner
 with open(report, "w", encoding="utf-8") as out:
-    out.write(f"normal_state_expected={len(owners)}\nmissing={len(missing)}\n")
-    out.writelines(f"{owners[path]}|{path}\n" for path in missing)
+    out.write(f"rpm_verify_status={verify.returncode}\nmissing={len(owners)}\n")
+    out.writelines(f"{owners[path]}|{path}\n" for path in sorted(owners))
 with open(packages, "w", encoding="utf-8") as out:
-    out.writelines(package + "\n" for package in sorted({owners[path] for path in missing}))
+    out.writelines(package + "\n" for package in sorted(set(owners.values())))
 PY
 python3 /work/verify-rpm-locales.py "$TARGET" "$META/locale-rpm-files-before.txt" \
     "$META/locale-repair-packages.txt"
@@ -153,7 +158,7 @@ python3 /work/verify-rpm-locales.py "$TARGET" "$META/locale-rpm-files.txt" \
     "$META/locale-repair-packages-after.txt"
 if [[ -s "$META/locale-repair-packages-after.txt" ]]; then
     sed -n '1,160p' "$META/locale-rpm-files.txt" >&2
-    die 'RPM-owned normal-state locale files remain missing after reinstall repair'
+    die 'RPM-owned installed locale files remain missing after reinstall repair'
 fi
 
 find "$TARGET/var/cache/dnf" "$TARGET/var/cache/libdnf5" "$TARGET/var/tmp" "$TARGET/tmp" \
@@ -173,12 +178,14 @@ def ids(name):
             if len(fields) >= 4 and fields[2].isdigit(): result[fields[0]] = int(fields[2])
     return result
 uids, gids = ids("passwd"), ids("group")
-query = subprocess.check_output(["rpm", "--root", root, "-qa", "--qf",
-    "[%{FILENAMES}|%{FILEUSERNAME}|%{FILEGROUPNAME}\\n]"], text=True, errors="surrogateescape")
+query = subprocess.check_output(
+    ["rpm", "--root", root, "-qa", "--dump"],
+    text=True, errors="surrogateescape")
 owners = {}
 for line in query.splitlines():
-    try: path, owner, group = line.rsplit("|", 2)
-    except ValueError: continue
+    fields = line.rsplit(maxsplit=10)
+    if len(fields) != 11: continue
+    path, owner, group = fields[0], fields[5], fields[6]
     if path.startswith("/") and os.path.lexists(root + path):
         if owner not in uids or group not in gids: raise SystemExit(f"Unknown owner: {path} {owner}:{group}")
         owners[path] = (uids[owner], gids[group])
