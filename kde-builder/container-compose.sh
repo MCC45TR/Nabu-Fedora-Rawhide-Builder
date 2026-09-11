@@ -105,9 +105,10 @@ awk -F: '$3 >= 1000 && $3 < 65534 {print $1 ":" $3}' "$TARGET/etc/passwd" >"$MET
 touch "$TARGET/.unconfigured"
 
 rpm --root "$TARGET" -q "$KDE_META_PACKAGE" glibc-all-langpacks plasma-login-manager \
-    plasma-desktop plasma-workspace kwin-wayland discover discover-offline-updates \
+    plasma-desktop plasma-workspace kwin plasma-discover plasma-discover-offline-updates \
     dolphin konsole spectacle kwrite kde-gtk-config xsettingsd breeze-gtk-gtk3 breeze-gtk-gtk4 \
-    nabu-camera-support iris-vaapi-nabu nabu-sensor-config nabu-sensor-monitor \
+    nabu-camera-support iris-vaapi-nabu iio-sensor-proxy-nabu libssc-nabu python3-ssc-nabu \
+    xiaomi-nabu-firmware \
     >"$META/kde-selection.txt"
 
 locale_dirs=$(find "$TARGET/usr/share/locale" -mindepth 1 -maxdepth 1 -type d | wc -l)
