@@ -21,7 +21,8 @@ declare -A kernel=(
 for name in "${!kernel[@]}"; do
     kver=${kernel[$name]}
     printf '%s\n' "$name" >"$boot/vmlinuz-$kver"
-    install -d "$modules/$kver"
+    install -d "$modules/$kver/dtb/qcom"
+    printf 'dtb %s\n' "$name" >"$modules/$kver/dtb/qcom/sm8150-xiaomi-nabu.dtb"
 done
 
 cat >"$fakebin/rpm" <<'EOF'
@@ -110,4 +111,21 @@ tail -n1 "$log" | grep -Fxq 'configure --sync-only --uki SENEMOS7-7.2.3.efi'
 run_maintenance
 [[ $(grep -c '^regenerate ' "$log") -eq 3 ]]
 [[ $(grep -c '^configure ' "$log") -eq 2 ]]
-printf 'PASS: three-family EFI maintenance and idempotence\n'
+
+# Replacing an RPM payload without changing uname must invalidate the prepared
+# record. This is the release4 -> release5 failure mode that paired an old UKI
+# with a new module tree on the device.
+printf 'mainline payload revision 2\n' >"$boot/vmlinuz-${kernel[senemos-nabu-kernel-mainline]}"
+run_maintenance
+[[ $(grep -c '^regenerate ' "$log") -eq 4 ]]
+tail -n2 "$log" | head -n1 | grep -Fxq 'regenerate SENEMOS7 7.2.3-nabu-senemos-mainline'
+
+run_maintenance
+[[ $(grep -c '^regenerate ' "$log") -eq 4 ]]
+
+printf 'mainline dtb revision 2\n' >"$modules/${kernel[senemos-nabu-kernel-mainline]}/dtb/qcom/sm8150-xiaomi-nabu.dtb"
+run_maintenance
+[[ $(grep -c '^regenerate ' "$log") -eq 5 ]]
+tail -n2 "$log" | head -n1 | grep -Fxq 'regenerate SENEMOS7 7.2.3-nabu-senemos-mainline'
+
+printf 'PASS: three-family EFI maintenance, idempotence and same-uname payload invalidation\n'

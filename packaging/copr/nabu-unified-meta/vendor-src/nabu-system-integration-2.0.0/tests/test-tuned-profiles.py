@@ -56,12 +56,15 @@ def main():
         "/sys/class/devfreq/2c00000.gpu/governor": "simple_ondemand",
     }
     require_sysfs("senemos-nabu-balanced", common | {
+        "/sys/class/platform-profile/platform-profile-0/profile": "balanced",
         "/sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq": "2841600",
     })
     require_sysfs("senemos-nabu-performance", common | {
+        "/sys/class/platform-profile/platform-profile-0/profile": "performance",
         "/sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq": "2956800",
     })
     require_sysfs("senemos-nabu-power-saver", {
+        "/sys/class/platform-profile/platform-profile-0/profile": "low-power",
         "/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq": "1555200",
         "/sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq": "2131200",
         "/sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq": "2534400",

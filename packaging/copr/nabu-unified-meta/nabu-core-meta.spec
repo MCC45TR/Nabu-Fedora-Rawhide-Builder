@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        81%{?dist}
+Release:        84%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -128,7 +128,7 @@ Provides:       nabu-repository-config-api = 2
 Provides:       nabu-branch-manager = %{version}-%{release}
 Provides:       nabu-branch-manager-api = 2
 Provides:       nabu-kernel-maintenance = %{version}-%{release}
-Provides:       nabu-kernel-maintenance-api = 5
+Provides:       nabu-kernel-maintenance-api = 6
 Provides:       nabu-meta = %{version}-%{release}
 Provides:       nabu-system-integration = %{version}-%{release}
 Provides:       nabu-runtime-integration = %{version}-%{release}
@@ -338,6 +338,10 @@ test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-flashlight)" = 2755
 test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-accessory-state)" = 755
 grep -Fq 'V4L2_CID_FLASH_TORCH_INTENSITY' flashlight-integration/src/nabu-flashlight.c
 grep -Fq 'mode == V4L2_FLASH_LED_MODE_FLASH' flashlight-integration/src/nabu-flashlight.c
+grep -Fq 'QStringLiteral("/connected"))) == QStringLiteral("1")' \
+    flashlight-integration/src/nabu-accessory-state.cpp
+! grep -Fq 'QStringLiteral("/connected"))) == QStringLiteral("0")' \
+    flashlight-integration/src/nabu-accessory-state.cpp
 bash flashlight-integration/tests/test-usb-role.sh
 grep -Fq '/usr/libexec/nabu-usb-role' %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
 grep -Fq '/usr/libexec/nabu-sar-control' %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
@@ -500,6 +504,22 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 11 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-84
+- Invalidate prepared UKIs when the owning RPM NEVRA, kernel image or Nabu DTB
+  changes even if the kernel uname and EFI filename stay the same.
+- Add regression coverage for same-uname kernel and DTB payload replacements.
+- Advance the kernel maintenance state contract to API 6.
+
+* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-83
+- Restore the flashlight payload's USB-role regression test to the reproducible
+  source archive so every COPR target executes the complete check suite.
+
+* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-82
+- Treat the kernel POGO connected attribute as the authoritative attachment
+  state instead of inverting it in the Plasma accessory helper.
+- Route TuneD's three public power profiles through the kernel platform-profile
+  class while preserving matching direct limits for older fallback kernels.
+
 * Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-81
 - Configure source, sink and automatic USB-C choices as connection policy so
   ESP32 peripherals can be prepared before attachment.

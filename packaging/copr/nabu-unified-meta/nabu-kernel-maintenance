@@ -9,6 +9,7 @@ readonly prepared_dir=$state_dir/prepared.d
 readonly identity_tool=${NABU_MAINT_IDENTITY_TOOL:-/usr/libexec/senemos-nabu/kernel-build-identity}
 readonly boot_dir=${NABU_MAINT_BOOT_DIR:-/boot}
 readonly esp=${NABU_MAINT_ESP:-/boot/efi}
+readonly modules_dir=${NABU_MAINT_MODULES_DIR:-/usr/lib/modules}
 readonly regenerate_command=${NABU_MAINT_REGENERATE_COMMAND:-/usr/bin/nabu-regenerate-uki}
 readonly configure_command=${NABU_MAINT_CONFIGURE_COMMAND:-/usr/bin/nabu-configure-boot-manager}
 readonly compatible_path=${NABU_MAINT_COMPATIBLE_PATH:-/sys/firmware/devicetree/base/compatible}
@@ -47,7 +48,7 @@ identity_is_newer() {
 }
 
 install -d -m0755 "$state_dir" "$pending_dir" "$prepared_dir"
-declare -A selected_kernel=() selected_identity=() selected_channel=()
+declare -A selected_kernel=() selected_identity=() selected_channel=() selected_nevra=()
 installed_count=0
 for channel in kernel mainline mainline-unstable; do
     rpm -q "${selector[$channel]}" >/dev/null 2>&1 || continue
@@ -64,7 +65,7 @@ for channel in kernel mainline mainline-unstable; do
         printf 'Kernel %s is not owned by %s.\n' "$kernel" "${selector[$channel]}" >&2
         exit 4
     }
-    [[ -s $boot_dir/vmlinuz-$kernel && -d ${NABU_MAINT_MODULES_DIR:-/usr/lib/modules}/$kernel ]] || {
+    [[ -s $boot_dir/vmlinuz-$kernel && -d $modules_dir/$kernel ]] || {
         printf 'Incomplete kernel payload: %s\n' "$kernel" >&2
         exit 5
     }
@@ -87,6 +88,7 @@ for channel in kernel mainline mainline-unstable; do
         selected_kernel[$family]=$kernel
         selected_identity[$family]=$identity
         selected_channel[$family]=$channel
+        selected_nevra[$family]=$package_nevra
     fi
 done
 (( installed_count > 0 )) || { printf 'No managed Nabu kernel family is installed.\n' >&2; exit 2; }
@@ -128,13 +130,25 @@ for family in "${ordered_families[@]}" "$preferred_family"; do
     [[ $family == "$preferred_family" ]] && family_seen=1
     kernel=${selected_kernel[$family]}
     identity=${selected_identity[$family]}
+    package_nevra=${selected_nevra[$family]}
     uki_name="${family}-${identity}.efi"
     prepared_file=$prepared_dir/$family
+    kernel_image=$boot_dir/vmlinuz-$kernel
+    dtb=$modules_dir/$kernel/dtb/qcom/sm8150-xiaomi-nabu.dtb
+    [[ -s $dtb ]] || {
+        printf 'Nabu DTB is missing for %s: %s\n' "$package_nevra" "$dtb" >&2
+        exit 10
+    }
+    kernel_digest=$(sha256sum "$kernel_image" | cut -d' ' -f1)
+    dtb_digest=$(sha256sum "$dtb" | cut -d' ' -f1)
     regenerate=1
-    if [[ -r $prepared_file ]] && read -r prepared_kernel prepared_digest <"$prepared_file" &&
-       [[ $prepared_kernel == "$kernel" && $prepared_digest =~ ^[0-9a-f]{64}$ ]] &&
+    if [[ -r $prepared_file ]] &&
+       read -r prepared_kernel prepared_nevra prepared_kernel_digest prepared_dtb_digest prepared_uki_digest <"$prepared_file" &&
+       [[ $prepared_kernel == "$kernel" && $prepared_nevra == "$package_nevra" ]] &&
+       [[ $prepared_kernel_digest == "$kernel_digest" && $prepared_dtb_digest == "$dtb_digest" ]] &&
+       [[ $prepared_uki_digest =~ ^[0-9a-f]{64}$ ]] &&
        [[ -s $esp/EFI/fedora/$uki_name ]] &&
-       [[ $(sha256sum "$esp/EFI/fedora/$uki_name" | cut -d' ' -f1) == "$prepared_digest" ]]; then
+       [[ $(sha256sum "$esp/EFI/fedora/$uki_name" | cut -d' ' -f1) == "$prepared_uki_digest" ]]; then
         regenerate=0
     fi
     if (( regenerate )); then
@@ -145,7 +159,8 @@ for family in "${ordered_families[@]}" "$preferred_family"; do
         }
         temporary=$(mktemp "$prepared_dir/.${family}.XXXXXX")
         uki_digest=$(sha256sum "$esp/EFI/fedora/$uki_name" | cut -d' ' -f1)
-        printf '%s %s\n' "$kernel" "$uki_digest" >"$temporary"
+        printf '%s %s %s %s %s\n' "$kernel" "$package_nevra" \
+            "$kernel_digest" "$dtb_digest" "$uki_digest" >"$temporary"
         chmod 0644 "$temporary"
         mv -f "$temporary" "$prepared_file"
     fi
