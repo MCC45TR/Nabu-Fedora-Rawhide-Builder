@@ -1,9 +1,13 @@
 [Unit]
 Description=Synchronize the packaged Nabu rEFInd application to the ESP
-After=local-fs.target
+After=local-fs.target boot-efi.mount
+RequiresMountsFor=/boot/efi
 ConditionPathExists=/var/lib/nabu-boot-maintenance/refind-sync.pending
 
 [Service]
 Type=oneshot
 ExecStart=/usr/libexec/nabu-refind-sync
 TimeoutStartSec=5min
+
+[Install]
+WantedBy=multi-user.target

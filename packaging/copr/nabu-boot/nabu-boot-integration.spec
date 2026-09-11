@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        41.test%{?dist}
+Release:        42.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -169,6 +169,7 @@ bash -n manager/nabu-refind
 bash -n manager/nabu-refind-sync
 bash tests/test-sanitize-initramfs.sh
 bash tests/test-boot-manager.sh
+bash tests/test-refind-sync.sh
 grep -Fq 'copy_tree_fat_safe' manager/nabu-configure-boot-manager
 grep -Fq 'EFI/BOOT/BOOTAA64.EFI' manager/nabu-refind
 grep -Fqx '0.14.2' manager/refind/VERSION
@@ -192,8 +193,6 @@ install -Dm0755 manager/nabu-refind-sync \
     %{buildroot}%{_libexecdir}/nabu-refind-sync
 install -Dm0644 manager/nabu-refind-sync.service \
     %{buildroot}%{_unitdir}/nabu-refind-sync.service
-install -Dm0644 manager/nabu-refind-sync.path \
-    %{buildroot}%{_unitdir}/nabu-refind-sync.path
 install -Dm0644 manager/90-nabu-refind-sync.preset \
     %{buildroot}%{_presetdir}/90-nabu-refind-sync.preset
 install -Dm0644 manager/nabu-refind.8 \
@@ -284,22 +283,23 @@ for item in \
 done
 
 %post -n nabu-boot-refind
-%systemd_post nabu-refind-sync.path nabu-refind-sync.service
+%systemd_post nabu-refind-sync.service
 
 %posttrans -n nabu-boot-refind -p /usr/bin/bash
 install -d -m0755 /var/lib/nabu-boot-maintenance
 touch /var/lib/nabu-boot-maintenance/refind-sync.pending
 if [[ -d /run/systemd/system ]]; then
-    /usr/bin/systemctl --no-block start nabu-refind-sync.path >/dev/null 2>&1 || :
+    /usr/bin/systemctl disable --now nabu-refind-sync.path >/dev/null 2>&1 || :
+    /usr/bin/systemctl daemon-reload >/dev/null 2>&1 || :
     /usr/bin/systemctl --no-block start nabu-refind-sync.service >/dev/null 2>&1 || \
         printf 'Warning: automatic rEFInd ESP synchronization is pending.\n' >&2
 fi
 
 %preun -n nabu-boot-refind
-%systemd_preun nabu-refind-sync.path nabu-refind-sync.service
+%systemd_preun nabu-refind-sync.service
 
 %postun -n nabu-boot-refind
-%systemd_postun nabu-refind-sync.path nabu-refind-sync.service
+%systemd_postun nabu-refind-sync.service
 
 %files
 %license LICENSE
@@ -331,7 +331,6 @@ fi
 %{_bindir}/nabu-refind
 %{_libexecdir}/nabu-refind-sync
 %{_unitdir}/nabu-refind-sync.service
-%{_unitdir}/nabu-refind-sync.path
 %{_presetdir}/90-nabu-refind-sync.preset
 %{_mandir}/man8/nabu-refind.8*
 
@@ -344,6 +343,11 @@ fi
 %{_datadir}/plymouth/themes/senemos-nabu/
 
 %changelog
+* Fri Sep 11 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-42.test
+- Run deferred rEFInd synchronization once per boot after the ESP mount.
+- Retire the persistent path trigger that could exhaust the start limit before
+  /boot/efi was mounted, while preserving the pending request for a later boot.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-38.test
 - Accept semantic identities such as 7.2.3 for the timestamp-free stable
   mainline kernel and keep its UKI in the distinct SENEMOS7 family.
