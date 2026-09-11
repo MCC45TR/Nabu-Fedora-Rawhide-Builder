@@ -32,12 +32,12 @@ check 'CORE scripts have valid Bash syntax' \
     bash -n "$WRAPPER" "$COMPOSE" "$VERIFY" "$SELINUX_RELABEL" "$DRACUT_MODULE"
 check 'offline SELinux inode helper has valid Python syntax' \
     python3 -m py_compile "$SELINUX_HELPER"
-check 'profile selects Rawhide AArch64 EXT4 stable 7.2.x, test meta, camera, Plymouth and rEFInd' \
-    bash -c 'source "$1"; [[ "$CORE_PROFILE_VERSION" == 3 && "$CORE_BUILD_FLAVOR" == release && "$CORE_TARGET_ARCH" == aarch64 && "$CORE_RELEASEVER" == rawhide && "$CORE_FILESYSTEM" == ext4 && "$CORE_KERNEL_PACKAGE" == senemos-nabu-kernel-mainline && "$CORE_KERNEL_VERSION" == 7.2.4 && "$CORE_KERNEL_RELEASE" == 5 && "$CORE_META_VERSION" == 3.0.0 && "$CORE_META_RELEASE" == 84 && "$CORE_CAMERA_SUPPORT_PACKAGE" == nabu-camera-support && "$CORE_IRIS_VAAPI_PACKAGE" == iris-vaapi-nabu && "$CORE_BOOTLOADER" == refind && "$CORE_PLYMOUTH_PACKAGE" == senemos-nabu-plymouth && "$CORE_IMAGE_SIZE" == 8G && "$CORE_RELEASE_TAG" == 2609110702 ]]' _ "$PROFILE"
+check 'profile selects Rawhide AArch64 EXT4 stable 7.2.x, stable meta, camera, Plymouth and rEFInd' \
+    bash -c 'source "$1"; [[ "$CORE_PROFILE_VERSION" == 3 && "$CORE_BUILD_FLAVOR" == release && "$CORE_TARGET_ARCH" == aarch64 && "$CORE_RELEASEVER" == rawhide && "$CORE_FILESYSTEM" == ext4 && "$CORE_KERNEL_PACKAGE" == senemos-nabu-kernel-mainline && "$CORE_KERNEL_VERSION" == 7.2.4 && "$CORE_KERNEL_RELEASE" == 5 && "$CORE_META_VERSION" == 3.0.0 && "$CORE_META_RELEASE" == 83 && "$CORE_CAMERA_SUPPORT_PACKAGE" == nabu-camera-support && "$CORE_IRIS_VAAPI_PACKAGE" == iris-vaapi-nabu && "$CORE_BOOTLOADER" == refind && "$CORE_PLYMOUTH_PACKAGE" == senemos-nabu-plymouth && "$CORE_IMAGE_SIZE" == 8G ]]' _ "$PROFILE"
 check 'compose explicitly installs CORE meta, one stable 7.2.x kernel, camera stack, Plymouth and rEFInd' \
     bash -c 'grep -Fq "\"\$CORE_META_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_KERNEL_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_CAMERA_SUPPORT_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_IRIS_VAAPI_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_PLYMOUTH_PACKAGE\"" "$1" && grep -Fq "\"\$CORE_BOOT_PACKAGE\"" "$1" && grep -Fq -- "--exclude=senemos-nabu-kernel-alpha" "$1"' _ "$COMPOSE"
-check 'stable and test COPR gates fail closed, verify signatures and pin candidate EVRs' \
-    bash -c 'source "$1"; [[ "$CORE_COPR_STABLE_BASEURL" == *"/nabu-linux/fedora-rawhide-aarch64/" && "$CORE_COPR_TEST_BASEURL" == *"/nabu-linux-test/fedora-rawhide-aarch64/" ]] && [[ "$CORE_COPR_STABLE_GPGKEY" != "$CORE_COPR_TEST_GPGKEY" ]] && grep -Fq "skip_if_unavailable=False" "$2" && grep -Fq "gpgcheck=1" "$2" && grep -Fq "priority=10" "$2" && grep -Fq "Unexpected mainline kernel EVR" "$2" && grep -Fq "Unexpected test-channel CORE meta EVR" "$2" && grep -Fq "install_weak_deps=False" "$2" && grep -Fq "dnf-forward-sync.log" "$2" && grep -Fq "core_dnf_retry" "$2" && grep -Fq "dnf-bootstrap.log" "$2" && grep -Fq " dracut " "$2" && grep -Fq "rc=\$?" "$2"' _ "$PROFILE" "$COMPOSE"
+check 'sole stable COPR gate fails closed, verifies signatures and pins stable EVRs' \
+    bash -c 'source "$1"; [[ "$CORE_COPR_STABLE_BASEURL" == *"/nabu-linux/fedora-rawhide-aarch64/" && "$CORE_COPR_STABLE_GPGKEY" == *"/nabu-linux/pubkey.gpg" ]] && ! grep -Rq "CORE_COPR_TEST\|nabu-core-test-compose\|priority=10" "$1" "$2" "$3" && grep -Fq "skip_if_unavailable=False" "$2" && grep -Fq "gpgcheck=1" "$2" && grep -Fq "Unexpected mainline kernel EVR" "$2" && grep -Fq "Unexpected stable-channel CORE meta EVR" "$2" && grep -Fq "The test COPR repository entered" "$2" && grep -Fq "install_weak_deps=False" "$2" && grep -Fq "dnf-forward-sync.log" "$2" && grep -Fq "core_dnf_retry" "$2" && grep -Fq "dnf-bootstrap.log" "$2" && grep -Fq " dracut " "$2" && grep -Fq "rc=\$?" "$2"' _ "$PROFILE" "$COMPOSE" "$ROOT/core-builder/lib/common.sh"
 check 'nobody and initramfs setid gates are present' \
     bash -c 'grep -Fq "core_verify_no_overflow_ownership" "$1" && grep -Fq "core_verify_initramfs_listing" "$1" && grep -Fq "User:[[:space:]]+0" "$2"' _ "$COMPOSE" "$VERIFY"
 check 'only SENEMOS7 is generated and moved under the Fedora EFI directory' \
@@ -62,8 +62,8 @@ check 'ESP contract is 320 MiB with 4096-byte sectors and Android hash pinning' 
     bash -c 'source "$1"; [[ "$CORE_ESP_SIZE_BYTES" == 335544320 && "$CORE_ESP_LOGICAL_SECTOR_SIZE" == 4096 && ${#CORE_REBOOT2ANDROID_SHA256} == 64 ]]' _ "$PROFILE"
 check 'mandatory SLPI firmware is source and hash pinned' \
     bash -c 'source "$1"; [[ "$CORE_SLPI_FIRMWARE_URL" =~ /raw/[0-9a-f]{40}/slpi_nb[.]mbn$ && ${#CORE_SLPI_FIRMWARE_SHA256} == 64 ]] && grep -Fq "slpi-firmware-sha256.log" "$2" && grep -Fq "install -m0644 \"\$slpi_firmware.partial\" \"\$slpi_firmware\"" "$2"' _ "$PROFILE" "$COMPOSE"
-check 'workflow is manual-only on a native ARM64 runner' \
-    bash -c '[[ -f "$1" ]] && grep -Eq "^[[:space:]]*workflow_dispatch:" "$1" && ! grep -Eq "^[[:space:]]*(push|pull_request|schedule):" "$1" && grep -Fq "runs-on: ubuntu-24.04-arm" "$1"' _ "$WORKFLOW"
+check 'workflow is manual-only on native ARM64 and derives KDE from its CORE' \
+    bash -c '[[ -f "$1" ]] && grep -Eq "^[[:space:]]*workflow_dispatch:" "$1" && ! grep -Eq "^[[:space:]]*(push|pull_request|schedule):" "$1" && grep -Fq "runs-on: ubuntu-24.04-arm" "$1" && grep -Fq "kde-builder/build-kde.sh" "$1" && grep -Fq "KDE-from-CORE compose seconds" "$1"' _ "$WORKFLOW"
 
 printf '1..%d\n' "$((passed + failed))"
 printf '# %d passed, %d failed\n' "$passed" "$failed"

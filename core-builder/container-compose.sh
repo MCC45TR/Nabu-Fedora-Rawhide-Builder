@@ -16,15 +16,15 @@ core_assert_profile
 [[ "$(uname -m)" == aarch64 ]] || core_die "Compose container is not native/emulated AArch64: $(uname -m)"
 
 run_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-run_id="core-rawhide-mainline-7.2-recovery-$CORE_RELEASE_TAG"
+run_id="core-rawhide-mainline-stable-$CORE_RELEASE_TAG"
 artifact_dir="/output/$run_id"
 work_dir="/output/.work-$run_id"
 root="$work_dir/root"
 esp_tree="$work_dir/esp-tree"
 reports="$artifact_dir/reports"
 metadata="$artifact_dir/metadata"
-system_image="$artifact_dir/fedora-rawhide-mainline-7.2-recovery-core-$CORE_RELEASE_TAG-system.img"
-esp_image="$artifact_dir/fedora-rawhide-mainline-7.2-recovery-core-$CORE_RELEASE_TAG-esp.img"
+system_image="$artifact_dir/fedora-rawhide-mainline-stable-core-$CORE_RELEASE_TAG-system.img"
+esp_image="$artifact_dir/fedora-rawhide-mainline-stable-core-$CORE_RELEASE_TAG-esp.img"
 stage_file="$reports/stages.tsv"
 current_stage=initialization
 
@@ -96,18 +96,6 @@ skip_if_unavailable=False
 metadata_expire=0
 priority=20
 EOF
-cat >/etc/yum.repos.d/nabu-core-test-compose.repo <<EOF
-[nabu-core-test-compose]
-name=Nabu CORE test compose
-baseurl=$CORE_COPR_TEST_BASEURL
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=$CORE_COPR_TEST_GPGKEY
-skip_if_unavailable=False
-metadata_expire=0
-priority=10
-EOF
 
 dnf_args=(
     -y --forcearch="$CORE_TARGET_ARCH" --use-host-config
@@ -168,7 +156,7 @@ fi
 
 stage_begin rootfs-install "Installing a fresh CORE root filesystem"
 core_dnf_retry "$reports/dnf-bootstrap.log" \
-    "${dnf_args[@]}" --disablerepo='nabu-core-*-compose' install "${bootstrap_packages[@]}"
+    "${dnf_args[@]}" --disablerepo='nabu-core-stable-compose' install "${bootstrap_packages[@]}"
 core_dnf_retry "$reports/dnf-install.log" \
     "${dnf_args[@]}" install "${required_packages[@]}"
 
@@ -184,7 +172,7 @@ kernel_evr=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' "$CORE_KERNEL_
     core_die "Unexpected mainline kernel EVR: $kernel_evr"
 meta_evr=$(rpm --root "$root" -q --qf '%{VERSION}-%{RELEASE}\n' "$CORE_META_PACKAGE")
 [[ $meta_evr =~ ^${CORE_META_VERSION}-${CORE_META_RELEASE}[.]fc[0-9]+$ ]] || \
-    core_die "Unexpected test-channel CORE meta EVR: $meta_evr"
+    core_die "Unexpected stable-channel CORE meta EVR: $meta_evr"
 for forbidden_kernel in senemos-nabu-kernel senemos-nabu-kernel-alpha senemos-nabu-kernel-mainline-alpha \
     senemos-nabu-kernel-mainline-unstable senemos-nabu-kernel-legacy-stable senemos-nabu-kernel-lts; do
     ! rpm --root "$root" -q "$forbidden_kernel" >/dev/null 2>&1 || \
@@ -196,8 +184,9 @@ done
 cp -a "$SCRIPT_DIR/rootfs/." "$root/"
 chmod 0755 "$root/usr/lib/dracut/modules.d/90nabu-release-policy/module-setup.sh"
 install -d -m0700 "$root/var/lib/nabu-boot-backup"
-install -m0644 /etc/yum.repos.d/nabu-core-test-compose.repo \
-    "$root/etc/yum.repos.d/nabu-linux-test.repo"
+rm -f -- "$root/etc/yum.repos.d/nabu-linux-test.repo"
+! grep -Rqs 'nabu-linux-test' "$root/etc/yum.repos.d" || \
+    core_die "The test COPR repository entered the installed CORE"
 stage_pass "CORE, single 7.2.x kernel, camera/Iris stack, rEFInd, Bash and Plymouth installed"
 
 stage_begin rootfs-policy "Applying boot, service and Plymouth policy"
@@ -456,7 +445,7 @@ stage_pass "Immutable build evidence written"
 
 stage_begin build-report "Writing the build and physical-HIL boundary report"
 cat >"$artifact_dir/BUILD-REPORT.md" <<EOF
-# Nabu Fedora Rawhide CORE 7.2.x recovery image
+# Nabu Fedora Rawhide CORE 7.2.x stable image
 
 - Architecture: AArch64
 - Filesystem: EXT4, label \`$CORE_FILESYSTEM_LABEL\`, size \`$CORE_IMAGE_SIZE\`
@@ -469,7 +458,7 @@ cat >"$artifact_dir/BUILD-REPORT.md" <<EOF
 - UKI payload gate: embedded kernel, DTB and uname match the installed RPM payload byte-for-byte
 - ESP32-S3/CDC logging: enabled after switch-root and deliberately absent from initramfs
 - CORE meta: \`$CORE_META_PACKAGE\`
-- COPR candidate: \`mcc45tr/nabu-linux-test\`; dependency base: \`mcc45tr/nabu-linux\`; GPG verification enabled
+- Sole Nabu package source: \`mcc45tr/nabu-linux\`; GPG verification enabled; test COPR absent
 - ESP: $CORE_ESP_SIZE_BYTES bytes, $CORE_ESP_LOGICAL_SECTOR_SIZE-byte logical sectors
 - Root account: enabled with the requested installation password; no pre-created user
 - Desktop session/display manager: absent

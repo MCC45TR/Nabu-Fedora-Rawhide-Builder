@@ -1,4 +1,4 @@
-name: Build Nabu Fedora CORE manually
+name: Build Nabu Fedora CORE and KDE manually
 
 on:
   workflow_dispatch:
@@ -42,14 +42,48 @@ jobs:
 
       - name: Build CORE with the shared local/CI entry point
         env:
-          CORE_KEEP_UNCOMPRESSED: ${{ inputs.keep_uncompressed && '1' || '0' }}
+          CORE_KEEP_UNCOMPRESSED: '1'
         run: |
           set -Eeuo pipefail
+          started=$(date +%s)
           args=(--runtime docker --output "$GITHUB_WORKSPACE/output/core")
           if [[ '${{ inputs.solve_only }}' == 'true' ]]; then
             args+=(--solve-only)
           fi
           core-builder/build-core.sh "${args[@]}"
+          finished=$(date +%s)
+          printf 'CORE compose seconds: %s\n' "$((finished-started))" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Build KDE from the just-produced CORE
+        if: ${{ !inputs.solve_only }}
+        env:
+          KDE_KEEP_UNCOMPRESSED: ${{ inputs.keep_uncompressed && '1' || '0' }}
+        run: |
+          set -Eeuo pipefail
+          core_system=$(find output/core -type f -name '*-system.img' -print -quit)
+          core_esp=$(find output/core -type f -name '*-esp.img' -print -quit)
+          test -n "$core_system" -a -n "$core_esp"
+          started=$(date +%s)
+          kde-builder/build-kde.sh \
+            --runtime docker \
+            --output "$GITHUB_WORKSPACE/output/kde" \
+            --core-system "$core_system" \
+            --core-esp "$core_esp"
+          finished=$(date +%s)
+          printf 'KDE-from-CORE compose seconds: %s\n' "$((finished-started))" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Prune uncompressed CORE images when not requested
+        if: ${{ !inputs.solve_only && !inputs.keep_uncompressed }}
+        run: |
+          set -Eeuo pipefail
+          artifact=$(find output/core -mindepth 1 -maxdepth 1 -type d -print -quit)
+          find "$artifact" -maxdepth 1 -type f -name '*.img' -delete
+          (
+            cd "$artifact"
+            find . -type f ! -name SHA256SUMS ! -name sha256-verify.log -print0 \
+              | sort -z | xargs -0 sha256sum >SHA256SUMS
+            sha256sum -c SHA256SUMS >reports/sha256-verify.log
+          )
 
       - name: Upload CORE artifacts and validation evidence
         if: ${{ always() }}
@@ -57,6 +91,16 @@ jobs:
         with:
           name: nabu-fedora-core-${{ github.run_id }}
           path: output/core/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload KDE artifacts and validation evidence
+        if: ${{ always() && !inputs.solve_only }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nabu-fedora-kde-${{ github.run_id }}
+          path: output/kde/
           if-no-files-found: error
           retention-days: 7
           compression-level: 0

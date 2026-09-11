@@ -28,8 +28,6 @@ core_load_profile() {
     : "${CORE_CONTAINER_IMAGE:?}"
     : "${CORE_COPR_STABLE_BASEURL:?}"
     : "${CORE_COPR_STABLE_GPGKEY:?}"
-    : "${CORE_COPR_TEST_BASEURL:?}"
-    : "${CORE_COPR_TEST_GPGKEY:?}"
     : "${CORE_FILESYSTEM:?}"
     : "${CORE_FILESYSTEM_LABEL:?}"
     : "${CORE_IMAGE_SIZE:?}"
