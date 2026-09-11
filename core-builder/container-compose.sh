@@ -361,8 +361,9 @@ mainline_efi="/EFI/fedora/$mainline_name"
 find "$esp_tree/EFI/SENEMOS" -type f -delete 2>/dev/null || :
 rmdir "$esp_tree/EFI/SENEMOS" 2>/dev/null || :
 find "$esp_tree/loader/entries" -type f -delete 2>/dev/null || :
-grep -Fxq "timeout $CORE_REFIND_TIMEOUT" "$esp_tree/EFI/BOOT/refind.conf" || \
-    core_die "Packaged rEFInd timeout policy was not applied"
+[[ -s "$esp_tree/EFI/BOOT/BOOTAA64.EFI" ]] || core_die "Packaged rEFInd EFI loader is missing"
+[[ -d "$esp_tree/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1" ]] || \
+    core_die "Packaged Nabu rEFInd theme is missing"
 objcopy --dump-section .initrd="$work_dir/mainline-initramfs.img" "$esp_tree$mainline_efi"
 objcopy --dump-section .cmdline="$metadata/mainline-kernel-cmdline.bin" "$esp_tree$mainline_efi"
 objcopy --dump-section .linux="$work_dir/mainline-linux.bin" "$esp_tree$mainline_efi"

@@ -87,6 +87,8 @@ core_verify_esp() {
     local refind_config
     refind_config="$(mktemp /var/tmp/core-refind.XXXXXXXX.conf)"
     mcopy -i "$image" ::/EFI/BOOT/refind.conf "$refind_config"
+    grep -Fxq "timeout $CORE_REFIND_TIMEOUT" "$refind_config" || \
+        core_die "rEFInd recovery timeout differs from the profile"
     grep -Fxq 'scanfor manual' "$refind_config" || \
         core_die "rEFInd production menu is not restricted to manual entries"
     ! grep -Eq '^scanfor .*\b(internal|external|optical)\b' "$refind_config" || \
