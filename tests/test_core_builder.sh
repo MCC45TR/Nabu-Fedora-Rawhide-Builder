@@ -10,6 +10,7 @@ COMPOSE="$ROOT/core-builder/container-compose.sh"
 VERIFY="$ROOT/core-builder/lib/verify.sh"
 SELINUX_RELABEL="$ROOT/tools/lib/relabel-ext4-selinux.sh"
 SELINUX_HELPER="$ROOT/tools/lib/ext4-selinux-labels.py"
+LOCALE_HELPER="$ROOT/tools/lib/find-missing-rpm-locales.py"
 DRACUT_POLICY="$ROOT/core-builder/rootfs/etc/dracut.conf.d/90-nabu-release.conf"
 DRACUT_MODULE="$ROOT/core-builder/rootfs/usr/lib/dracut/modules.d/90nabu-release-policy/module-setup.sh"
 WORKFLOW="$ROOT/.github/workflows/build-core-manual.yml"
@@ -30,8 +31,8 @@ check() {
 
 check 'CORE scripts have valid Bash syntax' \
     bash -n "$WRAPPER" "$COMPOSE" "$VERIFY" "$SELINUX_RELABEL" "$DRACUT_MODULE"
-check 'offline SELinux inode helper has valid Python syntax' \
-    python3 -m py_compile "$SELINUX_HELPER"
+check 'offline SELinux and locale helpers have valid Python syntax' \
+    python3 -m py_compile "$SELINUX_HELPER" "$LOCALE_HELPER"
 check 'profile selects Rawhide AArch64 EXT4 stable 7.2.x, stable meta, camera, Plymouth and rEFInd' \
     bash -c 'source "$1"; [[ "$CORE_PROFILE_VERSION" == 3 && "$CORE_BUILD_FLAVOR" == release && "$CORE_TARGET_ARCH" == aarch64 && "$CORE_RELEASEVER" == rawhide && "$CORE_FILESYSTEM" == ext4 && "$CORE_KERNEL_PACKAGE" == senemos-nabu-kernel-mainline && "$CORE_KERNEL_VERSION" == 7.2.4 && "$CORE_KERNEL_RELEASE" == 6 && "$CORE_META_VERSION" == 3.0.0 && "$CORE_META_RELEASE" == 83 && "$CORE_CAMERA_SUPPORT_PACKAGE" == nabu-camera-support && "$CORE_IRIS_VAAPI_PACKAGE" == iris-vaapi-nabu && "$CORE_BOOTLOADER" == refind && "$CORE_BOOT_VERSION" == 2.0.0 && "$CORE_BOOT_RELEASE" == 42.test && "$CORE_PLYMOUTH_PACKAGE" == senemos-nabu-plymouth && "$CORE_IMAGE_SIZE" == 8G ]]' _ "$PROFILE"
 check 'compose explicitly installs CORE meta, one stable 7.2.x kernel, camera stack, Plymouth and rEFInd' \
@@ -55,7 +56,7 @@ check 'SELinux labels are applied before EXT4 and read back from the image' \
 check 'release policy enables root, masks onboarding and removes noisy boot options' \
     bash -c 'source "$1"; [[ " $CORE_KERNEL_CMDLINE " == *" quiet "* && " $CORE_KERNEL_CMDLINE " == *" splash "* && " $CORE_KERNEL_CMDLINE " == *" loglevel=3 "* && " $CORE_KERNEL_CMDLINE " == *" console=tty0 "* && " $CORE_KERNEL_CMDLINE " == *" rw "* && " $CORE_KERNEL_CMDLINE " != *" ro "* && " $CORE_KERNEL_CMDLINE " != *" rd.driver.pre=cdc_acm "* && " $CORE_KERNEL_CMDLINE " != *" deferred_probe_timeout=0 "* ]] && grep -Fq "root:1234" "$2" && grep -Fq "enable NetworkManager.service firewalld.service sshd.service" "$2" && grep -Fq "mask initial-setup.service" "$2" && grep -Fq "mask debug-shell.service" "$2" && grep -Fq "scsi_debug" "$3"' _ "$PROFILE" "$COMPOSE" "$DRACUT_POLICY"
 check 'CORE sets nabu hostname and keeps every RPM language in composer and target' \
-    bash -c 'grep -Fq "macros.zz-nabu-languages" "$1" && grep -Fq "macros.nabu-languages" "$1" && grep -Fq "find-missing-rpm-locales.py" "$1" && grep -Fq "printf '\''nabu\\n'\''" "$1"' _ "$COMPOSE"
+    bash -c 'grep -Fq "macros.zz-nabu-languages" "$1" && grep -Fq "macros.nabu-languages" "$1" && grep -Fq "find-missing-rpm-locales.py" "$1" && grep -Fq "printf '\''nabu\\n'\''" "$1" && grep -Fq "FILEFLAGS:fflags" "$2" && grep -Fq '\''if "g" in flags:'\'' "$2"' _ "$COMPOSE" "$LOCALE_HELPER"
 check 'writable root, persistent ESP and ordered Initial Setup are image contracts' \
     bash -c 'grep -Eq "^PARTLABEL=linux[[:space:]]+/[[:space:]]+ext4[[:space:]]+rw,[^[:space:]]*x-systemd.growfs" "$1" && grep -Eq "^LABEL=ESPNABU[[:space:]]+/boot/efi[[:space:]]+vfat[[:space:]]+rw," "$1" && grep -Fq "Requires=systemd-remount-fs.service systemd-logind.service" "$2" && grep -Fqx "ConditionPathIsReadWrite=/" "$2" && ! grep -Fq "mountpoint -q -w" "$2" && grep -Fq "Release UKI does not request a writable root" "$3"' _ "$ROOT/core-builder/rootfs/etc/fstab" "$ROOT/core-builder/rootfs/etc/systemd/system/initial-setup.service.d/10-nabu-writable-root.conf" "$VERIFY"
 check 'confined iio-sensor-proxy QRTR SELinux policy is installed by compose' \

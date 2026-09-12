@@ -11,7 +11,14 @@ if len(sys.argv) != 4:
 
 root, report_path, packages_path = sys.argv[1:]
 query = subprocess.check_output(
-    ["rpm", "--root", root, "-qa", "--qf", "PKG:%{NAME}\\n[%{FILENAMES}\\n]"],
+    [
+        "rpm",
+        "--root",
+        root,
+        "-qa",
+        "--qf",
+        "PKG:%{NAME}\\n[%{FILENAMES}\\t%{FILEFLAGS:fflags}\\n]",
+    ],
     text=True,
     errors="surrogateescape",
 )
@@ -24,13 +31,21 @@ for record in query.splitlines():
         continue
     if not package or not record.startswith("/"):
         continue
+    path, separator, flags = record.rpartition("\t")
+    if not separator:
+        raise SystemExit(f"malformed RPM file record: {record!r}")
+    # Ghost entries describe paths owned by RPM but deliberately carry no
+    # payload. Fedora's filesystem package uses them for many compatibility
+    # locale directories, so their absence is not an install_langs failure.
+    if "g" in flags:
+        continue
     is_translation = (
-        record.startswith("/usr/share/locale/")
-        or record.startswith("/usr/share/qt5/translations/")
-        or record.startswith("/usr/share/qt6/translations/")
+        path.startswith("/usr/share/locale/")
+        or path.startswith("/usr/share/qt5/translations/")
+        or path.startswith("/usr/share/qt6/translations/")
     )
-    if is_translation and not os.path.lexists(root + record):
-        missing.append((package, record))
+    if is_translation and not os.path.lexists(root + path):
+        missing.append((package, path))
 
 missing = sorted(set(missing))
 with open(report_path, "w", encoding="utf-8") as report:
