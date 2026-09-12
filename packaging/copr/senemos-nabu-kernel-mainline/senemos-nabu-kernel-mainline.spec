@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -157,6 +157,7 @@ Patch0137:      0137-senemos-derive-stable-Nabu-wireless-addresses.patch
 Patch0138:      0138-senemos-pin-the-Nabu-production-security-baseline.patch
 Patch0139:      0139-arm64-dts-qcom-describe-SM8150-PRNG-safely.patch
 Patch0140:      0140-arm64-dts-qcom-preserve-Nabu-panic-records-in-ramoops.patch
+Patch0141:      0141-clk-qcom-quiesce-firmware-DSI-clocks-before-takeover.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -492,6 +493,12 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-8
+- Quiesce firmware-owned byte and pixel clocks before the first Linux
+  dual-DSI modeset so both bonded PHYs start from a clean, coherent state.
+- Retain the deferred-probe log fix while dropping the unsafe continuous-
+  splash assumption from the SM8250 display clock policy.
+
 * Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-7
 - Restore a one-MiB ramoops dmesg record for otherwise unobservable hard UI
   freezes while retaining one MiB of console and two MiB of persistent ftrace.

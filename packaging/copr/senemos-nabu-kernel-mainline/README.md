@@ -8,7 +8,13 @@ the complete Nabu patch and configuration gate passes. The accepted commit then
 triggers the COPR SCM package's automatic rebuild; a failed port leaves the last
 working repository result untouched.
 
-Release 7.2.4-6 keeps the same production security, entropy and camera payload
+Release 7.2.4-8 lets the clock framework quiesce firmware-owned dual-DSI byte
+and pixel branches before the first Linux modeset. Nabu performs a full panel
+and bonded-PHY initialization rather than a continuous-splash handoff, so this
+prevents stale firmware phase state from surviving into the first scanout.
+Release 7.2.4-7 adds a one-MiB persistent ramoops dmesg record for diagnosing
+otherwise unobservable hard UI freezes. Release 7.2.4-6 keeps the same
+production security, entropy and camera payload
 while exposing the user-facing Device Tree product name as `Xiaomi Pad 5`.
 Release 7.2.4-5 layers the remaining production security and entropy policy on
 top of the release-4 hardening, power-profile and stable wireless-address work.

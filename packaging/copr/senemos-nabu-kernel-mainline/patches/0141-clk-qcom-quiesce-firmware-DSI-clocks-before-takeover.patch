@@ -1,0 +1,89 @@
+From 95fa55b19f2f1cb9243291ff7ee4442f380dc48e Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 12 Sep 2026 20:57:06 +0300
+Subject: [PATCH] clk: qcom: quiesce firmware DSI clocks before takeover
+
+The Nabu panel path performs a full panel and bonded-PHY initialization; it
+does not implement a continuous-splash handoff. Keeping firmware byte and
+pixel clocks outside disable_unused can therefore carry an incoherent
+dual-DSI phase into the first Linux modeset.
+
+The failure is downstream of the compositor and clears only after a full
+DPMS cycle resets both PHYs. Let the clock framework quiesce the unclaimed
+branches before msm_dsi binds so the initial modeset starts from the same
+clean state.
+---
+ drivers/clk/qcom/dispcc-sm8250.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/clk/qcom/dispcc-sm8250.c b/drivers/clk/qcom/dispcc-sm8250.c
+index de12646b4..fdc07323f 100644
+--- a/drivers/clk/qcom/dispcc-sm8250.c
++++ b/drivers/clk/qcom/dispcc-sm8250.c
+@@ -710,11 +710,6 @@ static struct clk_branch disp_cc_mdss_ahb_clk = {
+ 	},
+ };
+ 
+-/* Firmware can hand an active dual-DSI scanout to Linux before the DSI PHY
+- * providers finish probing.  Preserve only the scanout branch clocks across
+- * disable_unused; once DSI owns them, normal runtime reference counting and
+- * power management still gate the branches.
+- */
+ static struct clk_branch disp_cc_mdss_byte0_clk = {
+ 	.halt_reg = 0x2028,
+ 	.halt_check = BRANCH_HALT,
+@@ -727,7 +722,7 @@ static struct clk_branch disp_cc_mdss_byte0_clk = {
+ 				&disp_cc_mdss_byte0_clk_src.clkr.hw,
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
++			.flags = CLK_SET_RATE_PARENT,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -745,7 +740,7 @@ static struct clk_branch disp_cc_mdss_byte0_intf_clk = {
+ 				&disp_cc_mdss_byte0_div_clk_src.clkr.hw,
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
++			.flags = CLK_SET_RATE_PARENT,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -763,7 +758,7 @@ static struct clk_branch disp_cc_mdss_byte1_clk = {
+ 				&disp_cc_mdss_byte1_clk_src.clkr.hw,
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
++			.flags = CLK_SET_RATE_PARENT,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -781,7 +776,7 @@ static struct clk_branch disp_cc_mdss_byte1_intf_clk = {
+ 				&disp_cc_mdss_byte1_div_clk_src.clkr.hw,
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
++			.flags = CLK_SET_RATE_PARENT,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -1051,7 +1046,7 @@ static struct clk_branch disp_cc_mdss_pclk0_clk = {
+ 				&disp_cc_mdss_pclk0_clk_src.clkr.hw,
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
++			.flags = CLK_SET_RATE_PARENT,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -1069,7 +1064,7 @@ static struct clk_branch disp_cc_mdss_pclk1_clk = {
+ 				&disp_cc_mdss_pclk1_clk_src.clkr.hw,
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
++			.flags = CLK_SET_RATE_PARENT,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+

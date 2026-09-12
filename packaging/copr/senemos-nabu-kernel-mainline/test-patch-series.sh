@@ -450,8 +450,15 @@ test "$(grep -c 'mod_delayed_work(system_percpu_wq, &.*status_changed_work' \
     "$work/linux-$version/drivers/power/supply/ln8000_charger.c")" -eq 4
 grep -Fq 'queue_delayed_work(system_percpu_wq, &info->charge_work,' \
     "$work/linux-$version/drivers/power/supply/ln8000_charger.c"
-test "$(grep -c 'CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED' \
-    "$work/linux-$version/drivers/clk/qcom/dispcc-sm8250.c")" -eq 6
+dispcc="$work/linux-$version/drivers/clk/qcom/dispcc-sm8250.c"
+for clk in disp_cc_mdss_byte0_clk disp_cc_mdss_byte0_intf_clk \
+    disp_cc_mdss_byte1_clk disp_cc_mdss_byte1_intf_clk \
+    disp_cc_mdss_pclk0_clk disp_cc_mdss_pclk1_clk; do
+    grep -A15 -F "static struct clk_branch $clk" "$dispcc" \
+        | grep -Fq '.flags = CLK_SET_RATE_PARENT,'
+    ! grep -A15 -F "static struct clk_branch $clk" "$dispcc" \
+        | grep -Fq 'CLK_IGNORE_UNUSED'
+done
 grep -Fq 'return dev_err_probe(&pdev->dev, -EPROBE_DEFER,' \
     "$work/linux-$version/drivers/gpu/drm/msm/dsi/dsi.c"
 grep -Fq 'alloc_ordered_workqueue("nvt_esd_check_wq", WQ_MEM_RECLAIM);' \
