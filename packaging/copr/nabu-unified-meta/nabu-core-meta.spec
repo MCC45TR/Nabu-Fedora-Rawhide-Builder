@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        85%{?dist}
+Release:        86%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -295,6 +295,12 @@ grep -Fqx 'hostonly="yes"' system-integration/payload/etc/dracut.conf.d/99-nabu-
 test ! -e system-integration/runtime/nabu-pmic-rtc-sync
 test ! -e system-integration/runtime/nabu-pmic-rtc-sync.service
 test ! -e system-integration/runtime/nabu-root-growfs.service
+grep -Fxq '[connection-nabu-wifi]' system-integration/runtime/20-nabu-wifi-wowlan.conf
+grep -Fxq 'match-device=type:wifi' system-integration/runtime/20-nabu-wifi-wowlan.conf
+grep -Fxq 'wifi.wake-on-wlan=12' system-integration/runtime/20-nabu-wifi-wowlan.conf
+grep -Fxq 'wifi.cloned-mac-address=permanent' system-integration/runtime/20-nabu-wifi-wowlan.conf
+! grep -Eq '^wifi\.cloned-mac-address=(stable|stable-ssid|random)$' \
+    system-integration/runtime/20-nabu-wifi-wowlan.conf
 bash -n system-integration/runtime/nabu-slpi-suspend
 bash -n system-integration/runtime/nabu-sensor-session-gate
 bash -n system-integration/runtime/nabu-sensor-registry-runtime
@@ -495,6 +501,12 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-86
+- Use the WCN3990 kernel-provided permanent address for associated Wi-Fi
+  connections instead of Fedora's per-SSID randomized identity.
+- Keep scan randomization independent and allow explicit per-profile MAC
+  choices to override the Nabu system default.
+
 * Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-85
 - Ship complete desktop language payloads at compose time and retire the
   post-setup DNF locale watcher.
