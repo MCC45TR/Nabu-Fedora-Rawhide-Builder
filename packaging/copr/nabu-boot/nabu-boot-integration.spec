@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        42.test%{?dist}
+Release:        43.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -54,10 +54,7 @@ current Nabu UKI plus the verified Android-return entry on the mounted ESP.
 Summary:        Nabu rEFInd selector and automatic ESP integration
 License:        GPL-3.0-or-later AND BSD-2-Clause AND AGPL-3.0-or-later AND OFL-1.1
 Requires:       %{name} = %{version}-%{release}
-Requires(post): systemd
 Requires(posttrans): systemd
-Requires(preun): systemd
-Requires(postun): systemd
 Provides:       bundled(rEFInd) = 0.14.2
 Provides:       bundled(GopRotate) = 1.0
 Provides:       nabu-boot-manager = 2.0.0.2
@@ -142,8 +139,9 @@ grep -Fq 'managed_uki_family' manager/nabu-configure-boot-manager
 grep -Fq 'SENEMOS6|SENEMOS7|SENEMOS7U' manager/nabu-configure-boot-manager
 grep -Fq 'SENEMOS7U' tests/test-boot-manager.sh
 grep -Fq 'refind-local.conf' manager/nabu-configure-boot-manager
-grep -Fqx "            echo 'scanfor manual'" manager/nabu-configure-boot-manager
-grep -Fq 'menuentry "Reboot to Android"' manager/nabu-configure-boot-manager
+grep -Fqx "            echo 'scanfor internal'" manager/nabu-configure-boot-manager
+grep -Fqx "            echo 'also_scan_dirs EFI/fedora,EFI/android'" manager/nabu-configure-boot-manager
+! grep -Fq 'menuentry "Reboot to Android"' manager/nabu-configure-boot-manager
 grep -Fq -- '--family SENEMOS_FAMILY' payload/usr/bin/nabu-regenerate-uki
 grep -Fqx 'resolution 1600 2560' manager/refind-theme-regular/theme.conf
 grep -Fqx 'big_icon_size 256' manager/refind-theme-regular/theme.conf
@@ -191,10 +189,6 @@ install -Dm0755 manager/nabu-refind \
     %{buildroot}%{_bindir}/nabu-refind
 install -Dm0755 manager/nabu-refind-sync \
     %{buildroot}%{_libexecdir}/nabu-refind-sync
-install -Dm0644 manager/nabu-refind-sync.service \
-    %{buildroot}%{_unitdir}/nabu-refind-sync.service
-install -Dm0644 manager/90-nabu-refind-sync.preset \
-    %{buildroot}%{_presetdir}/90-nabu-refind-sync.preset
 install -Dm0644 manager/nabu-refind.8 \
     %{buildroot}%{_mandir}/man8/nabu-refind.8
 
@@ -282,24 +276,15 @@ for item in \
     mv -f "$temporary" "/var/lib/nabu-kernel-maintenance/pending.d/$channel"
 done
 
-%post -n nabu-boot-refind
-%systemd_post nabu-refind-sync.service
-
 %posttrans -n nabu-boot-refind -p /usr/bin/bash
 install -d -m0755 /var/lib/nabu-boot-maintenance
 touch /var/lib/nabu-boot-maintenance/refind-sync.pending
 if [[ -d /run/systemd/system ]]; then
-    /usr/bin/systemctl disable --now nabu-refind-sync.path >/dev/null 2>&1 || :
+    # Release 43 folds this work into the CORE maintenance timer. Retire both
+    # historical boot-time units without launching EFI I/O from an RPM scriptlet.
+    /usr/bin/systemctl disable --now nabu-refind-sync.path nabu-refind-sync.service >/dev/null 2>&1 || :
     /usr/bin/systemctl daemon-reload >/dev/null 2>&1 || :
-    /usr/bin/systemctl --no-block start nabu-refind-sync.service >/dev/null 2>&1 || \
-        printf 'Warning: automatic rEFInd ESP synchronization is pending.\n' >&2
 fi
-
-%preun -n nabu-boot-refind
-%systemd_preun nabu-refind-sync.service
-
-%postun -n nabu-boot-refind
-%systemd_postun nabu-refind-sync.service
 
 %files
 %license LICENSE
@@ -330,8 +315,6 @@ fi
 %{_datadir}/nabu/bootloader/refind/
 %{_bindir}/nabu-refind
 %{_libexecdir}/nabu-refind-sync
-%{_unitdir}/nabu-refind-sync.service
-%{_presetdir}/90-nabu-refind-sync.preset
 %{_mandir}/man8/nabu-refind.8*
 
 %files -n nabu-boot-limine
@@ -343,6 +326,12 @@ fi
 %{_datadir}/plymouth/themes/senemos-nabu/
 
 %changelog
+* Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-43.test
+- Let rEFInd discover only the internal Fedora and Android EFI vendor folders
+  instead of generating manual menuentry stanzas.
+- Retire the standalone boot-time rEFInd service and consume its pending marker
+  from the shared idle or offline-update maintenance worker.
+
 * Fri Sep 11 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-42.test
 - Run deferred rEFInd synchronization once per boot after the ESP mount.
 - Retire the persistent path trigger that could exhaust the start limit before

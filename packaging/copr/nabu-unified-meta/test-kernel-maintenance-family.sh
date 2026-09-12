@@ -84,6 +84,7 @@ cat >"$fakebin/configure" <<'EOF'
 printf 'configure %s\n' "$*" >>"$TEST_LOG"
 EOF
 chmod +x "$fakebin"/*
+install -d "$state/pending.d"
 
 run_maintenance() {
     TEST_BOOT=$boot TEST_ESP=$esp TEST_LOG=$log \
@@ -101,6 +102,7 @@ run_maintenance() {
     bash "$source_dir/nabu-kernel-maintenance"
 }
 
+touch "$state/pending.d/mainline"
 run_maintenance
 [[ $(grep -c '^regenerate ' "$log") -eq 3 ]]
 grep -Fxq 'regenerate SENEMOS6 6.17.0-nabu-senemos-kernel' "$log"
@@ -110,12 +112,13 @@ tail -n1 "$log" | grep -Fxq 'configure --sync-only --uki SENEMOS7-7.2.3.efi'
 
 run_maintenance
 [[ $(grep -c '^regenerate ' "$log") -eq 3 ]]
-[[ $(grep -c '^configure ' "$log") -eq 2 ]]
+[[ $(grep -c '^configure ' "$log") -eq 1 ]]
 
 # Replacing an RPM payload without changing uname must invalidate the prepared
 # record. This is the release4 -> release5 failure mode that paired an old UKI
 # with a new module tree on the device.
 printf 'mainline payload revision 2\n' >"$boot/vmlinuz-${kernel[senemos-nabu-kernel-mainline]}"
+touch "$state/pending.d/mainline"
 run_maintenance
 [[ $(grep -c '^regenerate ' "$log") -eq 4 ]]
 tail -n2 "$log" | head -n1 | grep -Fxq 'regenerate SENEMOS7 7.2.3-nabu-senemos-mainline'
@@ -124,6 +127,7 @@ run_maintenance
 [[ $(grep -c '^regenerate ' "$log") -eq 4 ]]
 
 printf 'mainline dtb revision 2\n' >"$modules/${kernel[senemos-nabu-kernel-mainline]}/dtb/qcom/sm8150-xiaomi-nabu.dtb"
+touch "$state/pending.d/mainline"
 run_maintenance
 [[ $(grep -c '^regenerate ' "$log") -eq 5 ]]
 tail -n2 "$log" | head -n1 | grep -Fxq 'regenerate SENEMOS7 7.2.3-nabu-senemos-mainline'

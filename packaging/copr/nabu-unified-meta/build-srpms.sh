@@ -21,8 +21,9 @@ install -m0644 "$copr_dir/nabu-repository-config/nabu-linux-copr.repo" "$top_dir
 install -m0644 "$copr_dir/nabu-repository-config/90-nabu-disable-cisco-openh264.repo" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.service" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.timer" "$top_dir/SOURCES/"
-install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.path" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-kernel-maintenance/90-nabu-kernel-maintenance.preset" "$top_dir/SOURCES/"
+install -m0755 "$copr_dir/nabu-kernel-maintenance/nabu-maintenance-ready" \
+    "$copr_dir/nabu-kernel-maintenance/test-maintenance-ready.sh" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-plasma-base/95-nabu-plasma-login.preset" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-plasma-login-theme/80-nabu-plasma-login-theme.conf" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-plasma-login-theme/nabu-plasma-login.svg" "$top_dir/SOURCES/"
@@ -48,12 +49,7 @@ install -m0644 "$source_dir/20-nabu-packagekit-qos.conf" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/90-nabu-powerdevil.conf" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/90-nabu-compositor-realtime.conf" "$top_dir/SOURCES/"
 install -m0644 "$source_dir/95-nabu-audio-visibility.conf" "$top_dir/SOURCES/"
-install -m0755 "$source_dir/nabu-locale-packages" \
-    "$source_dir/test-locale-packages.sh" "$top_dir/SOURCES/"
-install -m0644 "$source_dir/nabu-locale-packages.service" \
-    "$source_dir/nabu-locale-packages.path" \
-    "$source_dir/nabu-locale-packages.timer" \
-    "$source_dir/91-nabu-locale-packages.preset" "$top_dir/SOURCES/"
+install -m0644 "$source_dir/90-nabu-panic-recovery.conf" "$top_dir/SOURCES/"
 install -m0644 "$source_dir"/vendor/*.{c,gz,zst} "$top_dir/SOURCES/"
 install -m0644 "$source_dir/vendor/nabu-pen-autopair" "$source_dir/vendor/82-nabu-pen-autopair.rules" "$source_dir/vendor/nabu-pen-autopair@.service" "$top_dir/SOURCES/"
 

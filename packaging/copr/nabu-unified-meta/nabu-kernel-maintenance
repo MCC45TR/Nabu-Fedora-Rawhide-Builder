@@ -48,6 +48,12 @@ identity_is_newer() {
 }
 
 install -d -m0755 "$state_dir" "$pending_dir" "$prepared_dir"
+
+# A package transaction is the only producer of this queue.  Avoid enumerating
+# and hashing every installed kernel when the timer was woken solely to consume
+# a boot-manager marker in ExecStartPre.
+find "$pending_dir" -mindepth 1 -maxdepth 1 -type f -print -quit | grep -q . || exit 0
+
 declare -A selected_kernel=() selected_identity=() selected_channel=() selected_nevra=()
 installed_count=0
 for channel in kernel mainline mainline-unstable; do

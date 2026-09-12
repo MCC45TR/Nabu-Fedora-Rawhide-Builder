@@ -72,18 +72,18 @@ PATH="$fakebin:$PATH" NABU_BOOT_ROOT="$payload" NABU_BOOT_LOCK_FILE="$root/manag
 cmp "$refind_payload/refind_aa64.efi" "$esp/EFI/BOOT/BOOTAA64.EFI"
 cmp "$refind_payload/drivers_aa64/GopRotate_aa64.efi" "$esp/EFI/BOOT/drivers/GopRotate_aa64.efi"
 grep -Fxq 'scan_driver_dirs drivers' "$esp/EFI/BOOT/refind.conf"
-grep -Fxq 'scanfor manual' "$esp/EFI/BOOT/refind.conf"
+grep -Fxq 'scanfor internal' "$esp/EFI/BOOT/refind.conf"
+grep -Fxq 'scan_all_linux_kernels false' "$esp/EFI/BOOT/refind.conf"
+grep -Fxq 'fold_linux_kernels false' "$esp/EFI/BOOT/refind.conf"
+grep -Fxq 'also_scan_dirs EFI/fedora,EFI/android' "$esp/EFI/BOOT/refind.conf"
+grep -Fxq 'dont_scan_dirs +,EFI/BOOT,EFI/SENEMOS' "$esp/EFI/BOOT/refind.conf"
 grep -Fxq 'timeout 5' "$esp/EFI/BOOT/refind.conf"
 grep -Fxq 'rotation 3' "$esp/EFI/BOOT/refind.conf"
 grep -Fq 'include themes/refind-theme-regular-nabu-2x-v1/theme.conf' "$esp/EFI/BOOT/refind.conf"
 grep -Fxq 'icons_dir themes/refind-theme-regular-nabu-2x-v1/icons/256-96' "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/theme.conf"
 grep -Fxq 'font themes/refind-theme-regular-nabu-2x-v1/fonts/source-code-pro-extralight-28.png' "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/theme.conf"
-grep -Fxq 'default_selection "Fedora Rawhide (SENEMOS6 2608291500)"' "$esp/EFI/BOOT/refind.conf"
-test "$(grep -c '^menuentry ' "$esp/EFI/BOOT/refind.conf")" -eq 4
-grep -Fq 'loader /EFI/fedora/SENEMOS6-2608291500.efi' "$esp/EFI/BOOT/refind.conf"
-grep -Fq 'loader /EFI/fedora/SENEMOS7-7.2.3.efi' "$esp/EFI/BOOT/refind.conf"
-grep -Fq 'loader /EFI/fedora/SENEMOS7U-2608291600.efi' "$esp/EFI/BOOT/refind.conf"
-grep -Fq 'loader /EFI/android/Reboot2Android.efi' "$esp/EFI/BOOT/refind.conf"
+grep -Fxq 'default_selection "SENEMOS6-2608291500.efi"' "$esp/EFI/BOOT/refind.conf"
+test "$(grep -c '^menuentry ' "$esp/EFI/BOOT/refind.conf" || :)" -eq 0
 fedora_inode=$(stat -c %i "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/icons/256-96/os_fedora.png")
 android_inode=$(stat -c %i "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/icons/256-96/os_android.png")
 test "$fedora_inode" != "$android_inode"

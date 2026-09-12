@@ -3,25 +3,41 @@ set -Eeuo pipefail
 
 pending_dir=${NABU_OFFLINE_PENDING_DIR:-/var/lib/nabu-kernel-maintenance/pending.d}
 maintenance=${NABU_OFFLINE_MAINTENANCE:-/usr/libexec/nabu-kernel-maintenance}
+refind_pending=${NABU_OFFLINE_REFIND_PENDING:-/var/lib/nabu-boot-maintenance/refind-sync.pending}
+refind_sync=${NABU_OFFLINE_REFIND_SYNC:-/usr/libexec/nabu-refind-sync}
 plymouth=${NABU_OFFLINE_PLYMOUTH:-/usr/bin/plymouth}
 
 # Kernel RPMs only enqueue work.  During a DNF5 offline transaction the normal
 # path/timer units are not part of the update target, so complete the queued
 # UKI before dnf5-offline-transaction.service is allowed to reach reboot.target.
-[[ -d $pending_dir ]] || exit 0
-find "$pending_dir" -mindepth 1 -maxdepth 1 -type f -print -quit | grep -q . || exit 0
+kernel_pending=0
+if [[ -d $pending_dir ]] &&
+   find "$pending_dir" -mindepth 1 -maxdepth 1 -type f -print -quit | grep -q .; then
+    kernel_pending=1
+fi
+[[ $kernel_pending == 1 || -e $refind_pending ]] || exit 0
 
-message='Preparing the updated kernel boot files...'
+message='Preparing the updated boot files...'
 printf '%s\n' "$message"
 if [[ -x $plymouth ]] && "$plymouth" --ping >/dev/null 2>&1; then
     "$plymouth" display-message --text="$message" >/dev/null 2>&1 || :
 fi
 
-"$maintenance"
+if [[ -e $refind_pending ]]; then
+    "$refind_sync"
+fi
+if [[ $kernel_pending == 1 ]]; then
+    "$maintenance"
+fi
 
-if find "$pending_dir" -mindepth 1 -maxdepth 1 -type f -print -quit | grep -q .; then
+if [[ -d $pending_dir ]] &&
+   find "$pending_dir" -mindepth 1 -maxdepth 1 -type f -print -quit | grep -q .; then
     printf 'Kernel boot-file preparation left pending work; refusing silent success.\n' >&2
     exit 1
 fi
+if [[ -e $refind_pending ]]; then
+    printf 'Boot-manager synchronization left pending work; refusing silent success.\n' >&2
+    exit 1
+fi
 
-printf 'Updated kernel boot files are ready.\n'
+printf 'Updated boot files are ready.\n'

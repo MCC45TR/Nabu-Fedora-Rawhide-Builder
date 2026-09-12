@@ -99,7 +99,7 @@ else
     result FAIL sensorproxy-accel "${sensor_tilt:-not exposed}"
 fi
 
-for unit in nabu-pmic-rtc-sync.service nabu-slpi-suspend.service; do
+for unit in nabu-slpi-suspend.service; do
     if systemctl is-enabled --quiet "$unit"; then
         result OK "enabled:${unit}"
     else
@@ -109,10 +109,11 @@ done
 
 if [[ -r /sys/class/rtc/rtc0/name || -r /sys/class/rtc/rtc1/name ]]; then
     rtc_name="$(grep -h '^rtc-pm8xxx' /sys/class/rtc/rtc*/name 2>/dev/null | head -n1 || true)"
-    if [[ -n "$rtc_name" ]]; then
-        result OK pmic-rtc "$rtc_name"
+    rtc_hctosys="$(grep -h '^1$' /sys/class/rtc/rtc*/hctosys 2>/dev/null | head -n1 || true)"
+    if [[ -n "$rtc_name" && $rtc_hctosys == 1 ]]; then
+        result OK pmic-rtc "$rtc_name (kernel hctosys)"
     else
-        result FAIL pmic-rtc not-found
+        result FAIL pmic-rtc "${rtc_name:-not-found}; kernel hctosys unavailable"
     fi
 fi
 

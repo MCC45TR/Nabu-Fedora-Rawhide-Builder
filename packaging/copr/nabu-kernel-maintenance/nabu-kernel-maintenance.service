@@ -1,17 +1,18 @@
 [Unit]
-Description=Maintain one latest UKI per installed SENEMOS kernel family
-ConditionPathExistsGlob=/var/lib/nabu-kernel-maintenance/pending.d/*
-After=nabu-refind-sync.service
+Description=Process deferred Nabu boot maintenance while the device is idle
+After=local-fs.target boot-efi.mount
 RequiresMountsFor=/boot/efi
 StartLimitIntervalSec=5min
 StartLimitBurst=2
 
 [Service]
 Type=oneshot
+ExecCondition=/usr/libexec/senemos-nabu/nabu-maintenance-ready
+ExecStartPre=-/usr/libexec/nabu-refind-sync
 ExecStart=/usr/bin/systemd-inhibit --what=shutdown:sleep --mode=block --why=Nabu-family-UKI-preparation /usr/libexec/nabu-kernel-maintenance
 TimeoutStartSec=45min
 Nice=10
 IOSchedulingClass=idle
 ProtectSystem=full
-ReadWritePaths=/boot /boot/efi /usr/lib/modules /var/lib/nabu-kernel-maintenance /var/lib/nabu-boot-backup
+ReadWritePaths=/boot /boot/efi /usr/lib/modules /var/lib/nabu-kernel-maintenance /var/lib/nabu-boot-maintenance /var/lib/nabu-boot-backup
 PrivateTmp=yes

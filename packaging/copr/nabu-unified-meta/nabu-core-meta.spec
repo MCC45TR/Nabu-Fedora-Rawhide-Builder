@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        84%{?dist}
+Release:        85%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -23,20 +23,16 @@ Source12:       nabu-ssc-probe.c
 Source13:       nabu-pen-autopair
 Source14:       82-nabu-pen-autopair.rules
 Source15:       nabu-pen-autopair@.service
-Source16:       nabu-kernel-maintenance.path
+Source16:       nabu-maintenance-ready
 Source17:       80-nabu-kernel-retention.conf
 Source18:       test-kernel-maintenance-family.sh
 Source19:       nabu-kernel-offline-finalize
 Source20:       90-nabu-offline-uki-finalize.conf
 Source21:       test-offline-kernel-finalize.sh
 Source22:       20-nabu-packagekit-qos.conf
-Source23:       nabu-locale-packages
-Source24:       nabu-locale-packages.service
-Source25:       nabu-locale-packages.path
-Source26:       nabu-locale-packages.timer
-Source27:       91-nabu-locale-packages.preset
-Source28:       test-locale-packages.sh
 Source29:       95-nabu-audio-visibility.conf
+Source30:       test-maintenance-ready.sh
+Source31:       90-nabu-panic-recovery.conf
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  meson
@@ -59,7 +55,7 @@ Recommends:     senemos-fastfetch-config >= 1.2.0-1
 
 # Hardware, boot, firmware and service payloads remain independently built
 # where architecture, ABI, licensing or physical validation lifecycles differ.
-Requires:       nabu-boot-integration >= 2.0.0-37.test
+Requires:       nabu-boot-integration >= 2.0.0-43.test
 Requires:       nabu-boot-manager
 Requires:       hexagonrpc-nabu >= 0.5.0-4.nabu1.test
 Requires:       iris-vaapi-nabu >= 0.5.0-4.nabu1.test
@@ -128,7 +124,7 @@ Provides:       nabu-repository-config-api = 2
 Provides:       nabu-branch-manager = %{version}-%{release}
 Provides:       nabu-branch-manager-api = 2
 Provides:       nabu-kernel-maintenance = %{version}-%{release}
-Provides:       nabu-kernel-maintenance-api = 6
+Provides:       nabu-kernel-maintenance-api = 7
 Provides:       nabu-meta = %{version}-%{release}
 Provides:       nabu-system-integration = %{version}-%{release}
 Provides:       nabu-runtime-integration = %{version}-%{release}
@@ -192,8 +188,8 @@ cp -p %{SOURCE12} nabu-ssc-probe.c
 %build
 bash -n %{SOURCE2}
 bash -n %{SOURCE4}
-bash -n %{SOURCE23}
-bash %{SOURCE28}
+bash -n %{SOURCE16}
+bash %{SOURCE30}
 %{__cc} %{build_cflags} %{build_ldflags} -o nabu-flashlight flashlight-integration/src/nabu-flashlight.c
 %{__cc} %{build_cflags} %{build_ldflags} -o nabu-usb-role flashlight-integration/src/nabu-usb-role.c
 %{__cxx} -std=c++17 %{build_cxxflags} $(pkg-config --cflags Qt6Core Qt6DBus) \
@@ -211,10 +207,10 @@ install -Dm0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/dnf/repos.override.d/90-na
 install -Dm0755 %{SOURCE2} %{buildroot}%{_bindir}/nabu
 install -Dm0644 %{SOURCE3} %{buildroot}%{_mandir}/man8/nabu.8
 install -Dm0755 %{SOURCE4} %{buildroot}%{_libexecdir}/nabu-kernel-maintenance
+install -Dm0755 %{SOURCE16} %{buildroot}%{_libexecdir}/senemos-nabu/nabu-maintenance-ready
 install -Dm0755 %{SOURCE19} %{buildroot}%{_libexecdir}/nabu-kernel-offline-finalize
 install -Dm0644 %{SOURCE5} %{buildroot}%{_unitdir}/nabu-kernel-maintenance.service
 install -Dm0644 %{SOURCE6} %{buildroot}%{_unitdir}/nabu-kernel-maintenance.timer
-install -Dm0644 %{SOURCE16} %{buildroot}%{_unitdir}/nabu-kernel-maintenance.path
 install -Dm0644 %{SOURCE7} %{buildroot}%{_presetdir}/90-nabu-kernel-maintenance.preset
 install -Dm0644 %{SOURCE8} %{buildroot}%{_sysconfdir}/nabu/kernel.conf
 install -Dm0755 %{SOURCE13} %{buildroot}%{_libexecdir}/nabu-pen-autopair
@@ -223,12 +219,8 @@ install -Dm0644 %{SOURCE15} %{buildroot}%{_unitdir}/nabu-pen-autopair@.service
 install -Dm0644 %{SOURCE17} %{buildroot}%{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
 install -Dm0644 %{SOURCE20} %{buildroot}%{_unitdir}/dnf5-offline-transaction.service.d/90-nabu-offline-uki-finalize.conf
 install -Dm0644 %{SOURCE22} %{buildroot}%{_unitdir}/packagekit.service.d/20-nabu-packagekit-qos.conf
-install -Dm0755 %{SOURCE23} %{buildroot}%{_libexecdir}/senemos-nabu/nabu-locale-packages
-install -Dm0644 %{SOURCE24} %{buildroot}%{_unitdir}/nabu-locale-packages.service
-install -Dm0644 %{SOURCE25} %{buildroot}%{_unitdir}/nabu-locale-packages.path
-install -Dm0644 %{SOURCE26} %{buildroot}%{_unitdir}/nabu-locale-packages.timer
-install -Dm0644 %{SOURCE27} %{buildroot}%{_presetdir}/91-nabu-locale-packages.preset
 install -Dm0644 %{SOURCE29} %{buildroot}%{_sysconfdir}/wireplumber/wireplumber.conf.d/95-nabu-audio-visibility.conf
+install -Dm0644 %{SOURCE31} %{buildroot}%{_prefix}/lib/sysctl.d/90-nabu-panic-recovery.conf
 install -d %{buildroot}%{_sysconfdir}/systemd/system
 ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.timer
 
@@ -239,7 +231,6 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/modules-load.d/scsi_dh.conf
 # ALSA module set was available.  Device modalias loading after switch-root is
 # sufficient, so mask the obsolete image-era list for existing installations.
 ln -s /dev/null %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
-install -Dm0755 system-integration/runtime/nabu-pmic-rtc-sync %{buildroot}%{_libexecdir}/senemos-nabu/nabu-pmic-rtc-sync
 install -Dm0755 system-integration/runtime/nabu-slpi-suspend %{buildroot}%{_libexecdir}/senemos-nabu/nabu-slpi-suspend
 install -Dm0755 system-integration/runtime/nabu-sensor-session-gate %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-session-gate
 install -Dm0755 system-integration/runtime/nabu-sensor-registry-runtime %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
@@ -247,13 +238,11 @@ install -Dm0755 system-integration/runtime/nabu-esp32-cdc-journal-log %{buildroo
 install -Dm0755 system-integration/runtime/nabu-prepare-selinux-labels %{buildroot}%{_libexecdir}/senemos-nabu/nabu-prepare-selinux-labels
 install -Dm0755 system-integration/runtime/nabu-ssh-host-key-guard %{buildroot}%{_libexecdir}/senemos-nabu/nabu-ssh-host-key-guard
 install -Dm0755 system-integration/runtime/senemos-nabu-status %{buildroot}%{_bindir}/senemos-nabu-status
-install -Dm0644 system-integration/runtime/nabu-pmic-rtc-sync.service %{buildroot}%{_unitdir}/nabu-pmic-rtc-sync.service
 install -Dm0644 system-integration/runtime/nabu-slpi-suspend.service %{buildroot}%{_unitdir}/nabu-slpi-suspend.service
 install -Dm0644 system-integration/runtime/nabu-sensor-session-gate.service %{buildroot}%{_unitdir}/nabu-sensor-session-gate.service
 install -Dm0644 system-integration/runtime/nabu-sensor-registry-runtime.service %{buildroot}%{_unitdir}/nabu-sensor-registry-runtime.service
 install -Dm0644 system-integration/runtime/nabu-esp32-cdc-log.service %{buildroot}%{_unitdir}/nabu-esp32-cdc-log.service
 install -Dm0644 system-integration/runtime/mnt-vendor-persist.mount %{buildroot}%{_unitdir}/mnt-vendor-persist.mount
-install -Dm0644 system-integration/runtime/nabu-root-growfs.service %{buildroot}%{_unitdir}/nabu-root-growfs.service
 install -Dm0644 system-integration/runtime/nabu-ssh-host-key-restore.service %{buildroot}%{_unitdir}/nabu-ssh-host-key-restore.service
 install -Dm0644 system-integration/runtime/nabu-ssh-host-key-save.service %{buildroot}%{_unitdir}/nabu-ssh-host-key-save.service
 install -Dm0644 system-integration/runtime/90-senemos-nabu.preset %{buildroot}%{_presetdir}/90-senemos-nabu.preset
@@ -288,18 +277,24 @@ install -Dm0755 nabu-ssc-probe %{buildroot}%{_bindir}/nabu-ssc-probe
 bash %{SOURCE18}
 bash %{SOURCE21}
 bash -n %{SOURCE19}
+grep -Fqx 'ExecCondition=/usr/libexec/senemos-nabu/nabu-maintenance-ready' %{SOURCE5}
+grep -Fqx 'ExecStartPre=-/usr/libexec/nabu-refind-sync' %{SOURCE5}
+grep -Fqx 'OnActiveSec=30min' %{SOURCE6}
+grep -Fqx 'OnUnitInactiveSec=6h' %{SOURCE6}
+grep -Fqx 'Persistent=false' %{SOURCE6}
+! grep -Fq 'OnBootSec=' %{SOURCE6}
+! test -e %{_sourcedir}/nabu-kernel-maintenance.path
+grep -Fqx 'kernel.panic = 15' %{SOURCE31}
 grep -Fqx 'ExecStartPost=/usr/libexec/nabu-kernel-offline-finalize' %{SOURCE20}
 grep -Fqx 'CPUWeight=20' %{SOURCE22}
 grep -Fqx 'IOWeight=20' %{SOURCE22}
 grep -Fqx 'Nice=10' %{SOURCE22}
 grep -Fqx 'IOSchedulingClass=idle' %{SOURCE22}
-bash -n %{SOURCE23}
-bash %{SOURCE28}
-grep -Fqx 'PathChanged=/etc/plasma-setup-done' %{SOURCE25}
-! grep -Fqx 'PathExists=/etc/plasma-setup-done' %{SOURCE25}
-grep -Fqx 'OnUnitInactiveSec=6h' %{SOURCE26}
 ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' kde-plasma-nabu-meta.spec kde-plasma-mobile-nabu-meta.spec
-bash -n system-integration/runtime/nabu-pmic-rtc-sync
+grep -Fqx 'hostonly="yes"' system-integration/payload/etc/dracut.conf.d/99-nabu-generic.conf
+test ! -e system-integration/runtime/nabu-pmic-rtc-sync
+test ! -e system-integration/runtime/nabu-pmic-rtc-sync.service
+test ! -e system-integration/runtime/nabu-root-growfs.service
 bash -n system-integration/runtime/nabu-slpi-suspend
 bash -n system-integration/runtime/nabu-sensor-session-gate
 bash -n system-integration/runtime/nabu-sensor-registry-runtime
@@ -325,6 +320,8 @@ grep -Fq 'node.hidden = true' %{SOURCE29}
 bash -n system-integration/runtime/senemos-nabu-status
 udevadm verify %{buildroot}%{_udevrulesdir}/99-libinput-calibration-matrix.rules
 udevadm verify %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
+grep -Fqx ' ID_MODEL=Xiaomi Pad 5' %{buildroot}%{_udevhwdbdir}/90-nabu-mcc45tr.hwdb
+! grep -Fq 'ID_MODEL=Mi Pad 5' %{buildroot}%{_udevhwdbdir}/90-nabu-mcc45tr.hwdb
 grep -Fxq 'TAG-="systemd"' %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
 ! grep -Fq 'ID_PART_ENTRY_NAME' %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
 test ! -e %{buildroot}%{_udevrulesdir}/81-nabu-sensor-orientation.rules
@@ -361,20 +358,16 @@ fi
 %{_bindir}/nabu
 %{_mandir}/man8/nabu.8*
 %{_libexecdir}/nabu-kernel-maintenance
+%{_libexecdir}/senemos-nabu/nabu-maintenance-ready
 %{_libexecdir}/nabu-kernel-offline-finalize
 %{_unitdir}/nabu-kernel-maintenance.service
 %{_unitdir}/nabu-kernel-maintenance.timer
-%{_unitdir}/nabu-kernel-maintenance.path
 %dir %{_unitdir}/dnf5-offline-transaction.service.d
 %{_unitdir}/dnf5-offline-transaction.service.d/90-nabu-offline-uki-finalize.conf
 %dir %{_unitdir}/packagekit.service.d
 %{_unitdir}/packagekit.service.d/20-nabu-packagekit-qos.conf
-%{_libexecdir}/senemos-nabu/nabu-locale-packages
-%{_unitdir}/nabu-locale-packages.service
-%{_unitdir}/nabu-locale-packages.path
-%{_unitdir}/nabu-locale-packages.timer
-%{_presetdir}/91-nabu-locale-packages.preset
 %{_presetdir}/90-nabu-kernel-maintenance.preset
+%{_prefix}/lib/sysctl.d/90-nabu-panic-recovery.conf
 %license system-integration/licenses/*
 %doc system-integration/FIRMWARE-PROVENANCE.md flashlight-integration/API.md
 %config(noreplace) %{_sysconfdir}/dracut.conf.d/99-nabu-generic.conf
@@ -392,7 +385,6 @@ fi
 %{_datadir}/alsa/ucm2/conf.d/sm8150/sm8150.conf
 %{_datadir}/alsa/ucm2/Xiaomi/nabu/HiFi.conf
 %{_bindir}/senemos-nabu-status
-%{_libexecdir}/senemos-nabu/nabu-pmic-rtc-sync
 %{_libexecdir}/senemos-nabu/nabu-slpi-suspend
 %{_libexecdir}/senemos-nabu/nabu-sensor-session-gate
 %{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
@@ -400,13 +392,11 @@ fi
 %{_libexecdir}/senemos-nabu/nabu-prepare-selinux-labels
 %{_libexecdir}/senemos-nabu/nabu-ssh-host-key-guard
 %{_unitdir}/ath10k-shutdown.service
-%{_unitdir}/nabu-pmic-rtc-sync.service
 %{_unitdir}/nabu-slpi-suspend.service
 %{_unitdir}/nabu-sensor-session-gate.service
 %{_unitdir}/nabu-sensor-registry-runtime.service
 %{_unitdir}/nabu-esp32-cdc-log.service
 %{_unitdir}/mnt-vendor-persist.mount
-%{_unitdir}/nabu-root-growfs.service
 %{_unitdir}/nabu-ssh-host-key-restore.service
 %{_unitdir}/nabu-ssh-host-key-save.service
 %{_presetdir}/80-nabu-core.preset
@@ -461,7 +451,7 @@ fi
 %{_datadir}/dnf5/libdnf.conf.d/80-nabu-kernel-retention.conf
 
 %post
-%systemd_post nabu-kernel-maintenance.timer nabu-kernel-maintenance.path nabu-locale-packages.path nabu-locale-packages.timer ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
+%systemd_post nabu-kernel-maintenance.timer ath10k-shutdown.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
@@ -469,13 +459,14 @@ fi
 %posttrans
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl enable --now nabu-kernel-maintenance.timer >/dev/null 2>&1 || :
-    /usr/bin/systemctl enable --now nabu-kernel-maintenance.path >/dev/null 2>&1 || :
-    # Presets cover clean installs; explicitly enable without starting here so
-    # existing systems gain locale following on their next boot without
-    # launching DNF recursively inside this RPM transaction.
-    /usr/bin/systemctl enable nabu-locale-packages.path nabu-locale-packages.timer >/dev/null 2>&1 || :
-    /usr/bin/systemctl reset-failed nabu-locale-packages.path nabu-locale-packages.service >/dev/null 2>&1 || :
-    /usr/bin/systemctl restart nabu-locale-packages.path nabu-locale-packages.timer >/dev/null 2>&1 || :
+    # These former first-boot/path units duplicated Fedora-native image policy
+    # or blocked graphical.target.  Disable them during upgrades as well as
+    # omitting them from fresh installations.
+    /usr/bin/systemctl disable --now \
+        nabu-kernel-maintenance.path \
+        nabu-locale-packages.path nabu-locale-packages.timer \
+        nabu-pmic-rtc-sync.service nabu-root-growfs.service \
+        nabu-refind-sync.path nabu-refind-sync.service >/dev/null 2>&1 || :
     /usr/bin/systemctl reset-failed nabu-kernel-maintenance.service >/dev/null 2>&1 || :
 fi
 /usr/libexec/senemos-nabu/nabu-prepare-selinux-labels || printf 'Warning: Nabu SELinux labels are not ready.\n' >&2
@@ -486,7 +477,7 @@ if [ -x /usr/bin/udevadm ]; then
 fi
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl daemon-reload >/dev/null 2>&1 || :
-    /usr/bin/systemctl enable --now nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service >/dev/null 2>&1 || :
+    /usr/bin/systemctl enable --now nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service >/dev/null 2>&1 || :
     /usr/bin/systemctl reenable nabu-sensor-session-gate.service nabu-esp32-cdc-log.service >/dev/null 2>&1 || :
     /usr/bin/systemctl disable --now hexagonrpcd-adsp-sensorspd.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable rmtfs.service tqftpserv.service mnt-vendor-persist.mount hexagonrpcd-sdsp.service hexagonrpcd-adsp-rootpd.service iio-sensor-proxy.service nabu-sensor-session-gate.service nabu-sar-service.service nabu-cct-iio-bridge.service >/dev/null 2>&1 || :
@@ -495,15 +486,23 @@ if [ -x /usr/bin/systemctl ]; then
 fi
 
 %preun
-%systemd_preun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path nabu-locale-packages.path nabu-locale-packages.timer ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
+%systemd_preun nabu-kernel-maintenance.timer ath10k-shutdown.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
 
 %postun
-%systemd_postun nabu-kernel-maintenance.timer nabu-kernel-maintenance.path nabu-locale-packages.path nabu-locale-packages.timer ath10k-shutdown.service nabu-pmic-rtc-sync.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-root-growfs.service nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
+%systemd_postun nabu-kernel-maintenance.timer ath10k-shutdown.service nabu-slpi-suspend.service nabu-sensor-session-gate.service nabu-sensor-registry-runtime.service nabu-esp32-cdc-log.service mnt-vendor-persist.mount nabu-ssh-host-key-restore.service nabu-ssh-host-key-save.service nabu-sar-service.service nabu-cct-iio-bridge.service
 if [ -x /usr/bin/systemd-hwdb ]; then
     /usr/bin/systemd-hwdb update || :
 fi
 
 %changelog
+* Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-85
+- Ship complete desktop language payloads at compose time and retire the
+  post-setup DNF locale watcher.
+- Defer kernel and rEFInd maintenance until queued work can run while idle, and
+  fold boot-manager synchronization into the same transaction-safe worker.
+- Remove redundant PMIC RTC and root-growfs boot services, enable host-only
+  Nabu initrds, and reboot automatically 15 seconds after a real kernel panic.
+
 * Fri Sep 11 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-84
 - Invalidate prepared UKIs when the owning RPM NEVRA, kernel image or Nabu DTB
   changes even if the kernel uname and EFI filename stay the same.
