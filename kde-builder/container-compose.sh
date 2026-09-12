@@ -23,7 +23,7 @@ dnf5 -y --disablerepo='*openh264*' --setopt=install_weak_deps=False install \
 # here so KDE translations are unpacked during compose, not repaired at login.
 install -d -m0755 /etc/rpm
 printf '%%_install_langs all\n' >/etc/rpm/macros.zz-nabu-languages
-rpm --showrc | grep -Eq '^[^:]*:[[:space:]]+_install_langs[[:space:]]+all$' || \
+[[ "$(rpm --eval '%{_install_langs}')" == all ]] || \
     die 'Compose RPM language policy is not all'
 
 fuse2fs -o fakeroot /work/system.img "$TARGET" >"$LOGS/fuse-mount.log" 2>&1

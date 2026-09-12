@@ -89,7 +89,7 @@ stage_pass "Compose tools installed"
 # before the first target package is installed.
 install -d -m0755 /etc/rpm
 printf '%%_install_langs all\n' >/etc/rpm/macros.zz-nabu-languages
-rpm --showrc | grep -Eq '^[^:]*:[[:space:]]+_install_langs[[:space:]]+all$' || \
+[[ "$(rpm --eval '%{_install_langs}')" == all ]] || \
     core_die "Compose RPM language policy is not all"
 
 cat >/etc/yum.repos.d/nabu-core-stable-compose.repo <<EOF
