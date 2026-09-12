@@ -12,6 +12,7 @@ work_dir="$report_dir/selinux-work"
 dry_run="$report_dir/selinux-setfiles-dry-run.log"
 manifest="$report_dir/selinux-inode-manifest.json"
 policy="$mount_dir/etc/selinux/targeted/contexts/files/file_contexts"
+policy_dir="$mount_dir/etc/selinux/targeted/policy"
 
 for command in debugfs e2fsck fuse2fs fusermount3 mountpoint python3 setfiles; do
     command -v "$command" >/dev/null 2>&1 || {
@@ -40,8 +41,18 @@ fuse2fs -o fakeroot,ro,norecovery "$image" "$mount_dir" \
     >"$report_dir/selinux-fuse-mount.log" 2>&1
 mountpoint -q "$mount_dir" || { printf 'Could not mount EXT4 label inventory view.\n' >&2; exit 1; }
 [[ -s $policy ]] || { printf 'Target SELinux file_contexts is absent from the image.\n' >&2; exit 1; }
+mapfile -t policy_binaries < <(find "$policy_dir" -maxdepth 1 -type f -name 'policy.*' -print | sort -V)
+(( ${#policy_binaries[@]} == 1 )) || {
+    printf 'Expected exactly one target SELinux binary policy, found %s.\n' \
+        "${#policy_binaries[@]}" >&2
+    exit 1
+}
+binary_policy="${policy_binaries[0]}"
 
-setfiles -n -F -v -r "$mount_dir" "$policy" "$mount_dir" >"$dry_run" 2>&1
+# Validate contexts against the image policy rather than the build host's
+# active policy. Rawhide may contain new types that an older host does not know.
+setfiles -n -F -v -c "$binary_policy" -r "$mount_dir" "$policy" "$mount_dir" \
+    >"$dry_run" 2>&1
 if ! "$helper" prepare --root "$mount_dir" --policy "$policy" --dry-run "$dry_run" \
     --manifest "$manifest" --report "$report_dir/selinux-inventory-report.json" \
     2>"$report_dir/selinux-policy-lookup-warnings.log"; then
