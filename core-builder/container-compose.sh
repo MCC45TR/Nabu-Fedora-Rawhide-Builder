@@ -276,10 +276,13 @@ done
    "$(readlink "$root/etc/systemd/system/NetworkManager-wait-online.service")" == /dev/null ]] || \
     core_die "NetworkManager wait-online is not masked"
 
-semodule -p "$root" -X 300 -i \
+SELINUXTYPE=targeted semodule -p "$root" -N -X 300 -i \
     "$root/usr/share/selinux/packages/nabu-iiosensorproxy-qrtr.cil" \
     >"$reports/selinux-iiosensorproxy-qrtr.log" 2>&1
-semodule -p "$root" -X 300 -lfull | grep -Eq '^[[:space:]]*300[[:space:]]+nabu-iiosensorproxy-qrtr[[:space:]]+cil' || \
+SELINUXTYPE=targeted semodule -p "$root" -X 300 -lfull \
+    >"$reports/selinux-modules.txt"
+grep -Eq '^[[:space:]]*300[[:space:]]+nabu-iiosensorproxy-qrtr[[:space:]]+cil' \
+    "$reports/selinux-modules.txt" || \
     core_die "Nabu iio-sensor-proxy QRTR SELinux policy was not installed"
 stage_pass "Recovery networking, SSH, late XHCI, CDC logging, SELinux and Plymouth policy selected"
 

@@ -60,7 +60,7 @@ check 'CORE sets nabu hostname and keeps every RPM language in composer and targ
 check 'writable root, persistent ESP and ordered Initial Setup are image contracts' \
     bash -c 'grep -Eq "^PARTLABEL=linux[[:space:]]+/[[:space:]]+ext4[[:space:]]+rw,[^[:space:]]*x-systemd.growfs" "$1" && grep -Eq "^LABEL=ESPNABU[[:space:]]+/boot/efi[[:space:]]+vfat[[:space:]]+rw," "$1" && grep -Fq "Requires=systemd-remount-fs.service systemd-logind.service" "$2" && grep -Fqx "ConditionPathIsReadWrite=/" "$2" && ! grep -Fq "mountpoint -q -w" "$2" && grep -Fq "Release UKI does not request a writable root" "$3"' _ "$ROOT/core-builder/rootfs/etc/fstab" "$ROOT/core-builder/rootfs/etc/systemd/system/initial-setup.service.d/10-nabu-writable-root.conf" "$VERIFY"
 check 'confined iio-sensor-proxy QRTR SELinux policy is installed by compose' \
-    bash -c 'grep -Fq "iiosensorproxy_t self" "$1" && grep -Fq "qipcrtr_socket" "$1" && grep -Fq "semodule -p" "$2" && grep -Fq "nabu-iiosensorproxy-qrtr" "$2"' _ "$ROOT/core-builder/rootfs/usr/share/selinux/packages/nabu-iiosensorproxy-qrtr.cil" "$COMPOSE"
+    bash -c 'grep -Fq "iiosensorproxy_t self" "$1" && grep -Fq "qipcrtr_socket" "$1" && grep -Fq "semodule -p" "$2" && grep -Fq -- "-N -X 300" "$2" && grep -Fq "selinux-modules.txt" "$2" && grep -Fq "nabu-iiosensorproxy-qrtr" "$2"' _ "$ROOT/core-builder/rootfs/usr/share/selinux/packages/nabu-iiosensorproxy-qrtr.cil" "$COMPOSE"
 check 'ESP contract is 320 MiB with 4096-byte sectors and Android hash pinning' \
     bash -c 'source "$1"; [[ "$CORE_ESP_SIZE_BYTES" == 335544320 && "$CORE_ESP_LOGICAL_SECTOR_SIZE" == 4096 && ${#CORE_REBOOT2ANDROID_SHA256} == 64 ]]' _ "$PROFILE"
 check 'mandatory SLPI firmware is source and hash pinned' \
