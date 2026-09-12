@@ -12,6 +12,17 @@ core_verify_no_overflow_ownership() {
     }
 }
 
+core_verify_root_locked_shadow() {
+    local root="${1:?root is required}" shadow password
+    shadow="$root/etc/shadow"
+    [[ -r "$shadow" ]] || core_die "Target root shadow file is not readable"
+    password="$(awk -F: '$1 == "root" { print $2; found=1; exit }
+        END { if (!found) exit 1 }' "$shadow")" || \
+        core_die "Target root shadow file has no root account"
+    [[ "$password" == '!'* || "$password" == '*'* ]] || \
+        core_die "Target root account is not locked"
+}
+
 core_verify_initramfs_listing() {
     local listing="${1:?listing is required}"
     ! grep -Eiq '(^|[[:space:]])(nobody|65534)([[:space:]]|$)' "$listing" || \

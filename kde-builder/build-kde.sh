@@ -58,9 +58,16 @@ work="$artifact/.work"; meta="$artifact/metadata"; logs="$artifact/logs"; report
 working="$work/system.img"
 system_image="$artifact/fedora-rawhide-mainline-stable-kde-$stamp-system.img"
 esp_image="$artifact/fedora-rawhide-mainline-stable-kde-$stamp-esp.img"
+resume_finalized=0
 
 if [[ -n $RESUME_ARTIFACT ]]; then
-    [[ -s $working ]] || core_die "KDE resume system image is missing: $working"
+    if [[ -s $working ]]; then
+        resume_finalized=0
+    elif [[ -s $system_image ]]; then
+        resume_finalized=1
+    else
+        core_die "KDE resume system image is missing: $working or $system_image"
+    fi
     [[ -s $esp_image ]] || core_die "KDE resume ESP is missing: $esp_image"
     [[ -s $meta/rpm-file-ownership.tsv ]] || core_die "KDE resume ownership manifest is missing"
     [[ -s $meta/rpm-special-modes.tsv ]] || core_die "KDE resume special-mode manifest is missing"
@@ -91,17 +98,19 @@ else
     "$RUNTIME" "${run_args[@]}"
 fi
 
-ownership_batch="$work/rpm-ownership.debugfs"
-while IFS='|' read -r path uid gid; do
-    [[ $path == /* && $uid =~ ^[0-9]+$ && $gid =~ ^[0-9]+$ ]] || continue
-    printf 'set_inode_field "%s" uid %s\nset_inode_field "%s" gid %s\n' "$path" "$uid" "$path" "$gid"
-done <"$meta/rpm-file-ownership.tsv" >"$ownership_batch"
-debugfs -w -f "$ownership_batch" "$working" >"$logs/rpm-ownership-restore.log" 2>&1
-nabu_restore_rpm_special_modes "$working" "$meta/rpm-special-modes.tsv"
-nabu_verify_rpm_special_modes "$working" "$meta/rpm-special-modes.tsv"
-"$REPO_ROOT/tools/lib/relabel-ext4-selinux.sh" "$working" "$reports/selinux-ext4"
-core_verify_ext4_root_identity "$working" "$reports/ext4-validation.log"
-mv -- "$working" "$system_image"
+if (( ! resume_finalized )); then
+    ownership_batch="$work/rpm-ownership.debugfs"
+    while IFS='|' read -r path uid gid; do
+        [[ $path == /* && $uid =~ ^[0-9]+$ && $gid =~ ^[0-9]+$ ]] || continue
+        printf 'set_inode_field "%s" uid %s\nset_inode_field "%s" gid %s\n' "$path" "$uid" "$path" "$gid"
+    done <"$meta/rpm-file-ownership.tsv" >"$ownership_batch"
+    debugfs -w -f "$ownership_batch" "$working" >"$logs/rpm-ownership-restore.log" 2>&1
+    nabu_restore_rpm_special_modes "$working" "$meta/rpm-special-modes.tsv"
+    nabu_verify_rpm_special_modes "$working" "$meta/rpm-special-modes.tsv"
+    "$REPO_ROOT/tools/lib/relabel-ext4-selinux.sh" "$working" "$reports/selinux-ext4"
+    core_verify_ext4_root_identity "$working" "$reports/ext4-validation.log"
+    mv -- "$working" "$system_image"
+fi
 
 mount_dir="$work/mnt"
 cleanup() { mountpoint -q "$mount_dir" 2>/dev/null && fusermount3 -u "$mount_dir" || :; }
@@ -112,7 +121,7 @@ core_verify_no_overflow_ownership "$mount_dir" "$reports/final-overflow-ownershi
 rpm --root "$mount_dir" --dbpath /usr/lib/sysimage/rpm -q \
     "$KDE_META_PACKAGE" "$KDE_KERNEL_PACKAGE" nabu-core-meta \
     plasma-login-manager glibc-all-langpacks >"$meta/final-selection.txt"
-chroot "$mount_dir" /usr/bin/passwd -S root | grep -Eq '^root[[:space:]]+L[[:space:]]' || core_die 'Final KDE root is not locked'
+core_verify_root_locked_shadow "$mount_dir"
 [[ -L "$mount_dir/etc/systemd/system/nabu-esp32-cdc-log.service" && \
    $(readlink "$mount_dir/etc/systemd/system/nabu-esp32-cdc-log.service") == /dev/null ]] || core_die 'Final KDE CDC logger is not masked'
 [[ ! -e "$mount_dir/etc/ssh/sshd_config.d/20-nabu-recovery.conf" ]] || core_die 'CORE root SSH policy remains in KDE'
