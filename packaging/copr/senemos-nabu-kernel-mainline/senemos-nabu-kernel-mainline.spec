@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -156,6 +156,7 @@ Patch0136:      0136-senemos-add-kernel-backed-Nabu-power-profiles.patch
 Patch0137:      0137-senemos-derive-stable-Nabu-wireless-addresses.patch
 Patch0138:      0138-senemos-pin-the-Nabu-production-security-baseline.patch
 Patch0139:      0139-arm64-dts-qcom-describe-SM8150-PRNG-safely.patch
+Patch0140:      0140-arm64-dts-qcom-preserve-Nabu-panic-records-in-ramoops.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -176,8 +177,8 @@ BuildRequires:  rsync
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  xz
 BuildRequires:  zstd
-Requires:       nabu-kernel-maintenance-api >= 5
-Requires:       nabu-boot-integration >= 2.0.0-29.test
+Requires:       nabu-kernel-maintenance-api >= 7
+Requires:       nabu-boot-integration >= 2.0.0-43.test
 Provides:       kernel-nabu-core-uname-r
 Requires(posttrans): coreutils
 Requires(postun): kmod
@@ -390,6 +391,12 @@ scripts/dtc/dtc -I dtb -O dts \
     %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
 grep -Fq 'model = "Xiaomi Pad 5";' %{_builddir}/nabu-final.dts
 ! grep -Fq 'with cameras' %{_builddir}/nabu-final.dts
+grep -A10 -F 'ramoops@b0000000' %{_builddir}/nabu-final.dts \
+    | grep -Fq 'record-size = <0x100000>;'
+grep -A10 -F 'ramoops@b0000000' %{_builddir}/nabu-final.dts \
+    | grep -Fq 'console-size = <0x100000>;'
+grep -A10 -F 'ramoops@b0000000' %{_builddir}/nabu-final.dts \
+    | grep -Fq 'ftrace-size = <0x200000>;'
 grep -A8 -F 'rng@793000' %{_builddir}/nabu-final.dts \
     | grep -Fq 'compatible = "qcom,prng-ee";'
 grep -A8 -F 'rng@793000' %{_builddir}/nabu-final.dts \
@@ -405,7 +412,9 @@ grep -Fq 'nvmem-cells = <&rtc_offset>;' \
 ! grep -Fq 'allow-set-time;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 grep -Fq 'IRQF_NO_AUTOEN' drivers/remoteproc/qcom_q6v5.c
-grep -Fq 'console-size = <0x200000>;' \
+grep -Fq 'record-size = <0x100000>;' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+grep -Fq 'console-size = <0x100000>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
 grep -Fq 'ftrace-size = <0x200000>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
@@ -483,6 +492,11 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-7
+- Restore a one-MiB ramoops dmesg record for otherwise unobservable hard UI
+  freezes while retaining one MiB of console and two MiB of persistent ftrace.
+- Require the idle/offline maintenance and automatic-rEFInd integration APIs.
+
 * Fri Sep 11 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-6
 - Keep camera support while exposing the clean product name Xiaomi Pad 5.
 

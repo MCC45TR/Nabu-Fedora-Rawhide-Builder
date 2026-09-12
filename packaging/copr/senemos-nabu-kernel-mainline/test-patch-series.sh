@@ -327,7 +327,9 @@ grep -Fq 'nvmem-cells = <&rtc_offset>;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 grep -Fq 'IRQF_NO_AUTOEN' \
     "$work/linux-$version/drivers/remoteproc/qcom_q6v5.c"
-grep -Fq 'console-size = <0x200000>;' \
+grep -Fq 'record-size = <0x100000>;' \
+    "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi"
+grep -Fq 'console-size = <0x100000>;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi"
 grep -Fq 'ftrace-size = <0x200000>;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
