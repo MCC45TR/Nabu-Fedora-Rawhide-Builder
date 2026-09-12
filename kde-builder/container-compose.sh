@@ -176,7 +176,7 @@ for path in ("/.unconfigured", "/etc/nabu-image/desktop-profile", "/etc/systemd/
              "/etc/systemd/system/display-manager.service", "/etc/systemd/system/nabu-esp32-cdc-log.service"):
     if os.path.lexists(root + path): owners[path] = (0, 0)
 with open(output, "w", encoding="utf-8") as f:
-    for path, (uid, gid) in sorted(owners.items()): f.write(f"{path}|{uid}|{gid}\\n")
+    for path, (uid, gid) in sorted(owners.items()): f.write(f"{path}|{uid}|{gid}\n")
 PY
 source /builder-source/gnome-builder/lib/rpm-special-modes.sh
 nabu_capture_rpm_special_modes "$TARGET" "$META/rpm-special-modes.tsv"

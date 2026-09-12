@@ -12,15 +12,19 @@ source "$SCRIPT_DIR/profile.env"
 
 CORE_SYSTEM=
 CORE_ESP=
+RESUME_ARTIFACT=
 OUTPUT_ROOT="$REPO_ROOT/output/kde"
 RUNTIME=${KDE_CONTAINER_RUNTIME:-auto}
-usage() { echo 'Usage: kde-builder/build-kde.sh --core-system FILE --core-esp FILE [--output DIR] [--runtime docker|podman]'; }
+usage() {
+    echo 'Usage: kde-builder/build-kde.sh --core-system FILE --core-esp FILE [--output DIR] [--runtime docker|podman] [--resume-artifact DIR]'
+}
 while (($#)); do
     case "$1" in
         --core-system) CORE_SYSTEM=${2:?}; shift 2 ;;
         --core-esp) CORE_ESP=${2:?}; shift 2 ;;
         --output) OUTPUT_ROOT=${2:?}; shift 2 ;;
         --runtime) RUNTIME=${2:?}; shift 2 ;;
+        --resume-artifact) RESUME_ARTIFACT=${2:?}; shift 2 ;;
         --help|-h) usage; exit 0 ;;
         *) core_die "Unknown KDE option: $1" ;;
     esac
@@ -37,33 +41,55 @@ for cmd in cp debugfs e2fsck fsck.vfat fuse2fs fusermount3 mountpoint resize2fs 
     core_require_command "$cmd"
 done
 
-mkdir -p "$OUTPUT_ROOT"
-OUTPUT_ROOT="$(cd -- "$OUTPUT_ROOT" && pwd -P)"
-stamp=$(date -u +%Y%m%dT%H%M%SZ)
-artifact="$OUTPUT_ROOT/kde-rawhide-mainline-stable-$stamp"
+if [[ -n $RESUME_ARTIFACT ]]; then
+    [[ -d $RESUME_ARTIFACT ]] || core_die "KDE resume artifact is not a directory: $RESUME_ARTIFACT"
+    artifact="$(cd -- "$RESUME_ARTIFACT" && pwd -P)"
+    artifact_name="$(basename -- "$artifact")"
+    [[ $artifact_name =~ ^kde-rawhide-mainline-stable-([0-9]{8}T[0-9]{6}Z)$ ]] || \
+        core_die "KDE resume artifact has an unexpected name: $artifact_name"
+    stamp="${BASH_REMATCH[1]}"
+else
+    mkdir -p "$OUTPUT_ROOT"
+    OUTPUT_ROOT="$(cd -- "$OUTPUT_ROOT" && pwd -P)"
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    artifact="$OUTPUT_ROOT/kde-rawhide-mainline-stable-$stamp"
+fi
 work="$artifact/.work"; meta="$artifact/metadata"; logs="$artifact/logs"; reports="$artifact/reports"
-mkdir -p "$work/mnt" "$meta" "$logs" "$reports"
 working="$work/system.img"
 system_image="$artifact/fedora-rawhide-mainline-stable-kde-$stamp-system.img"
 esp_image="$artifact/fedora-rawhide-mainline-stable-kde-$stamp-esp.img"
-cp --reflink=auto -- "$CORE_SYSTEM" "$working"
-cp --reflink=auto -- "$CORE_ESP" "$esp_image"
-sha256sum "$CORE_SYSTEM" "$CORE_ESP" >"$meta/core-sources.sha256"
-e2fsck -f -y "$working" >"$logs/ext4-grow-fsck.log" 2>&1
-truncate -s "$KDE_IMAGE_SIZE" "$working"
-resize2fs "$working" >"$logs/ext4-grow.log" 2>&1
 
-"$RUNTIME" pull --platform linux/arm64 "$KDE_CONTAINER_IMAGE" >/dev/null
-digest=$("$RUNTIME" image inspect "$KDE_CONTAINER_IMAGE" --format '{{.Id}}')
-run_args=(run --rm --privileged --platform linux/arm64)
-[[ $RUNTIME == podman ]] && run_args+=(--security-opt label=disable)
-run_args+=(
-    -v "$work:/work:rw" -v "$meta:/meta:rw" -v "$logs:/logs:rw"
-    -v "$REPO_ROOT:/builder-source:ro" -v "$SCRIPT_DIR/profile.env:/builder/profile.env:ro"
-    -v "$SCRIPT_DIR/container-compose.sh:/builder/container-compose.sh:ro"
-    "$KDE_CONTAINER_IMAGE" /usr/bin/bash /builder/container-compose.sh
-)
-"$RUNTIME" "${run_args[@]}"
+if [[ -n $RESUME_ARTIFACT ]]; then
+    [[ -s $working ]] || core_die "KDE resume system image is missing: $working"
+    [[ -s $esp_image ]] || core_die "KDE resume ESP is missing: $esp_image"
+    [[ -s $meta/rpm-file-ownership.tsv ]] || core_die "KDE resume ownership manifest is missing"
+    [[ -s $meta/rpm-special-modes.tsv ]] || core_die "KDE resume special-mode manifest is missing"
+    mountpoint -q "$work/mnt" 2>/dev/null && core_die "KDE resume work mount is still active"
+    grep -Eq '^/[^|]*\|[0-9]+\|[0-9]+$' "$meta/rpm-file-ownership.tsv" || \
+        core_die "KDE resume ownership manifest has no valid records"
+    ! grep -Fq '\n' "$meta/rpm-file-ownership.tsv" || \
+        core_die "KDE resume ownership manifest contains escaped newlines"
+else
+    mkdir -p "$work/mnt" "$meta" "$logs" "$reports"
+    cp --reflink=auto -- "$CORE_SYSTEM" "$working"
+    cp --reflink=auto -- "$CORE_ESP" "$esp_image"
+    sha256sum "$CORE_SYSTEM" "$CORE_ESP" >"$meta/core-sources.sha256"
+    e2fsck -f -y "$working" >"$logs/ext4-grow-fsck.log" 2>&1
+    truncate -s "$KDE_IMAGE_SIZE" "$working"
+    resize2fs "$working" >"$logs/ext4-grow.log" 2>&1
+
+    "$RUNTIME" pull --platform linux/arm64 "$KDE_CONTAINER_IMAGE" >/dev/null
+    digest=$("$RUNTIME" image inspect "$KDE_CONTAINER_IMAGE" --format '{{.Id}}')
+    run_args=(run --rm --privileged --platform linux/arm64)
+    [[ $RUNTIME == podman ]] && run_args+=(--security-opt label=disable)
+    run_args+=(
+        -v "$work:/work:rw" -v "$meta:/meta:rw" -v "$logs:/logs:rw"
+        -v "$REPO_ROOT:/builder-source:ro" -v "$SCRIPT_DIR/profile.env:/builder/profile.env:ro"
+        -v "$SCRIPT_DIR/container-compose.sh:/builder/container-compose.sh:ro"
+        "$KDE_CONTAINER_IMAGE" /usr/bin/bash /builder/container-compose.sh
+    )
+    "$RUNTIME" "${run_args[@]}"
+fi
 
 ownership_batch="$work/rpm-ownership.debugfs"
 while IFS='|' read -r path uid gid; do
