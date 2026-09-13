@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        44.test%{?dist}
+Release:        45.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -140,9 +140,8 @@ grep -Fq 'managed_uki_family' manager/nabu-configure-boot-manager
 grep -Fq 'SENEMOS6|SENEMOS7|SENEMOS7U' manager/nabu-configure-boot-manager
 grep -Fq 'SENEMOS7U' tests/test-boot-manager.sh
 grep -Fq 'refind-local.conf' manager/nabu-configure-boot-manager
-grep -Fqx "            echo 'scanfor internal'" manager/nabu-configure-boot-manager
-grep -Fqx "            echo 'also_scan_dirs EFI/fedora,EFI/android'" manager/nabu-configure-boot-manager
-! grep -Fq 'menuentry "Reboot to Android"' manager/nabu-configure-boot-manager
+grep -Fqx "            echo 'scanfor manual'" manager/nabu-configure-boot-manager
+grep -Fq 'menuentry "Reboot to Android"' manager/nabu-configure-boot-manager
 grep -Fq -- '--family SENEMOS_FAMILY' payload/usr/bin/nabu-regenerate-uki
 grep -Fqx 'resolution 1600 2560' manager/refind-theme-regular/theme.conf
 grep -Fqx 'big_icon_size 256' manager/refind-theme-regular/theme.conf
@@ -327,6 +326,11 @@ fi
 %{_datadir}/plymouth/themes/senemos-nabu/
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-45.test
+- Generate an explicit menu for each managed SENEMOS family plus Android so
+  rEFInd cannot rediscover stale loaders from other internal volumes.
+- Keep update convergence at one UKI per family and test exact manual entries.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-44.test
 - Treat semantic stable-mainline UKIs as one managed SENEMOS family while
   reclaiming ESP space, so a future 7.2.y update replaces its predecessor.
