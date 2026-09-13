@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -164,6 +164,7 @@ Patch0144:      0144-arm64-dts-qcom-enable-bounded-OV8856-recovery-on-Nab.patch
 Patch0145:      0145-clk-qcom-restore-firmware-owned-Nabu-DSI-branches.patch
 Patch0146:      0146-ufs-qcom-keep-Nabu-runtime-link-active.patch
 Patch0147:      0147-senemos-recover-from-persistent-Nabu-kernel-stalls.patch
+Patch0148:      0148-power-supply-qcom_fg-expose-charge-telemetry.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -438,6 +439,14 @@ grep -Fq 'qcom,broken-runtime-pm;' \
 grep -Fq 'qcom,broken-runtime-pm' drivers/ufs/host/ufs-qcom.c
 grep -A4 -F 'qcom,broken-runtime-pm' drivers/ufs/host/ufs-qcom.c \
     | grep -Fq 'hba->caps &= ~UFSHCD_CAP_RPM_AUTOSUSPEND;'
+grep -Fq 'POWER_SUPPLY_PROP_CHARGE_FULL,' drivers/power/supply/qcom_fg.c
+grep -Fq 'POWER_SUPPLY_PROP_CHARGE_NOW,' drivers/power/supply/qcom_fg.c
+grep -A12 -F 'case POWER_SUPPLY_PROP_CHARGE_NOW:' \
+    drivers/power/supply/qcom_fg.c \
+    | grep -Fq 'chip->ops->get_capacity(chip, &temp);'
+grep -A12 -F 'case POWER_SUPPLY_PROP_CHARGE_NOW:' \
+    drivers/power/supply/qcom_fg.c \
+    | grep -Fq 'div_u64((u64)chip->batt_info->charge_full_design_uah *'
 grep -Fq '#define FASTRPC_SDSP_IOVA_BASE' drivers/misc/fastrpc.c
 grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
     drivers/misc/fastrpc.c
@@ -512,6 +521,12 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-12
+- Expose charge-full and SOC-derived charge-now values from qcom_fg so UPower
+  can combine them with measured current and voltage for KDE battery and
+  power-consumption history.
+- Keep the UFS runtime-PM and bounded stall recovery fixes from release 11.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-11
 - Keep Nabu's UFS logical units active at runtime after live HIL captured a
   Samsung UniPro TC replay timeout during device-WLUN resume, failed link

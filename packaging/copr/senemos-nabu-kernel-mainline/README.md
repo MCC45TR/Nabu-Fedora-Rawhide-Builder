@@ -8,6 +8,13 @@ the complete Nabu patch and configuration gate passes. The accepted commit then
 triggers the COPR SCM package's automatic rebuild; a failed port leaves the last
 working repository result untouched.
 
+Release 7.2.4-12 adds the charge-full and SOC-derived charge-now attributes
+required by UPower's charge-based accounting. UPower can therefore combine
+the fuel gauge's measured current and voltage with remaining charge, allowing
+KDE to populate battery and power-consumption history instead of displaying
+zero energy. The remaining-charge value is an SOC-based estimate; the
+instantaneous power source remains the hardware current/voltage telemetry.
+
 Release 7.2.4-11 disables only UFS runtime autosuspend on Nabu after physical
 HIL captured a Samsung UniPro TC replay timeout during device-WLUN resume. The
 failed recovery exhausted the reserved management request, returned `-ENOMEM`,

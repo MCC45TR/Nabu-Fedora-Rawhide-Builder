@@ -145,3 +145,4 @@ edd665289be367eaa4e84a29b11593a6eeb3df47e966a5fc353f52a1df8d3afd  0144-arm64-dts
 d842dbbefcdfca26aa05947ee6434ef11f0b796948465af84adbd699d7930ba6  0145-clk-qcom-restore-firmware-owned-Nabu-DSI-branches.patch
 7902960ea26ba91314d0338290fdb154b7d4d3c05a11c189e05ba8fa4ed16d68  0146-ufs-qcom-keep-Nabu-runtime-link-active.patch
 092754075bdf8259ad901f940161b8162ef4e745c322026da637c4af9e7357e4  0147-senemos-recover-from-persistent-Nabu-kernel-stalls.patch
+103f8caf9c49417b0012e5a57ce2599576a564671873e5de8963a0653f58f273  0148-power-supply-qcom_fg-expose-charge-telemetry.patch

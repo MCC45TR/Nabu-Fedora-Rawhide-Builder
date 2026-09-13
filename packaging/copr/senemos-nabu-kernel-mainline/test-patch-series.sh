@@ -329,6 +329,13 @@ grep -A10 -F 'of_machine_is_compatible("xiaomi,nabu")' "$ufs_qcom" \
 grep -Fq 'qcom,broken-runtime-pm' "$ufs_qcom"
 grep -A4 -F 'qcom,broken-runtime-pm' "$ufs_qcom" \
     | grep -Fq 'hba->caps &= ~UFSHCD_CAP_RPM_AUTOSUSPEND;'
+fuel_gauge="$work/linux-$version/drivers/power/supply/qcom_fg.c"
+grep -Fq 'POWER_SUPPLY_PROP_CHARGE_FULL,' "$fuel_gauge"
+grep -Fq 'POWER_SUPPLY_PROP_CHARGE_NOW,' "$fuel_gauge"
+grep -A12 -F 'case POWER_SUPPLY_PROP_CHARGE_NOW:' "$fuel_gauge" \
+    | grep -Fq 'chip->ops->get_capacity(chip, &temp);'
+grep -A12 -F 'case POWER_SUPPLY_PROP_CHARGE_NOW:' "$fuel_gauge" \
+    | grep -Fq 'div_u64((u64)chip->batt_info->charge_full_design_uah *'
 grep -Fq 'qcom,broken-runtime-pm:' \
     "$work/linux-$version/Documentation/devicetree/bindings/ufs/qcom,ufs-common.yaml"
 nabu_dts="$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"

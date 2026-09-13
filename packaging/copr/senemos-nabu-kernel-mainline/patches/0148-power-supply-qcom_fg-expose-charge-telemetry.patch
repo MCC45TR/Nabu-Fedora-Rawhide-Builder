@@ -1,0 +1,59 @@
+From 26eb339d97038cfba79c3a131d6d06f054e62c71 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 13 Sep 2026 10:47:26 +0300
+Subject: [PATCH 148/148] power: supply: qcom_fg: expose charge telemetry
+
+UPower chooses charge-based accounting only when charge_full exists. Nabu's
+fuel gauge already reports the real instantaneous battery current, voltage,
+state of charge and design charge, but only publishes charge_full_design.
+Consequently UPower leaves energy, energy-full and energy-rate at zero and KDE
+cannot draw battery charge or power-consumption history.
+
+Publish charge_full from the immutable design capacity supported by this fuel
+gauge and derive charge_now from that capacity and the gauge-reported state of
+charge. This lets UPower combine charge values with the measured voltage and
+current. The remaining-capacity value is an SOC-based estimate; instantaneous
+power continues to originate from the hardware current and voltage readings.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/power/supply/qcom_fg.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/power/supply/qcom_fg.c b/drivers/power/supply/qcom_fg.c
+index fe396a84b..f84d10095 100644
+--- a/drivers/power/supply/qcom_fg.c
++++ b/drivers/power/supply/qcom_fg.c
+@@ -880,7 +880,9 @@ static enum power_supply_property qcom_fg_props[] = {
+ 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+ 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
+ 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
++	POWER_SUPPLY_PROP_CHARGE_FULL,
+ 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
++	POWER_SUPPLY_PROP_CHARGE_NOW,
+ 	POWER_SUPPLY_PROP_PRESENT,
+ 	POWER_SUPPLY_PROP_TEMP,
+ 	POWER_SUPPLY_PROP_TEMP_MIN,
+@@ -957,9 +959,19 @@ static int qcom_fg_get_property(struct power_supply *psy,
+ 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
+ 		val->intval = chip->batt_info->voltage_max_design_uv;
+ 		break;
++	case POWER_SUPPLY_PROP_CHARGE_FULL:
+ 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+ 		val->intval = chip->batt_info->charge_full_design_uah;
+ 		break;
++	case POWER_SUPPLY_PROP_CHARGE_NOW:
++		if (chip->batt_info->charge_full_design_uah <= 0)
++			return -ENODATA;
++
++		ret = chip->ops->get_capacity(chip, &temp);
++		if (!ret)
++			val->intval = div_u64((u64)chip->batt_info->charge_full_design_uah *
++					      temp, 100);
++		break;
+ 	case POWER_SUPPLY_PROP_PRESENT:
+ 		val->intval = 1;
+ 		break;
+-- 
+2.55.0
+
