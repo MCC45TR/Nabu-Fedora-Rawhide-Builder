@@ -7,6 +7,17 @@ unified=$copr_dir/nabu-unified-meta
 top=${1:-$root/rpmbuild}
 mkdir -p "$top"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 
+kde_name=nabu-kde-integration-1.4.0.1
+kde_source="$unified/vendor-src/$kde_name"
+kde_archive="$unified/vendor/$kde_name.tar.gz"
+[[ -d $kde_source ]] || {
+    printf 'Missing canonical KDE integration source: %s\n' "$kde_source" >&2
+    exit 1
+}
+tar -czf "$kde_archive" \
+    --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
+    -C "$unified/vendor-src" "$kde_name"
+
 # nabu-desktop-metas.spec is generated and reviewed in the source tree.  Keep
 # the generator as a maintainer tool, but do not require Python in COPR's
 # deliberately minimal SRPM preparation chroot.
@@ -14,7 +25,7 @@ mkdir -p "$top"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 install -m0644 \
     "$unified/vendor/nabu-kde-l10n-1.1.0.tar.gz" \
     "$unified/vendor/nabu-flashlight-integration-1.0.0.tar.gz" \
-    "$unified/vendor/nabu-kde-integration-1.4.0.1.tar.gz" \
+    "$kde_archive" \
     "$unified/vendor/nabu-kde-widgets-debug-1.0.1.tar.zst" \
     "$copr_dir/nabu-plasma-base/95-nabu-plasma-login.preset" \
     "$copr_dir/nabu-plasma-login-theme/80-nabu-plasma-login-theme.conf" \

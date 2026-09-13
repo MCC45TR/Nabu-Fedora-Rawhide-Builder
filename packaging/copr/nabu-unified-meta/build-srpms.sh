@@ -17,6 +17,17 @@ tar --zstd -cf "$integration_archive" \
     --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
     -C "$source_dir/vendor-src" "$integration_name"
 
+kde_name=nabu-kde-integration-1.4.0.1
+kde_source="$source_dir/vendor-src/$kde_name"
+kde_archive="$source_dir/vendor/$kde_name.tar.gz"
+[[ -d $kde_source ]] || {
+    printf 'Missing canonical KDE integration source: %s\n' "$kde_source" >&2
+    exit 1
+}
+tar -czf "$kde_archive" \
+    --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
+    -C "$source_dir/vendor-src" "$kde_name"
+
 install -m0644 "$copr_dir/nabu-repository-config/nabu-linux-copr.repo" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-repository-config/90-nabu-disable-cisco-openh264.repo" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.service" "$top_dir/SOURCES/"

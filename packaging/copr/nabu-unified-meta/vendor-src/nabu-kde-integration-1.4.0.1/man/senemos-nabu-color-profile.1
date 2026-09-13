@@ -1,0 +1,101 @@
+.TH SENEMOS-NABU-COLOR-PROFILE 1 "7 September 2026" "SENEMOS" "User Commands"
+.SH NAME
+senemos-nabu-color-profile \- convert authorized Nabu QDCM calibration to ICC
+.SH SYNOPSIS
+.B senemos-nabu-color-profile catalog
+.br
+.B senemos-nabu-color-profile import
+.I qdcm.xml
+[
+.BI --output-dir= directory
+]
+.br
+.B senemos-nabu-color-profile validate
+.I profile.icc
+.br
+.B senemos-nabu-color-profile apply
+.RB { srgb | display-p3 }
+[
+.BI --panel= revision
+]
+[
+.BI --profile-dir= directory
+]
+[
+.BI --output= connector
+]
+[
+.B --dry-run
+]
+.br
+.B senemos-nabu-color-profile auto
+[
+.BI --profile-dir= directory
+]
+[
+.BI --output= connector
+]
+[
+.BI --marker= path
+]
+[
+.BI --retries= count
+]
+[
+.B --dry-run
+]
+.SH DESCRIPTION
+.B senemos-nabu-color-profile
+creates ICC v4 RGB display profiles for KDE KWin from a locally supplied,
+authorized Xiaomi Pad 5 QDCM XML. The proprietary source XML is not copied or
+installed. Generated profiles default to
+.IR ~/.local/share/icc/senemos/nabu .
+.PP
+The static Android HAL sRGB and Display P3 SDR modes are supported. Native,
+content-aware, PA-v2 video and HDR modes are intentionally excluded because
+they cannot be represented faithfully by this conversion path.
+.SH COMMANDS
+.TP
+.B catalog
+List supported and deliberately excluded Android modes.
+.TP
+.BI import " qdcm.xml"
+Generate separate sRGB and Display P3 ICC profiles for the panel revision
+encoded in the authorized XML filename.
+.TP
+.BI validate " profile.icc"
+Check display class, RGB/XYZ spaces, required tags and KWin-compatible
+BToA 33x33x33 LUTs.
+.TP
+.BI apply " profile"
+Validate and apply a generated SDR profile to the enabled internal DSI output
+through kscreen-doctor.
+.TP
+.B auto
+Read the kernel's Nabu panel revision, falling back to the read-only UEFI panel
+configuration on older kernels, then select the matching packaged sRGB ICC for
+the current user. An existing packaged sRGB or Display P3 choice is
+kept on the correct panel variant. Custom profiles and later user overrides
+are preserved. If neither source exposes a supported revision, no display
+setting is changed.
+.SH SAFETY
+Use
+.B --dry-run
+before applying a profile. Panel revision and physical color accuracy still
+require device-side verification with a colorimeter. The generated profile is
+an experimental conversion of the documented IGC, fine 3D LUT and GC stages,
+not proof of pixel-for-pixel equivalence with Android's proprietary display
+HAL.
+.PP
+KWin calls only EDID-derived colorimetry "Built-in". The Nabu DSI panel has no
+EDID, and choosing that source would not execute the factory 3D LUT. The tool
+therefore uses KWin's ICC source instead of presenting a false built-in state.
+.SH FILES
+.TP
+.I ~/.local/share/icc/senemos/nabu
+Default output and lookup directory for generated profiles.
+.TP
+.I ~/.local/state/senemos-nabu/color-profile-auto.json
+Per-user state recording whether automatic selection still owns the setting.
+.SH SEE ALSO
+.BR kscreen-doctor (1)

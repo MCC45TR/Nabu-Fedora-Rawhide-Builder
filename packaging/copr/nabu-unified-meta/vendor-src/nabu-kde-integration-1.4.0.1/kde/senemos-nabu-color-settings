@@ -1,0 +1,71 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+
+readonly profile_dir=${SENEMOS_NABU_PROFILE_DIR:-/usr/share/color/icc/senemos/nabu}
+readonly profile_tool=${SENEMOS_NABU_PROFILE_TOOL:-/usr/bin/senemos-nabu-color-profile}
+
+show_catalog() {
+    printf '%s\t%s\t%s\n' \
+        36-02-0b-srgb 36-02-0b 'Android HAL sRGB' \
+        36-02-0b-display-p3 36-02-0b 'Android HAL Display P3' \
+        42-02-0a-srgb 42-02-0a 'Android HAL sRGB' \
+        42-02-0a-display-p3 42-02-0a 'Android HAL Display P3'
+}
+
+apply_selection() {
+    local selection=$1
+    local dry_run=${2:-false}
+    local panel profile
+
+    case "$selection" in
+        36-02-0b-srgb) panel=36-02-0b; profile=srgb ;;
+        36-02-0b-display-p3) panel=36-02-0b; profile=display-p3 ;;
+        42-02-0a-srgb) panel=42-02-0a; profile=srgb ;;
+        42-02-0a-display-p3) panel=42-02-0a; profile=display-p3 ;;
+        *) printf 'Unknown Nabu color profile: %s\n' "$selection" >&2; return 2 ;;
+    esac
+
+    local -a command=("$profile_tool" apply "$profile" --panel "$panel" --profile-dir "$profile_dir")
+    if [[ $dry_run == true ]]; then
+        command+=(--dry-run)
+    fi
+    "${command[@]}"
+}
+
+case ${1:-} in
+    --list)
+        show_catalog
+        exit 0
+        ;;
+    --apply)
+        [[ $# -ge 2 ]] || { printf 'Usage: %s --apply PROFILE [--dry-run]\n' "$0" >&2; exit 2; }
+        dry_run=false
+        [[ ${3:-} == --dry-run ]] && dry_run=true
+        apply_selection "$2" "$dry_run"
+        exit
+        ;;
+    --help|-h)
+        printf 'Usage: %s [--list | --apply PROFILE [--dry-run]]\n' "$0"
+        exit 0
+        ;;
+    '') ;;
+    *) printf 'Unknown option: %s\n' "$1" >&2; exit 2 ;;
+esac
+
+selection=$(/usr/bin/kdialog \
+    --title 'Nabu Color Profiles' \
+    --menu 'Select the profile matching the panel revision:' \
+    36-02-0b-srgb '36-02-0b — Android HAL sRGB' \
+    36-02-0b-display-p3 '36-02-0b — Android HAL Display P3' \
+    42-02-0a-srgb '42-02-0a — Android HAL sRGB' \
+    42-02-0a-display-p3 '42-02-0a — Android HAL Display P3') || exit 0
+
+if output=$(apply_selection "$selection" 2>&1); then
+    /usr/bin/kdialog --title 'Nabu Color Profiles' \
+        --passivepopup "Profile applied. $output" 5
+else
+    status=$?
+    /usr/bin/kdialog --title 'Nabu Color Profiles' --error "$output"
+    exit "$status"
+fi

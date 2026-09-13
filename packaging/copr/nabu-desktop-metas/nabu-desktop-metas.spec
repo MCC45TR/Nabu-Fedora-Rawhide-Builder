@@ -3,7 +3,7 @@
 
 Name:           nabu-desktop-metas
 Version:        3.0.0
-Release:        100%{?dist}
+Release:        104%{?dist}
 Summary:        Unified desktop profile family for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-or-later AND BSD-2-Clause AND CC0-1.0
 URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder
@@ -43,7 +43,7 @@ semantics are preserved for ordinary DNF upgrades.
 
 %package -n gnome-nabu-meta
 Summary:        Complete GNOME release profile for Xiaomi Pad 5
-Requires:       nabu-core-meta >= 3.0.0-35
+Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       coreutils
@@ -109,7 +109,7 @@ stock Fedora GNOME application set and makes the Nabu locale payload mandatory.
 
 %package -n gnome-mobile-nabu-meta
 Summary:        Complete touch-oriented GNOME release profile for Xiaomi Pad 5
-Requires:       nabu-core-meta >= 3.0.0-35
+Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       coreutils
@@ -167,7 +167,7 @@ closed. The complete application and mandatory locale payload remains explicit.
 
 %package -n kde-plasma-nabu-meta
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
-Requires:       nabu-core-meta >= 3.0.0-34
+Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       color-filesystem
@@ -271,7 +271,7 @@ or Fedora package is forked, replaced or obsoleted.
 
 %package -n kde-plasma-mobile-nabu-meta
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
-Requires:       nabu-core-meta >= 3.0.0-34
+Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       color-filesystem
@@ -363,7 +363,7 @@ claims to replace plasma-desktop.
 
 %package -n phosh-nabu-meta
 Summary:        Complete Phosh release profile for Xiaomi Pad 5
-Requires:       nabu-core-meta >= 3.0.0
+Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       coreutils
@@ -505,6 +505,8 @@ grep -Fq 'audio.position = [ FL FR RL RR ]' kde-integration/kde/nabu-speaker-fil
 python3 kde-integration/kde/senemos-nabu-color-profile catalog
 python3 -m unittest -v kde-integration/tests/test_color_profile.py
 python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
+test ! -e kde-integration/kde/nabu-color-profile-auto.service
+! grep -Fq 'nabu-color-profile-auto.service' kde-integration/kde/90-nabu-kde.preset
 bash -n kde-integration/kde/senemos-nabu-color-settings
 desktop-file-validate kde-integration/kde/org.senemos.nabu.colorprofiles.desktop
 python3 -c 'import json, pathlib; root=pathlib.Path("widgets"); expected={"com.mcc45tr.filesearch","com.mcc45tr.mweather","com.mcc45tr.analogclock"}; assert {json.loads((root/x/"metadata.json").read_text())["KPlugin"]["Id"] for x in expected} == expected'
@@ -517,6 +519,8 @@ python3 -m py_compile kde-integration/kde/nabu-audio-orientation kde-integration
 python3 kde-integration/kde/senemos-nabu-color-profile catalog
 python3 -m unittest -v kde-integration/tests/test_color_profile.py
 python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
+test ! -e kde-integration/kde/nabu-color-profile-auto.service
+! grep -Fq 'nabu-color-profile-auto.service' kde-integration/kde/90-nabu-kde.preset
 bash -n kde-integration/kde/senemos-nabu-color-settings
 desktop-file-validate kde-integration/kde/org.senemos.nabu.colorprofiles.desktop
 python3 -c 'import json, pathlib; root=pathlib.Path("widgets"); expected={"com.mcc45tr.filesearch","com.mcc45tr.mweather","com.mcc45tr.analogclock"}; assert {json.loads((root/x/"metadata.json").read_text())["KPlugin"]["Id"] for x in expected} == expected'
@@ -725,6 +729,23 @@ fi
 %{_sysconfdir}/rpm/macros.nabu-languages
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-104
+- Keep all panel-specific ICC profiles discoverable by stock KDE/KScreen.
+- Stop selecting or changing a color profile automatically at user login.
+- Rebuild the KDE payload deterministically from its reviewed source tree.
+
+* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-103
+- Rebuild source payloads reproducibly without generated Python bytecode.
+- Require the corrected core meta build containing the complete test archive.
+
+* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-102
+- Enable bounded per-user panel-variant ICC selection for all Plasma users.
+- Prefer kernel panel identity and retain a read-only UEFI fallback.
+
+* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-101
+- Select the factory-derived ICC automatically for each Nabu panel and user.
+- Preserve user-selected profiles and the accurate KWin ICC pipeline.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-100
 - Build all five desktop manifests from one COPR source family.
 - Preserve the existing binary names and stock Fedora/KDE package policy.

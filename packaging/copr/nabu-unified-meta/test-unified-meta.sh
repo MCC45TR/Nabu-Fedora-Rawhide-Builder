@@ -55,7 +55,7 @@ grep -Fxq 'TimeoutStopFailureMode=kill' "$fastrpc_restart" || fail "ADSP FastRPC
 grep -Fxq 'TimeoutStopSec=10s' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/20-nabu-plasmalogin-stop.conf" || fail "PlasmaLogin shutdown is not bounded"
 grep -Fxq 'TimeoutStopSec=10s' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/20-nabu-session-stop.conf" || fail "login session shutdown is not bounded"
 grep -Fxq 'TimeoutStopSec=15s' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/20-nabu-user-manager-stop.conf" || fail "user manager shutdown is not bounded"
-grep -Fq 'Source11:       nabu-sar-service-0.2.5.tar.zst' "$core" || fail "SAR 0.2.5 source missing"
+grep -Fq 'Source11:       nabu-sar-service-0.3.0.tar.zst' "$core" || fail "SAR 0.3.0 source missing"
 grep -Fq '%{_libexecdir}/nabu-sar-control' "$core" || fail "SAR control helper not packaged"
 grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge unit not packaged"
 grep -Fq '%{_prefix}/lib/modules-load.d/nabu-cct-iio.conf' "$core" || fail "CCT module policy not packaged"
@@ -178,8 +178,8 @@ for retired in nabu-system-integration nabu-kde-integration nabu-kde-config nabu
 done
 
 (cd "$root/vendor" && sha256sum -c SHA256SUMS >/dev/null) || fail "vendored source checksum"
-sar_archive="$root/vendor/nabu-sar-service-0.2.5.tar.zst"
-sar_prefix="nabu-sar-service-0.2.5"
+sar_archive="$root/vendor/nabu-sar-service-0.3.0.tar.zst"
+sar_prefix="nabu-sar-service-0.3.0"
 tar --zstd -xOf "$sar_archive" \
     "$sar_prefix/src/nabu-cct-iio-bridge.c" \
     | grep -Fq '#define CCT_INVALID_WARNING_USEC (30 * G_USEC_PER_SEC)' \
@@ -200,12 +200,19 @@ grep -Fq 'if (service->classifier.enabled &&' <<<"$sar_service" \
     || fail "disabled SAR mapping is still reported as invalid"
 grep -Fq '#define PROPERTIES_EMIT_INTERVAL_USEC G_USEC_PER_SEC' <<<"$sar_service" \
     || fail "unchanged SAR telemetry is not rate limited"
+sar_monitor=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/src/nabu-ssc-monitor.c")
+grep -Fq 'org.senemos.Nabu.Sensors' <<<"$sar_monitor" \
+    || fail "read-only SSC algorithm inventory is missing"
+grep -Fq 'tilt_to_wake' <<<"$sar_monitor" \
+    || fail "tilt-to-wake discovery is missing"
 ! grep -Fq 'ProximityNear' <<<"$sar_service" || fail "SAR leaked into screen proximity API"
 sar_capture=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/tools/nabu-sar-capture")
 grep -Fq 'export LC_ALL=C' <<<"$sar_capture" \
     || fail "SAR capture validation remains locale dependent"
-grep -Fq 'BuildRequires:  libssc-nabu-devel >= 0.4.4-9.nabu8.test' "$core" \
+grep -Fq 'BuildRequires:  libssc-nabu-devel >= 2026.9.6-3' "$core" \
     || fail "typed TCS3701 libssc build dependency missing"
+grep -Fqx 'Requires:       nabu-hardware-provenance >= 1.0.0-1' "$core" \
+    || fail "read-only hardware provenance dependency missing"
 
 for spec in "$root"/*-nabu-meta.spec; do
     if grep -E '^Obsoletes:' "$spec" | grep -Ev '^Obsoletes:[[:space:]]+nabu-' >/dev/null; then

@@ -1,0 +1,15 @@
+[Unit]
+Description=Keep Nabu speaker channels aligned with the active screen
+Wants=pipewire.service wireplumber.service
+After=pipewire.service wireplumber.service plasma-kwin_wayland.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/nabu-audio-orientation.conf
+ExecStart=/usr/libexec/senemos-nabu/nabu-audio-orientation
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

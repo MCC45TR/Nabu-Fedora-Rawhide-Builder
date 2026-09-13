@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        88%{?dist}
+Release:        89%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ Source7:        90-nabu-kernel-maintenance.preset
 Source8:        kernel.conf
 Source9:        nabu-system-integration-2.0.0.tar.zst
 Source10:       nabu-flashlight-integration-1.0.0.tar.gz
-Source11:       nabu-sar-service-0.2.5.tar.zst
+Source11:       nabu-sar-service-0.3.0.tar.zst
 Source12:       nabu-ssc-probe.c
 Source13:       nabu-pen-autopair
 Source14:       82-nabu-pen-autopair.rules
@@ -39,7 +39,7 @@ BuildRequires:  meson
 BuildRequires:  openssh
 BuildRequires:  python3
 BuildRequires:  pkgconfig(gio-2.0)
-BuildRequires:  libssc-nabu-devel >= 0.4.4-9.nabu8.test
+BuildRequires:  libssc-nabu-devel >= 2026.9.6-3
 BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  pkgconfig(Qt6DBus)
 BuildRequires:  systemd-rpm-macros
@@ -59,9 +59,10 @@ Requires:       nabu-boot-integration >= 2.0.0-43.test
 Requires:       nabu-boot-manager
 Requires:       hexagonrpc-nabu >= 0.5.0-4.nabu1.test
 Requires:       iris-vaapi-nabu >= 0.5.0-4.nabu1.test
-Requires:       libssc-nabu >= 2026.9.6-1
-Requires:       python3-ssc-nabu >= 2026.9.6-1
-Requires:       iio-sensor-proxy-nabu >= 2026.9.6-1
+Requires:       libssc-nabu >= 2026.9.6-3
+Requires:       python3-ssc-nabu >= 2026.9.6-3
+Requires:       iio-sensor-proxy-nabu >= 2026.9.6-3
+Requires:       nabu-hardware-provenance >= 1.0.0-1
 Requires:       xiaomi-nabu-firmware
 Requires:       senemos-nabu-plymouth >= 2.0.0-37.test
 # Keep the hardware-facing camera stack in CORE so every supported desktop
@@ -519,6 +520,11 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-89
+- Export bounded SSC algorithm availability and observed-report evidence over
+  a read-only D-Bus interface, while leaving uncalibrated SAR mapping disabled.
+- Require the privacy-preserving DTBO, firmware and camera provenance inventory.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-88
 - Bound PlasmaLogin, login-session and user-manager shutdown so a wedged
   GPU/DSP desktop cannot prevent reboot indefinitely.

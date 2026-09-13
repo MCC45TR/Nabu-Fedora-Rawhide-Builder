@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Nabu Color Profiles
+Name[tr]=Nabu Renk Profilleri
+GenericName=Display Color Profile Selector
+GenericName[tr]=Ekran Renk Profili Seçici
+Comment=Apply a packaged Nabu panel color profile through stock KScreen
+Comment[tr]=Paketlenmiş Nabu panel renk profilini standart KScreen ile uygula
+Exec=senemos-nabu-color-settings
+Icon=preferences-desktop-color
+Terminal=false
+Categories=Qt;KDE;Settings;HardwareSettings;
+Keywords=color;profile;ICC;display;Nabu;sRGB;P3;
+Keywords[tr]=renk;profil;ICC;ekran;Nabu;sRGB;P3;
+StartupNotify=true

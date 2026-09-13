@@ -1,0 +1,8 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+if [[ ${1:-} == --json ]]; then
+    printf '%s\n' '{"outputs":[{"connected":true,"enabled":true,"name":"DSI-1"}]}'
+    exit 0
+fi
+printf 'Unexpected mock invocation: %s\n' "$*" >&2
+exit 2
