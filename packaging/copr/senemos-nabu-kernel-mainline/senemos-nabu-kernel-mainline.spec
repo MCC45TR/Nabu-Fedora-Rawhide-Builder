@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -158,6 +158,9 @@ Patch0138:      0138-senemos-pin-the-Nabu-production-security-baseline.patch
 Patch0139:      0139-arm64-dts-qcom-describe-SM8150-PRNG-safely.patch
 Patch0140:      0140-arm64-dts-qcom-preserve-Nabu-panic-records-in-ramoops.patch
 Patch0141:      0141-clk-qcom-quiesce-firmware-DSI-clocks-before-takeover.patch
+Patch0142:      0142-dt-bindings-media-ov8856-allow-a-bounded-probe-power.patch
+Patch0143:      0143-media-ov8856-bound-cold-probe-recovery.patch
+Patch0144:      0144-arm64-dts-qcom-enable-bounded-OV8856-recovery-on-Nab.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -493,6 +496,12 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-9
+- Recover the Nabu front OV8856 from its observed one-off cold-probe EIO by
+  power-cycling and retrying chip identification exactly once.
+- Keep the workaround board-opt-in, avoid retrying a wrong chip ID or stream
+  failures, and remove duplicated Linux 7.2 fwnode-control parsing.
+
 * Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-8
 - Quiesce firmware-owned byte and pixel clocks before the first Linux
   dual-DSI modeset so both bonded PHYs start from a clean, coherent state.

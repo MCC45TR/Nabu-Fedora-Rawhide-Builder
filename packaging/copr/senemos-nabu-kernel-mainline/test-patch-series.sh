@@ -428,6 +428,23 @@ if grep -Fq 'stream readback' "$ov8856"; then
     printf 'ERROR: OV8856 still performs bring-up register readbacks\n' >&2
     exit 1
 fi
+# Linux 7.2 already parses endpoint properties in the upstream OV8856
+# controls path. Keep exactly one parser/control instance and constrain Nabu's
+# observed cold-probe -EIO recovery to a single board-opted power cycle.
+ov8856_binding="$work/linux-$version/Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml"
+test "$(grep -c 'v4l2_fwnode_device_parse' "$ov8856")" -eq 1
+test "$(grep -c 'v4l2_ctrl_new_fwnode_properties' "$ov8856")" -eq 1
+grep -Fq 'ovti,probe-power-cycle-retry:' "$ov8856_binding"
+test "$(grep -R -F 'ovti,probe-power-cycle-retry;' \
+    "$work/linux-$version/arch/arm64/boot/dts" | wc -l)" -eq 1
+retry_block=$(grep -A24 -F 'if (ret == -EIO &&' "$ov8856")
+grep -Fq 'ovti,probe-power-cycle-retry' <<<"$retry_block"
+grep -Fq 'ov8856_power_off(ov8856->dev);' <<<"$retry_block"
+grep -Fq 'usleep_range(5000, 6000);' <<<"$retry_block"
+grep -Fq 'ret = ov8856_power_on(ov8856->dev);' <<<"$retry_block"
+probe_block=$(sed -n '/^static int ov8856_probe(/,/^}/p' "$ov8856")
+test "$(grep -c 'ret = ov8856_identify_module(ov8856);' \
+    <<<"$probe_block")" -eq 2
 grep -Fq 'dev_dbg(vfe->camss->dev, "VFE%d clock' "$camss_vfe"
 grep -B1 -F 'WM%u address FIFO after queue' "$camss_vfe" \
     | grep -Fq 'dev_dbg_ratelimited(vfe->camss->dev,'

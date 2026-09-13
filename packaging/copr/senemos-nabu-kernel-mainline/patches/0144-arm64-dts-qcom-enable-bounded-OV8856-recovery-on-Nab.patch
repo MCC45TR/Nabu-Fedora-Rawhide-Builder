@@ -1,0 +1,30 @@
+From 68601481805c9a1e0acb193964a532d75582424e Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 13 Sep 2026 03:47:41 +0300
+Subject: [PATCH] arm64: dts: qcom: enable bounded OV8856 recovery on Nabu
+
+The Nabu front camera has intermittently returned -EIO on its first
+cold-boot chip-ID transfer and then worked immediately after a power
+cycle. Opt this module into the OV8856 driver one-shot recovery while
+leaving all other boards unchanged.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
+index eda8b3d85..690770c1e 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
+@@ -501,6 +501,7 @@ ov8856: camera@10 {
+ 		pinctrl-0 = <&camera_front_mclk_default>;
+ 		pinctrl-names = "default";
+ 		reset-gpios = <&tlmm 30 GPIO_ACTIVE_LOW>;
++		ovti,probe-power-cycle-retry;
+ 
+ 		dovdd-supply = <&vreg_l1c_1p8>;
+ 		avdd-supply = <&camera_front_vana_3p0>;
+-- 
+2.55.0
+

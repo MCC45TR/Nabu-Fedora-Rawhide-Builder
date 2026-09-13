@@ -139,3 +139,6 @@ ec5fc261b987d9d7928b35d56166b28456aacae1d53f17ab79df37fb2dddd628  0138-senemos-p
 e69399e7ba5627d9bf3f5ce606701ce449f1c8350ccb3dcc630efbcdb6911e16  0139-arm64-dts-qcom-describe-SM8150-PRNG-safely.patch
 ac3315fa4cf5b1dd1f866912fb362659ba5e09c296e7e37b9595ad8563f88a9b  0140-arm64-dts-qcom-preserve-Nabu-panic-records-in-ramoops.patch
 cc41ff2cb71375a1117d9a7f6be84b5546f46a17d5389b006b0412e4413ccd92  0141-clk-qcom-quiesce-firmware-DSI-clocks-before-takeover.patch
+12a7dae7b42e3a8f2eb0bed2ec8108877a04ae9f1645700b23bb2c0e422f5587  0142-dt-bindings-media-ov8856-allow-a-bounded-probe-power.patch
+4220cea34565a982a698ecc4ad6a66483c7194650be7ac49496eb1c7288cc755  0143-media-ov8856-bound-cold-probe-recovery.patch
+edd665289be367eaa4e84a29b11593a6eeb3df47e966a5fc353f52a1df8d3afd  0144-arm64-dts-qcom-enable-bounded-OV8856-recovery-on-Nab.patch

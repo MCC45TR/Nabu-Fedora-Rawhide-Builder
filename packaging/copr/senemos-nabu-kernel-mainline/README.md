@@ -8,7 +8,12 @@ the complete Nabu patch and configuration gate passes. The accepted commit then
 triggers the COPR SCM package's automatic rebuild; a failed port leaves the last
 working repository result untouched.
 
-Release 7.2.4-8 lets the clock framework quiesce firmware-owned dual-DSI byte
+Release 7.2.4-9 gives Nabu's front OV8856 one board-opted, bounded recovery
+after the observed cold-boot `-EIO`: the driver performs a complete power
+cycle and retries only chip identification once. It also removes duplicated
+fwnode-control parsing left by the older camera backport now that Linux 7.2
+contains that support upstream. Release 7.2.4-8 lets the clock framework
+quiesce firmware-owned dual-DSI byte
 and pixel branches before the first Linux modeset. Nabu performs a full panel
 and bonded-PHY initialization rather than a continuous-splash handoff, so this
 prevents stale firmware phase state from surviving into the first scanout.
