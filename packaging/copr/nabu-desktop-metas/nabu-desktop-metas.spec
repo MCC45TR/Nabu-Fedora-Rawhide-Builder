@@ -3,7 +3,7 @@
 
 Name:           nabu-desktop-metas
 Version:        3.0.0
-Release:        104%{?dist}
+Release:        105%{?dist}
 Summary:        Unified desktop profile family for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-or-later AND BSD-2-Clause AND CC0-1.0
 URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder
@@ -27,13 +27,14 @@ Source16:       nabu-gnome-mobile-sync.timer
 Source17:       90-nabu-gnome-mobile-sync.preset
 Source18:       test-gnome-mobile-repo-sync.sh
 Source19:       20-nabu-mobile-user-mode.conf
-BuildArch:      noarch
 BuildRequires:  desktop-file-utils
 BuildRequires:  firewalld-filesystem
+BuildRequires:  gcc-c++
 BuildRequires:  gettext
 BuildRequires:  glib2
 BuildRequires:  lcms2
 BuildRequires:  python3
+BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  systemd-rpm-macros
 
 %description
@@ -180,7 +181,6 @@ Requires:       kdialog
 Requires:       lcms2
 Requires:       pipewire-utils
 Requires:       pulseaudio-utils
-Requires:       python3
 Requires:       tar
 Requires:       wireplumber
 Requires:       plasma-workspace
@@ -283,7 +283,6 @@ Requires:       gzip
 Requires:       kdialog
 Requires:       lcms2
 Requires:       pipewire-utils
-Requires:       python3
 Requires:       tar
 Requires:       wireplumber
 Requires:       plasma-workspace
@@ -414,9 +413,14 @@ tar -xzf %{SOURCE0} -C l10n --strip-components=1
 tar -xzf %{SOURCE1} -C flashlight --strip-components=1
 tar -xzf %{SOURCE2} -C kde-integration --strip-components=1
 tar --zstd -xf %{SOURCE3} -C widgets --strip-components=1
-chmod +x kde-integration/kde/senemos-nabu-color-profile kde-integration/tests/mock-kscreen-doctor
+chmod +x kde-integration/tests/mock-kscreen-doctor
 
 %build
+for helper in nabu-audio-orientation senemos-nabu-display-profile senemos-nabu-color-profile; do
+    %{__cxx} -std=c++20 %{optflags} %{build_ldflags} \
+        $(pkg-config --cflags Qt6Core) kde-integration/kde/${helper}.cpp \
+        -o ${helper} $(pkg-config --libs Qt6Core)
+done
 
 %install
 # Shared GNOME and GNOME Mobile payload
@@ -447,10 +451,10 @@ install -Dm0644 %{SOURCE19} %{buildroot}%{_userunitdir}/org.gnome.Shell@initial-
 
 # Shared KDE Plasma payload
 install -Dm0644 %{SOURCE4} %{buildroot}%{_presetdir}/95-nabu-plasma-login.preset
-install -Dm0755 kde-integration/kde/nabu-audio-orientation %{buildroot}%{_libexecdir}/senemos-nabu/nabu-audio-orientation
+install -Dm0755 nabu-audio-orientation %{buildroot}%{_libexecdir}/senemos-nabu/nabu-audio-orientation
 install -Dm0644 kde-integration/kde/nabu-speaker-filter-chain.conf %{buildroot}%{_datadir}/senemos-nabu/nabu-speaker-filter-chain.conf
-install -Dm0755 kde-integration/kde/senemos-nabu-display-profile %{buildroot}%{_bindir}/senemos-nabu-display-profile
-install -Dm0755 kde-integration/kde/senemos-nabu-color-profile %{buildroot}%{_bindir}/senemos-nabu-color-profile
+install -Dm0755 senemos-nabu-display-profile %{buildroot}%{_bindir}/senemos-nabu-display-profile
+install -Dm0755 senemos-nabu-color-profile %{buildroot}%{_bindir}/senemos-nabu-color-profile
 install -Dm0755 kde-integration/kde/senemos-nabu-color-settings %{buildroot}%{_bindir}/senemos-nabu-color-settings
 install -Dm0644 kde-integration/kde/org.senemos.nabu.colorprofiles.desktop %{buildroot}%{_datadir}/applications/org.senemos.nabu.colorprofiles.desktop
 install -Dm0644 kde-integration/man/senemos-nabu-color-profile.1 %{buildroot}%{_mandir}/man1/senemos-nabu-color-profile.1
@@ -500,11 +504,14 @@ grep -Fqx 'ProtectSystem=false' %{SOURCE15}
 ! grep -Fq '/var/lib/rpm' %{SOURCE15}
 
 # kde-plasma-nabu-meta
-python3 -m py_compile kde-integration/kde/nabu-audio-orientation kde-integration/kde/senemos-nabu-display-profile kde-integration/kde/senemos-nabu-color-profile
+test "$(od -An -tx1 -N4 nabu-audio-orientation | tr -d ' \n')" = 7f454c46
+test "$(od -An -tx1 -N4 senemos-nabu-display-profile | tr -d ' \n')" = 7f454c46
+test "$(od -An -tx1 -N4 senemos-nabu-color-profile | tr -d ' \n')" = 7f454c46
 grep -Fq 'audio.position = [ FL FR RL RR ]' kde-integration/kde/nabu-speaker-filter-chain.conf
-python3 kde-integration/kde/senemos-nabu-color-profile catalog
-python3 -m unittest -v kde-integration/tests/test_color_profile.py
-python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
+./senemos-nabu-color-profile catalog
+SENEMOS_NABU_COLOR_BINARY="$PWD/senemos-nabu-color-profile" python3 -m unittest -v kde-integration/tests/test_color_profile.py
+NABU_AUDIO_ORIENTATION_BINARY="$PWD/nabu-audio-orientation" python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
+KSCREEN_DOCTOR="$PWD/kde-integration/tests/mock-kscreen-doctor" ./senemos-nabu-display-profile native --dry-run
 test ! -e kde-integration/kde/nabu-color-profile-auto.service
 ! grep -Fq 'nabu-color-profile-auto.service' kde-integration/kde/90-nabu-kde.preset
 bash -n kde-integration/kde/senemos-nabu-color-settings
@@ -515,10 +522,10 @@ grep -Fq '/usr/libexec/nabu-sar-control' flashlight/plasma/contents/ui/main.qml
 grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 
 # kde-plasma-mobile-nabu-meta
-python3 -m py_compile kde-integration/kde/nabu-audio-orientation kde-integration/kde/senemos-nabu-display-profile kde-integration/kde/senemos-nabu-color-profile
-python3 kde-integration/kde/senemos-nabu-color-profile catalog
-python3 -m unittest -v kde-integration/tests/test_color_profile.py
-python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
+test "$(od -An -tx1 -N4 nabu-audio-orientation | tr -d ' \n')" = 7f454c46
+./senemos-nabu-color-profile catalog
+SENEMOS_NABU_COLOR_BINARY="$PWD/senemos-nabu-color-profile" python3 -m unittest -v kde-integration/tests/test_color_profile.py
+NABU_AUDIO_ORIENTATION_BINARY="$PWD/nabu-audio-orientation" python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
 test ! -e kde-integration/kde/nabu-color-profile-auto.service
 ! grep -Fq 'nabu-color-profile-auto.service' kde-integration/kde/90-nabu-kde.preset
 bash -n kde-integration/kde/senemos-nabu-color-settings
@@ -729,6 +736,12 @@ fi
 %{_sysconfdir}/rpm/macros.nabu-languages
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-105
+- Replace the three Python KDE runtime helpers with native C++20/QtCore
+  binaries; retain Python only for isolated package tests.
+- Keep ICC handling explicit and user-selected; no automatic profile command
+  or service is installed.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-104
 - Keep all panel-specific ICC profiles discoverable by stock KDE/KScreen.
 - Stop selecting or changing a color profile automatically at user login.

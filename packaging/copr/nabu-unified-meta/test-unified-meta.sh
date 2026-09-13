@@ -125,6 +125,8 @@ done
 grep -Fxq 'POWERDEVIL_NO_DDCUTIL=1' "$root/90-nabu-powerdevil.conf" || fail "PowerDevil DDC probe is not disabled for Nabu DSI"
 
 widget_archive="$root/vendor/nabu-kde-widgets-debug-1.0.1.tar.zst"
+! tar --zstd -tf "$widget_archive" | grep -Eq '\\.py$' \
+    || fail "Python program remains in the installed Plasma widget payload"
 weather_service=$(tar --zstd -xOf "$widget_archive" \
     nabu-kde-widgets-debug-1.0.1/com.mcc45tr.filesearch/contents/ui/components/WeatherService.js)
 config_general=$(tar --zstd -xOf "$widget_archive" \

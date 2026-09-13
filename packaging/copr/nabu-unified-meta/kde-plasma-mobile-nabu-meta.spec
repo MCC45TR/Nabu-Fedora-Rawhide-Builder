@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        3.0.0
-Release:        16%{?dist}
+Release:        17%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,11 +18,12 @@ Source8:        80-nabu-plasma-login-theme.conf
 Source9:        nabu-plasma-login.svg
 Source10:       90-nabu-powerdevil.conf
 Source11:       90-nabu-compositor-realtime.conf
-BuildArch:      noarch
 BuildRequires:  desktop-file-utils
 BuildRequires:  firewalld-filesystem
+BuildRequires:  gcc-c++
 BuildRequires:  lcms2
 BuildRequires:  python3
+BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  systemd-rpm-macros
 Requires:       nabu-core-meta >= 3.0.0-34
 Requires:       glibc-all-langpacks
@@ -36,7 +37,6 @@ Requires:       gzip
 Requires:       kdialog
 Requires:       lcms2
 Requires:       pipewire-utils
-Requires:       python3
 Requires:       tar
 Requires:       wireplumber
 Requires:       plasma-workspace
@@ -121,17 +121,22 @@ tar -xzf %{SOURCE4} -C kde-integration --strip-components=1
 tar -xzf %{SOURCE5} -C l10n --strip-components=1
 tar --zstd -xf %{SOURCE6} -C widgets --strip-components=1
 tar -xzf %{SOURCE7} -C flashlight --strip-components=1
-chmod +x kde-integration/kde/senemos-nabu-color-profile kde-integration/tests/mock-kscreen-doctor
+chmod +x kde-integration/tests/mock-kscreen-doctor
 %build
+for helper in nabu-audio-orientation senemos-nabu-display-profile senemos-nabu-color-profile; do
+    %{__cxx} -std=c++20 %{optflags} %{build_ldflags} \
+        $(pkg-config --cflags Qt6Core) kde-integration/kde/${helper}.cpp \
+        -o ${helper} $(pkg-config --libs Qt6Core)
+done
 %install
 install -Dm0644 %{SOURCE0} %{buildroot}%{_datadir}/nabu-plasma-mobile/wayland-sessions/plasma-mobile.desktop
 install -Dm0644 %{SOURCE1} %{buildroot}%{_unitdir}/plasmalogin.service.d/20-nabu-mobile-session.conf
 install -Dm0644 %{SOURCE2} %{buildroot}%{_prefix}/lib/plasmalogin/plasmalogin.conf.d/90-nabu-mobile-login.conf
 install -Dm0644 %{SOURCE3} %{buildroot}%{_presetdir}/95-nabu-plasma-mobile.preset
 install -d %{buildroot}%{_datadir}/nabu-plasma-mobile/xsessions
-install -Dm0755 kde-integration/kde/nabu-audio-orientation %{buildroot}%{_libexecdir}/senemos-nabu/nabu-audio-orientation
-install -Dm0755 kde-integration/kde/senemos-nabu-display-profile %{buildroot}%{_bindir}/senemos-nabu-display-profile
-install -Dm0755 kde-integration/kde/senemos-nabu-color-profile %{buildroot}%{_bindir}/senemos-nabu-color-profile
+install -Dm0755 nabu-audio-orientation %{buildroot}%{_libexecdir}/senemos-nabu/nabu-audio-orientation
+install -Dm0755 senemos-nabu-display-profile %{buildroot}%{_bindir}/senemos-nabu-display-profile
+install -Dm0755 senemos-nabu-color-profile %{buildroot}%{_bindir}/senemos-nabu-color-profile
 install -Dm0755 kde-integration/kde/senemos-nabu-color-settings %{buildroot}%{_bindir}/senemos-nabu-color-settings
 install -Dm0644 kde-integration/kde/org.senemos.nabu.colorprofiles.desktop %{buildroot}%{_datadir}/applications/org.senemos.nabu.colorprofiles.desktop
 install -Dm0644 kde-integration/man/senemos-nabu-color-profile.1 %{buildroot}%{_mandir}/man1/senemos-nabu-color-profile.1
@@ -156,10 +161,11 @@ cp -a flashlight/plasma/. %{buildroot}%{_datadir}/plasma/plasmoids/org.senemos.n
 install -Dm0644 flashlight/plasma-update/org.senemos.nabu.flashlight.js %{buildroot}%{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 %check
-python3 -m py_compile kde-integration/kde/nabu-audio-orientation kde-integration/kde/senemos-nabu-display-profile kde-integration/kde/senemos-nabu-color-profile
-python3 kde-integration/kde/senemos-nabu-color-profile catalog
-python3 -m unittest -v kde-integration/tests/test_color_profile.py
-python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
+test "$(od -An -tx1 -N4 nabu-audio-orientation | tr -d ' \n')" = 7f454c46
+./senemos-nabu-color-profile catalog
+SENEMOS_NABU_COLOR_BINARY="$PWD/senemos-nabu-color-profile" python3 -m unittest -v kde-integration/tests/test_color_profile.py
+NABU_AUDIO_ORIENTATION_BINARY="$PWD/nabu-audio-orientation" python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
+KSCREEN_DOCTOR="$PWD/kde-integration/tests/mock-kscreen-doctor" ./senemos-nabu-display-profile native --dry-run
 bash -n kde-integration/kde/senemos-nabu-color-settings
 desktop-file-validate kde-integration/kde/org.senemos.nabu.colorprofiles.desktop
 python3 -c 'import json, pathlib; root=pathlib.Path("widgets"); expected={"com.mcc45tr.filesearch","com.mcc45tr.mweather","com.mcc45tr.analogclock"}; assert {json.loads((root/x/"metadata.json").read_text())["KPlugin"]["Id"] for x in expected} == expected'
