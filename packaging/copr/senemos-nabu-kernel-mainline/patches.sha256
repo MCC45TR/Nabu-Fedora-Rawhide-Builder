@@ -142,3 +142,4 @@ cc41ff2cb71375a1117d9a7f6be84b5546f46a17d5389b006b0412e4413ccd92  0141-clk-qcom-
 12a7dae7b42e3a8f2eb0bed2ec8108877a04ae9f1645700b23bb2c0e422f5587  0142-dt-bindings-media-ov8856-allow-a-bounded-probe-power.patch
 4220cea34565a982a698ecc4ad6a66483c7194650be7ac49496eb1c7288cc755  0143-media-ov8856-bound-cold-probe-recovery.patch
 edd665289be367eaa4e84a29b11593a6eeb3df47e966a5fc353f52a1df8d3afd  0144-arm64-dts-qcom-enable-bounded-OV8856-recovery-on-Nab.patch
+d842dbbefcdfca26aa05947ee6434ef11f0b796948465af84adbd699d7930ba6  0145-clk-qcom-restore-firmware-owned-Nabu-DSI-branches.patch

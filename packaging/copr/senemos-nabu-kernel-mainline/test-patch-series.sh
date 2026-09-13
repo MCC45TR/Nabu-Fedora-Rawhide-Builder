@@ -472,9 +472,7 @@ for clk in disp_cc_mdss_byte0_clk disp_cc_mdss_byte0_intf_clk \
     disp_cc_mdss_byte1_clk disp_cc_mdss_byte1_intf_clk \
     disp_cc_mdss_pclk0_clk disp_cc_mdss_pclk1_clk; do
     grep -A15 -F "static struct clk_branch $clk" "$dispcc" \
-        | grep -Fq '.flags = CLK_SET_RATE_PARENT,'
-    ! grep -A15 -F "static struct clk_branch $clk" "$dispcc" \
-        | grep -Fq 'CLK_IGNORE_UNUSED'
+        | grep -Fq '.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,'
 done
 grep -Fq 'return dev_err_probe(&pdev->dev, -EPROBE_DEFER,' \
     "$work/linux-$version/drivers/gpu/drm/msm/dsi/dsi.c"

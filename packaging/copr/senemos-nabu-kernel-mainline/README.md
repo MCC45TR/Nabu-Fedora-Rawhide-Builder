@@ -8,15 +8,18 @@ the complete Nabu patch and configuration gate passes. The accepted commit then
 triggers the COPR SCM package's automatic rebuild; a failed port leaves the last
 working repository result untouched.
 
-Release 7.2.4-9 gives Nabu's front OV8856 one board-opted, bounded recovery
+Release 7.2.4-10 restores `CLK_IGNORE_UNUSED` on the six firmware-owned
+bonded-DSI byte/pixel branches. Device HIL showed that release 8's generic
+disable-unused experiment could not halt any of them, emitted six clock
+warnings on every boot, and preceded one early hard lock. The bounded camera
+recovery remains intact while the display fault moves to a driver-owned reset
+path. Release 7.2.4-9 gives Nabu's front OV8856 one board-opted, bounded recovery
 after the observed cold-boot `-EIO`: the driver performs a complete power
 cycle and retries only chip identification once. It also removes duplicated
 fwnode-control parsing left by the older camera backport now that Linux 7.2
-contains that support upstream. Release 7.2.4-8 lets the clock framework
-quiesce firmware-owned dual-DSI byte
-and pixel branches before the first Linux modeset. Nabu performs a full panel
-and bonded-PHY initialization rather than a continuous-splash handoff, so this
-prevents stale firmware phase state from surviving into the first scanout.
+contains that support upstream. Release 7.2.4-8's attempt to quiesce the
+firmware-owned clocks is retained in history but explicitly reverted by
+release 10 after physical HIL rejected it.
 Release 7.2.4-7 adds a one-MiB persistent ramoops dmesg record for diagnosing
 otherwise unobservable hard UI freezes. Release 7.2.4-6 keeps the same
 production security, entropy and camera payload
