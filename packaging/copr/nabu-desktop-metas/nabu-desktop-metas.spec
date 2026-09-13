@@ -3,7 +3,7 @@
 
 Name:           nabu-desktop-metas
 Version:        3.0.0
-Release:        105%{?dist}
+Release:        106%{?dist}
 Summary:        Unified desktop profile family for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-or-later AND BSD-2-Clause AND CC0-1.0
 URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder
@@ -579,6 +579,14 @@ touch /var/lib/nabu-gnome-mobile-sync/pending
 %{_userunitdir}/org.gnome.Shell@initial-setup.service.d/20-nabu-mobile-user-mode.conf
 
 %post -n kde-plasma-nabu-meta
+# Releases before 3.0.0-105 enabled an automatic ICC assignment unit. Remove
+# only that exact vendor-owned legacy link; preserve an administrator-created
+# replacement or a differently targeted link.
+legacy_icc_link=%{_sysconfdir}/systemd/user/graphical-session.target.wants/nabu-color-profile-auto.service
+if [ -L "$legacy_icc_link" ] &&
+   [ "$(readlink -- "$legacy_icc_link")" = "%{_userunitdir}/nabu-color-profile-auto.service" ]; then
+    rm -f -- "$legacy_icc_link"
+fi
 %systemd_user_post nabu-audio-orientation.service
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable sddm.service >/dev/null 2>&1 || :
@@ -650,6 +658,11 @@ fi
 %{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 %post -n kde-plasma-mobile-nabu-meta
+legacy_icc_link=%{_sysconfdir}/systemd/user/graphical-session.target.wants/nabu-color-profile-auto.service
+if [ -L "$legacy_icc_link" ] &&
+   [ "$(readlink -- "$legacy_icc_link")" = "%{_userunitdir}/nabu-color-profile-auto.service" ]; then
+    rm -f -- "$legacy_icc_link"
+fi
 %systemd_user_post nabu-audio-orientation.service
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable sddm.service >/dev/null 2>&1 || :
@@ -736,6 +749,11 @@ fi
 %{_sysconfdir}/rpm/macros.nabu-languages
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-106
+- Remove only the exact vendor-owned legacy automatic ICC enablement link so
+  Plasma lists profiles for explicit selection without enqueueing a missing
+  auto-apply unit.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-105
 - Replace the three Python KDE runtime helpers with native C++20/QtCore
   binaries; retain Python only for isolated package tests.

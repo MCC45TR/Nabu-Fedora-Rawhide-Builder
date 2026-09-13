@@ -121,7 +121,14 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
     grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
     grep -Fq '%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf' "$kde_spec" || fail "Nabu DSI PowerDevil policy missing in $kde_spec"
+    grep -Fq 'legacy_icc_link=%{_sysconfdir}/systemd/user/graphical-session.target.wants/nabu-color-profile-auto.service' "$kde_spec" \
+        || fail "legacy automatic ICC enablement is not removed in $kde_spec"
+    grep -Fq '$(readlink -- "$legacy_icc_link")" = "%{_userunitdir}/nabu-color-profile-auto.service"' "$kde_spec" \
+        || fail "legacy ICC cleanup does not verify its exact vendor target in $kde_spec"
 done
+family_spec="$root/../nabu-desktop-metas/nabu-desktop-metas.spec"
+test "$(grep -Fc 'legacy_icc_link=%{_sysconfdir}/systemd/user/graphical-session.target.wants/nabu-color-profile-auto.service' "$family_spec")" -eq 2 \
+    || fail "desktop family does not carry both KDE legacy ICC cleanup paths"
 grep -Fxq 'POWERDEVIL_NO_DDCUTIL=1' "$root/90-nabu-powerdevil.conf" || fail "PowerDevil DDC probe is not disabled for Nabu DSI"
 
 widget_archive="$root/vendor/nabu-kde-widgets-debug-1.0.1.tar.zst"

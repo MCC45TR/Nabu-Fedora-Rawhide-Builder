@@ -219,6 +219,13 @@ grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 %{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 %post
+# Remove only the exact legacy vendor link that enabled automatic ICC
+# assignment. Preserve any administrator-created replacement.
+legacy_icc_link=%{_sysconfdir}/systemd/user/graphical-session.target.wants/nabu-color-profile-auto.service
+if [ -L "$legacy_icc_link" ] &&
+   [ "$(readlink -- "$legacy_icc_link")" = "%{_userunitdir}/nabu-color-profile-auto.service" ]; then
+    rm -f -- "$legacy_icc_link"
+fi
 %systemd_user_post nabu-audio-orientation.service
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable sddm.service >/dev/null 2>&1 || :
