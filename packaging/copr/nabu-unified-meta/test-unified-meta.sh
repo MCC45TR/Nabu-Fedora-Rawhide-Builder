@@ -213,6 +213,17 @@ grep -Fq 'BuildRequires:  libssc-nabu-devel >= 2026.9.6-4' "$core" \
     || fail "typed TCS3701 libssc build dependency missing"
 grep -Fqx 'Requires:       nabu-hardware-provenance >= 1.0.0-2' "$core" \
     || fail "read-only hardware provenance dependency missing"
+grep -Fqx '/usr/bin/chown root:root /mnt/vendor' "$core" \
+    || fail "persist privacy ownership gate is not fail closed"
+grep -Fqx '/usr/bin/chmod 0700 /mnt/vendor' "$core" \
+    || fail "persist privacy mode gate is not fail closed"
+grep -Fqx '/usr/bin/mkdir -p /mnt/vendor/persist' "$core" \
+    || fail "persist mountpoint creation is not fail closed"
+! grep -Fqx '/usr/bin/mkdir -p /mnt/vendor/persist || :' "$core" \
+    || fail "persist mountpoint creation remains fail open"
+grep -Fqx 'd /mnt/vendor 0700 root root -' \
+    "$root/vendor-src/nabu-system-integration-2.0.0/runtime/nabu-private-mounts.conf" \
+    || fail "persist privacy tmpfiles policy missing"
 
 for spec in "$root"/*-nabu-meta.spec; do
     if grep -E '^Obsoletes:' "$spec" | grep -Ev '^Obsoletes:[[:space:]]+nabu-' >/dev/null; then

@@ -196,6 +196,9 @@ bash %{SOURCE30}
 %{__cxx} -std=c++17 %{build_cxxflags} $(pkg-config --cflags Qt6Core Qt6DBus) \
     -o nabu-accessory-state flashlight-integration/src/nabu-accessory-state.cpp \
     %{build_ldflags} $(pkg-config --libs Qt6Core Qt6DBus)
+%{__cxx} -std=c++17 %{build_cxxflags} %{build_ldflags} \
+    -o nabu-copy-calibration-tree \
+    system-integration/runtime/nabu-copy-calibration-tree.cpp
 %{__cc} %{build_cflags} %{build_ldflags} -o nabu-ssc-probe nabu-ssc-probe.c $(pkg-config --cflags --libs gio-2.0 libssc)
 meson setup sar-build sar-service \
     --prefix=%{_prefix} --libexecdir=%{_libexecdir} \
@@ -235,7 +238,7 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
 install -Dm0755 system-integration/runtime/nabu-slpi-suspend %{buildroot}%{_libexecdir}/senemos-nabu/nabu-slpi-suspend
 install -Dm0755 system-integration/runtime/nabu-sensor-session-gate %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-session-gate
 install -Dm0755 system-integration/runtime/nabu-sensor-registry-runtime %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
-install -Dm0755 system-integration/runtime/nabu-copy-calibration-tree %{buildroot}%{_libexecdir}/senemos-nabu/nabu-copy-calibration-tree
+install -Dm0755 nabu-copy-calibration-tree %{buildroot}%{_libexecdir}/senemos-nabu/nabu-copy-calibration-tree
 install -Dm0755 system-integration/runtime/nabu-esp32-cdc-journal-log %{buildroot}%{_libexecdir}/senemos-nabu/nabu-esp32-cdc-journal-log
 install -Dm0755 system-integration/runtime/nabu-prepare-selinux-labels %{buildroot}%{_libexecdir}/senemos-nabu/nabu-prepare-selinux-labels
 install -Dm0755 system-integration/runtime/nabu-ssh-host-key-guard %{buildroot}%{_libexecdir}/senemos-nabu/nabu-ssh-host-key-guard
@@ -311,7 +314,6 @@ grep -Fxq 'wifi.cloned-mac-address=permanent' system-integration/runtime/20-nabu
 bash -n system-integration/runtime/nabu-slpi-suspend
 bash -n system-integration/runtime/nabu-sensor-session-gate
 bash -n system-integration/runtime/nabu-sensor-registry-runtime
-%{python3} -m py_compile system-integration/runtime/nabu-copy-calibration-tree
 bash -n system-integration/runtime/nabu-esp32-cdc-journal-log
 bash -n system-integration/runtime/nabu-prepare-selinux-labels
 bash -n system-integration/runtime/nabu-ssh-host-key-guard
@@ -320,7 +322,8 @@ grep -Fxq 'Before=display-manager.service gdm.service plasmalogin.service' \
     system-integration/runtime/nabu-sensor-session-gate.service
 grep -Fq -- '--sensor accelerometer --timeout 1' \
     system-integration/runtime/nabu-sensor-session-gate
-(cd system-integration && bash tests/test-sensor-registry-runtime.sh)
+calibration_copier=$PWD/nabu-copy-calibration-tree
+(cd system-integration && NABU_CALIBRATION_COPIER="$calibration_copier" bash tests/test-sensor-registry-runtime.sh)
 (cd system-integration && bash tests/test-selinux-label-preparation.sh)
 (cd system-integration && bash tests/test-suspend-user-slice-policy.sh)
 (cd system-integration && bash tests/test-slpi-suspend.sh)
@@ -364,9 +367,13 @@ grep -Fq '/usr/libexec/nabu-usb-role' %{buildroot}%{_datadir}/polkit-1/actions/o
 grep -Fq '/usr/libexec/nabu-sar-control' %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
 
 %pretrans -p /usr/bin/bash
-/usr/bin/mkdir -p /mnt/vendor/persist || :
-/usr/bin/chown root:root /mnt/vendor || :
-/usr/bin/chmod 0700 /mnt/vendor || :
+if [ -L /mnt/vendor ] || [ -L /mnt/vendor/persist ]; then
+    echo 'Refusing symbolic-link persist mount path' >&2
+    exit 1
+fi
+/usr/bin/mkdir -p /mnt/vendor/persist
+/usr/bin/chown root:root /mnt/vendor
+/usr/bin/chmod 0700 /mnt/vendor
 legacy_iwd=/etc/NetworkManager/conf.d/10-iwd.conf
 if [ -f "$legacy_iwd" ] && printf '[device]\nwifi.backend=iwd\n' | /usr/bin/cmp -s - "$legacy_iwd"; then
     /usr/bin/rm -f -- "$legacy_iwd"
@@ -529,7 +536,8 @@ fi
 %changelog
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-90
 - Copy Android sensor calibration into volatile runtime storage through bounded,
-  nofollow, regular-file-only descriptors and an atomically replaced target.
+  nofollow, regular-file-only C++ descriptors and an atomically replaced target;
+  retain Python only for build-time tests.
 - Hide the raw persist mount behind a root-only parent to prevent Android UID
   1000 ownership from granting the desktop user access to calibration records.
 - Require the hardened camera EEPROM reader and exact released sensor/provenance

@@ -7,7 +7,7 @@ trap 'rm -rf -- "$test_root"' EXIT
 source_root=$test_root/source
 persist_root=$test_root/persist/registry
 runtime_root=$test_root/runtime/hexagonfs
-helper=$project_dir/runtime/nabu-copy-calibration-tree
+helper=${NABU_CALIBRATION_COPIER:?set NABU_CALIBRATION_COPIER to the compiled C++ helper}
 
 install -d "$source_root/sensors/registry" "$persist_root/registry"
 printf 'static\n' >"$source_root/sensors/sns_reg.conf"
@@ -26,6 +26,16 @@ PATH="$(dirname -- "$helper"):$PATH" \
     sed "s#/usr/libexec/senemos-nabu/nabu-copy-calibration-tree#$helper#g" \
         "$project_dir/runtime/nabu-sensor-registry-runtime" >"$test_root/runtime-copy"
 chmod 0755 "$test_root/runtime-copy"
+TMPDIR=$test_root \
+NABU_SENSOR_SOURCE_ROOT=$source_root \
+NABU_SENSOR_PERSIST_REGISTRY=$persist_root/registry \
+NABU_SENSOR_RUNTIME_ROOT=$runtime_root \
+NABU_SENSOR_RUNTIME_USER=$(id -un) \
+NABU_SENSOR_RUNTIME_GROUP=$(id -gn) \
+    "$test_root/runtime-copy"
+
+# The service is restartable within one boot; a second pass must replace its
+# fastrpc-owned runtime tree without broadening the persist mount.
 TMPDIR=$test_root \
 NABU_SENSOR_SOURCE_ROOT=$source_root \
 NABU_SENSOR_PERSIST_REGISTRY=$persist_root/registry \

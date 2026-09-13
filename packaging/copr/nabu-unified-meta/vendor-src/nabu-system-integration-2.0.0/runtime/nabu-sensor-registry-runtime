@@ -44,9 +44,9 @@ if [[ -f $persist_registry_parent/sns_reg_version ]]; then
         "$persist_registry_parent/sns_reg_version" \
         "$staging_root/sensors/sns_reg_version"
 fi
-chown -R -- "$runtime_user:$runtime_group" "$staging_root"
 find "$staging_root" -type d -exec chmod u=rwx,g=rx,o= {} +
 find "$staging_root" -type f -exec chmod u=rw,g=r,o= {} +
+chown -R -- "$runtime_user:$runtime_group" "$staging_root"
 
 rm -rf -- "$runtime_root"
 mv -- "$staging_root" "$runtime_root"
