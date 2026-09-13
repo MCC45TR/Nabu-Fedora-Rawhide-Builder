@@ -73,9 +73,25 @@ def main():
         "/sys/class/devfreq/2c00000.gpu/governor": "simple_ondemand",
     })
 
+    for name in (
+        "senemos-nabu-balanced",
+        "senemos-nabu-balanced-battery",
+        "senemos-nabu-power-saver",
+        "senemos-nabu-performance",
+    ):
+        profile = read_profile(name)
+        cpu = profile["cpu"] if profile.has_section("cpu") else {}
+        assert "boost" not in cpu, name
+        assert "energy_perf_bias" not in cpu, name
+        assert "energy_performance_preference" not in cpu, name
+
+    power_saver = read_profile("senemos-nabu-power-saver")
+    assert "include" not in power_saver["main"]
+    assert power_saver["sysctl"]["vm.dirty_writeback_centisecs"] == "1500"
+    assert power_saver["script"]["script"] == "/usr/lib/tuned/profiles/powersave/script.sh"
+
     battery = read_profile("senemos-nabu-balanced-battery")
     assert battery["main"]["include"] == "senemos-nabu-balanced"
-    assert battery["cpu"]["energy_performance_preference"] == "balance_power"
 
     dropin = (PAYLOAD / "usr/lib/systemd/system/tuned-ppd.service.d/90-senemos-nabu-profiles.conf").read_text()
     assert "BindReadOnlyPaths=/usr/share/senemos-nabu/tuned-ppd.conf:/etc/tuned/ppd.conf" in dropin

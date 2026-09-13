@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        86%{?dist}
+Release:        87%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -501,6 +501,12 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-87
+- Make all Nabu TuneD profiles ARM-native instead of inheriting unsupported
+  x86 boost, SATA ALPM and NMI-watchdog controls.
+- Keep power-saver Wi-Fi/USB autosuspend plus writeback tuning while making
+  TuneD verification cover only controls that exist on Xiaomi Pad 5.
+
 * Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-86
 - Use the WCN3990 kernel-provided permanent address for associated Wi-Fi
   connections instead of Fedora's per-SSID randomized identity.

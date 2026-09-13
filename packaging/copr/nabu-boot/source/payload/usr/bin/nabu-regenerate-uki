@@ -128,7 +128,7 @@ backup_uki() {
 
 same_managed_family() {
     local name=$1
-    [[ $name =~ ^${uki_family}-([0-9]{10}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]
+    [[ $name =~ ^${uki_family}-([0-9]{10}|[0-9]+([.][0-9]+){2}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]
 }
 
 if ! findmnt --mountpoint /boot/efi >/dev/null 2>&1; then
