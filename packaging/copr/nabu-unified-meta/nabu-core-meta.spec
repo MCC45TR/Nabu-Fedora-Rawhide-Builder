@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        89%{?dist}
+Release:        90%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -39,7 +39,7 @@ BuildRequires:  meson
 BuildRequires:  openssh
 BuildRequires:  python3
 BuildRequires:  pkgconfig(gio-2.0)
-BuildRequires:  libssc-nabu-devel >= 2026.9.6-3
+BuildRequires:  libssc-nabu-devel >= 2026.9.6-4
 BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  pkgconfig(Qt6DBus)
 BuildRequires:  systemd-rpm-macros
@@ -59,10 +59,10 @@ Requires:       nabu-boot-integration >= 2.0.0-43.test
 Requires:       nabu-boot-manager
 Requires:       hexagonrpc-nabu >= 0.5.0-4.nabu1.test
 Requires:       iris-vaapi-nabu >= 0.5.0-4.nabu1.test
-Requires:       libssc-nabu >= 2026.9.6-3
-Requires:       python3-ssc-nabu >= 2026.9.6-3
-Requires:       iio-sensor-proxy-nabu >= 2026.9.6-3
-Requires:       nabu-hardware-provenance >= 1.0.0-1
+Requires:       libssc-nabu >= 2026.9.6-4
+Requires:       python3-ssc-nabu >= 2026.9.6-4
+Requires:       iio-sensor-proxy-nabu >= 2026.9.6-4
+Requires:       nabu-hardware-provenance >= 1.0.0-2
 Requires:       xiaomi-nabu-firmware
 Requires:       senemos-nabu-plymouth >= 2.0.0-37.test
 # Keep the hardware-facing camera stack in CORE so every supported desktop
@@ -70,10 +70,10 @@ Requires:       senemos-nabu-plymouth >= 2.0.0-37.test
 # camera applications remain desktop-owned Fedora packages and are not forked
 # or required by the hardware profile.
 Requires:       gstreamer1-plugins-bad-free
-Requires:       libcamera
-Requires:       libcamera-gstreamer
-Requires:       libcamera-tools
-Requires:       nabu-camera-support
+Requires:       libcamera >= 0.7.2-20.nabu1
+Requires:       libcamera-gstreamer >= 0.7.2-20.nabu1
+Requires:       libcamera-tools >= 0.7.2-20.nabu1
+Requires:       nabu-camera-support >= 0.7.2-20.nabu1
 Requires:       pipewire-plugin-libcamera
 Requires:       v4l-utils
 Requires:       NetworkManager-wifi
@@ -235,6 +235,7 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
 install -Dm0755 system-integration/runtime/nabu-slpi-suspend %{buildroot}%{_libexecdir}/senemos-nabu/nabu-slpi-suspend
 install -Dm0755 system-integration/runtime/nabu-sensor-session-gate %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-session-gate
 install -Dm0755 system-integration/runtime/nabu-sensor-registry-runtime %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
+install -Dm0755 system-integration/runtime/nabu-copy-calibration-tree %{buildroot}%{_libexecdir}/senemos-nabu/nabu-copy-calibration-tree
 install -Dm0755 system-integration/runtime/nabu-esp32-cdc-journal-log %{buildroot}%{_libexecdir}/senemos-nabu/nabu-esp32-cdc-journal-log
 install -Dm0755 system-integration/runtime/nabu-prepare-selinux-labels %{buildroot}%{_libexecdir}/senemos-nabu/nabu-prepare-selinux-labels
 install -Dm0755 system-integration/runtime/nabu-ssh-host-key-guard %{buildroot}%{_libexecdir}/senemos-nabu/nabu-ssh-host-key-guard
@@ -244,6 +245,7 @@ install -Dm0644 system-integration/runtime/nabu-sensor-session-gate.service %{bu
 install -Dm0644 system-integration/runtime/nabu-sensor-registry-runtime.service %{buildroot}%{_unitdir}/nabu-sensor-registry-runtime.service
 install -Dm0644 system-integration/runtime/nabu-esp32-cdc-log.service %{buildroot}%{_unitdir}/nabu-esp32-cdc-log.service
 install -Dm0644 system-integration/runtime/mnt-vendor-persist.mount %{buildroot}%{_unitdir}/mnt-vendor-persist.mount
+install -Dm0644 system-integration/runtime/nabu-private-mounts.conf %{buildroot}%{_tmpfilesdir}/nabu-private-mounts.conf
 install -Dm0644 system-integration/runtime/nabu-ssh-host-key-restore.service %{buildroot}%{_unitdir}/nabu-ssh-host-key-restore.service
 install -Dm0644 system-integration/runtime/nabu-ssh-host-key-save.service %{buildroot}%{_unitdir}/nabu-ssh-host-key-save.service
 install -Dm0644 system-integration/runtime/90-senemos-nabu.preset %{buildroot}%{_presetdir}/90-senemos-nabu.preset
@@ -309,6 +311,7 @@ grep -Fxq 'wifi.cloned-mac-address=permanent' system-integration/runtime/20-nabu
 bash -n system-integration/runtime/nabu-slpi-suspend
 bash -n system-integration/runtime/nabu-sensor-session-gate
 bash -n system-integration/runtime/nabu-sensor-registry-runtime
+%{python3} -m py_compile system-integration/runtime/nabu-copy-calibration-tree
 bash -n system-integration/runtime/nabu-esp32-cdc-journal-log
 bash -n system-integration/runtime/nabu-prepare-selinux-labels
 bash -n system-integration/runtime/nabu-ssh-host-key-guard
@@ -352,9 +355,9 @@ test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-flashlight)" = 2755
 test "$(stat -c '%%a' %{buildroot}%{_libexecdir}/nabu-accessory-state)" = 755
 grep -Fq 'V4L2_CID_FLASH_TORCH_INTENSITY' flashlight-integration/src/nabu-flashlight.c
 grep -Fq 'mode == V4L2_FLASH_LED_MODE_FLASH' flashlight-integration/src/nabu-flashlight.c
-grep -Fq 'QStringLiteral("/connected"))) == QStringLiteral("1")' \
+grep -Fq 'QStringLiteral("/connected"))) == QStringLiteral("0")' \
     flashlight-integration/src/nabu-accessory-state.cpp
-! grep -Fq 'QStringLiteral("/connected"))) == QStringLiteral("0")' \
+! grep -Fq 'QStringLiteral("/connected"))) == QStringLiteral("1")' \
     flashlight-integration/src/nabu-accessory-state.cpp
 bash flashlight-integration/tests/test-usb-role.sh
 grep -Fq '/usr/libexec/nabu-usb-role' %{buildroot}%{_datadir}/polkit-1/actions/org.senemos.nabu.tablet-control.policy
@@ -362,6 +365,8 @@ grep -Fq '/usr/libexec/nabu-sar-control' %{buildroot}%{_datadir}/polkit-1/action
 
 %pretrans -p /usr/bin/bash
 /usr/bin/mkdir -p /mnt/vendor/persist || :
+/usr/bin/chown root:root /mnt/vendor || :
+/usr/bin/chmod 0700 /mnt/vendor || :
 legacy_iwd=/etc/NetworkManager/conf.d/10-iwd.conf
 if [ -f "$legacy_iwd" ] && printf '[device]\nwifi.backend=iwd\n' | /usr/bin/cmp -s - "$legacy_iwd"; then
     /usr/bin/rm -f -- "$legacy_iwd"
@@ -405,6 +410,7 @@ fi
 %{_libexecdir}/senemos-nabu/nabu-slpi-suspend
 %{_libexecdir}/senemos-nabu/nabu-sensor-session-gate
 %{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
+%{_libexecdir}/senemos-nabu/nabu-copy-calibration-tree
 %{_libexecdir}/senemos-nabu/nabu-esp32-cdc-journal-log
 %{_libexecdir}/senemos-nabu/nabu-prepare-selinux-labels
 %{_libexecdir}/senemos-nabu/nabu-ssh-host-key-guard
@@ -414,6 +420,7 @@ fi
 %{_unitdir}/nabu-sensor-registry-runtime.service
 %{_unitdir}/nabu-esp32-cdc-log.service
 %{_unitdir}/mnt-vendor-persist.mount
+%{_tmpfilesdir}/nabu-private-mounts.conf
 %{_unitdir}/nabu-ssh-host-key-restore.service
 %{_unitdir}/nabu-ssh-host-key-save.service
 %{_presetdir}/80-nabu-core.preset
@@ -520,6 +527,14 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-90
+- Copy Android sensor calibration into volatile runtime storage through bounded,
+  nofollow, regular-file-only descriptors and an atomically replaced target.
+- Hide the raw persist mount behind a root-only parent to prevent Android UID
+  1000 ownership from granting the desktop user access to calibration records.
+- Require the hardened camera EEPROM reader and exact released sensor/provenance
+  interfaces used by the early hardware-data path.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-89
 - Export bounded SSC algorithm availability and observed-report evidence over
   a read-only D-Bus interface, while leaving uncalibrated SAR mapping disabled.

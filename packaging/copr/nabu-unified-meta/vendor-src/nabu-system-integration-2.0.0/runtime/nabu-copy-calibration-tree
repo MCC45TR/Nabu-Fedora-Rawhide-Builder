@@ -1,0 +1,178 @@
+#!/usr/bin/python3
+"""Copy an untrusted read-only calibration tree into a trusted runtime tree.
+
+Only directories and bounded regular files are accepted.  Source objects are
+opened relative to already-open directory descriptors and with O_NOFOLLOW so
+Android-owned symlinks, devices, sockets, and path replacement cannot escape
+the source tree or redirect the destination.
+"""
+
+from __future__ import annotations
+
+import argparse
+import errno
+import os
+import stat
+import sys
+
+
+MAX_FILES = 512
+MAX_DIRECTORIES = 128
+MAX_DEPTH = 16
+MAX_FILE_BYTES = 1024 * 1024
+MAX_TOTAL_BYTES = 16 * 1024 * 1024
+OPEN_DIRECTORY = os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY | os.O_NOFOLLOW
+OPEN_SOURCE = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+OPEN_DESTINATION = os.O_WRONLY | os.O_CLOEXEC | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+
+
+class Limits:
+    def __init__(self) -> None:
+        self.files = 0
+        self.directories = 0
+        self.total = 0
+        self.temporary_id = 0
+
+
+def safe_name(name: str) -> None:
+    if name in ("", ".", "..") or "/" in name or "\0" in name:
+        raise ValueError(f"unsafe path component: {name!r}")
+
+
+def copy_regular(src_dir: int, dst_dir: int, name: str, limits: Limits) -> None:
+    before = os.stat(name, dir_fd=src_dir, follow_symlinks=False)
+    if not stat.S_ISREG(before.st_mode):
+        raise ValueError(f"source is not a regular file: {name}")
+    if before.st_size > MAX_FILE_BYTES:
+        raise ValueError(f"source file exceeds {MAX_FILE_BYTES} bytes: {name}")
+    if limits.files >= MAX_FILES:
+        raise ValueError(f"source tree exceeds {MAX_FILES} files")
+
+    source = os.open(name, OPEN_SOURCE, dir_fd=src_dir)
+    try:
+        opened = os.fstat(source)
+        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
+            before.st_dev,
+            before.st_ino,
+        ):
+            raise ValueError(f"source changed while opening: {name}")
+        try:
+            current = os.stat(name, dir_fd=dst_dir, follow_symlinks=False)
+        except FileNotFoundError:
+            current = None
+        if current is not None and not stat.S_ISREG(current.st_mode):
+            raise ValueError(f"destination collision is not a regular file: {name}")
+
+        limits.temporary_id += 1
+        temporary_name = f".nabu-copy.{os.getpid()}.{limits.temporary_id}"
+        destination = os.open(
+            temporary_name, OPEN_DESTINATION, 0o640, dir_fd=dst_dir
+        )
+        try:
+            copied = 0
+            while True:
+                chunk = os.read(source, min(128 * 1024, MAX_FILE_BYTES + 1 - copied))
+                if not chunk:
+                    break
+                copied += len(chunk)
+                if copied > MAX_FILE_BYTES or limits.total + copied > MAX_TOTAL_BYTES:
+                    raise ValueError(f"source data exceeds safety limits: {name}")
+                view = memoryview(chunk)
+                while view:
+                    view = view[os.write(destination, view) :]
+            os.fsync(destination)
+        except BaseException:
+            try:
+                os.unlink(temporary_name, dir_fd=dst_dir)
+            except FileNotFoundError:
+                pass
+            raise
+        finally:
+            os.close(destination)
+    finally:
+        os.close(source)
+
+    os.replace(
+        temporary_name,
+        name,
+        src_dir_fd=dst_dir,
+        dst_dir_fd=dst_dir,
+    )
+    limits.files += 1
+    limits.total += copied
+
+
+def copy_tree(src_dir: int, dst_dir: int, limits: Limits, depth: int = 0) -> None:
+    if depth > MAX_DEPTH:
+        raise ValueError(f"source tree exceeds depth {MAX_DEPTH}")
+    for name in sorted(os.listdir(src_dir)):
+        safe_name(name)
+        entry = os.stat(name, dir_fd=src_dir, follow_symlinks=False)
+        if stat.S_ISDIR(entry.st_mode):
+            if limits.directories >= MAX_DIRECTORIES:
+                raise ValueError(f"source tree exceeds {MAX_DIRECTORIES} directories")
+            try:
+                os.mkdir(name, 0o750, dir_fd=dst_dir)
+            except FileExistsError:
+                destination_entry = os.stat(
+                    name, dir_fd=dst_dir, follow_symlinks=False
+                )
+                if not stat.S_ISDIR(destination_entry.st_mode):
+                    raise ValueError(
+                        f"destination collision is not a directory: {name}"
+                    )
+            limits.directories += 1
+            child_source = os.open(name, OPEN_DIRECTORY, dir_fd=src_dir)
+            child_destination = os.open(name, OPEN_DIRECTORY, dir_fd=dst_dir)
+            try:
+                copy_tree(child_source, child_destination, limits, depth + 1)
+            finally:
+                os.close(child_destination)
+                os.close(child_source)
+        elif stat.S_ISREG(entry.st_mode):
+            copy_regular(src_dir, dst_dir, name, limits)
+        else:
+            raise ValueError(f"unsupported source object: {name}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("source")
+    parser.add_argument("destination")
+    parser.add_argument("--single", action="store_true", help="copy one file to an absent destination")
+    args = parser.parse_args()
+    limits = Limits()
+
+    if args.single:
+        source_parent, source_name = os.path.split(os.path.abspath(args.source))
+        destination_parent, destination_name = os.path.split(os.path.abspath(args.destination))
+        safe_name(source_name)
+        safe_name(destination_name)
+        source_dir = os.open(source_parent, OPEN_DIRECTORY)
+        destination_dir = os.open(destination_parent, OPEN_DIRECTORY)
+        try:
+            copy_regular(source_dir, destination_dir, source_name, limits)
+            if source_name != destination_name:
+                os.rename(source_name, destination_name, src_dir_fd=destination_dir, dst_dir_fd=destination_dir)
+        finally:
+            os.close(destination_dir)
+            os.close(source_dir)
+    else:
+        source_dir = os.open(args.source, OPEN_DIRECTORY)
+        destination_dir = os.open(args.destination, OPEN_DIRECTORY)
+        try:
+            copy_tree(source_dir, destination_dir, limits)
+        finally:
+            os.close(destination_dir)
+            os.close(source_dir)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, ValueError) as error:
+        if isinstance(error, OSError) and error.errno == errno.ELOOP:
+            error = ValueError("refusing symbolic-link source")
+        print(f"nabu-copy-calibration-tree: {error}", file=sys.stderr)
+        raise SystemExit(1)

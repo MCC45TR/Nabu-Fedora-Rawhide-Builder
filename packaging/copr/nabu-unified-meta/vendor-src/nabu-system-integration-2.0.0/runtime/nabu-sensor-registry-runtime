@@ -32,14 +32,16 @@ cp -a -- "$source_root"/. "$staging_root"/
 # modify or remount persist: copy readable files into the volatile tree and
 # normalize ownership only there.
 if [[ -d $persist_registry ]]; then
-    cp -a -- "$persist_registry"/. "$staging_root/sensors/registry"/
+    /usr/libexec/senemos-nabu/nabu-copy-calibration-tree \
+        "$persist_registry" "$staging_root/sensors/registry"
 fi
 # The SSC registry opens this sibling through
 # /persist/sensors/registry/registry/../sns_reg_version.  Keeping only the
 # registry directory makes discovery fail even when every calibration payload
 # is present.
 if [[ -f $persist_registry_parent/sns_reg_version ]]; then
-    cp -a -- "$persist_registry_parent/sns_reg_version" \
+    /usr/libexec/senemos-nabu/nabu-copy-calibration-tree --single \
+        "$persist_registry_parent/sns_reg_version" \
         "$staging_root/sensors/sns_reg_version"
 fi
 chown -R -- "$runtime_user:$runtime_group" "$staging_root"

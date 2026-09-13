@@ -209,9 +209,9 @@ grep -Fq 'tilt_to_wake' <<<"$sar_monitor" \
 sar_capture=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/tools/nabu-sar-capture")
 grep -Fq 'export LC_ALL=C' <<<"$sar_capture" \
     || fail "SAR capture validation remains locale dependent"
-grep -Fq 'BuildRequires:  libssc-nabu-devel >= 2026.9.6-3' "$core" \
+grep -Fq 'BuildRequires:  libssc-nabu-devel >= 2026.9.6-4' "$core" \
     || fail "typed TCS3701 libssc build dependency missing"
-grep -Fqx 'Requires:       nabu-hardware-provenance >= 1.0.0-1' "$core" \
+grep -Fqx 'Requires:       nabu-hardware-provenance >= 1.0.0-2' "$core" \
     || fail "read-only hardware provenance dependency missing"
 
 for spec in "$root"/*-nabu-meta.spec; do
