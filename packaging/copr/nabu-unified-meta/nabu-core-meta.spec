@@ -60,7 +60,6 @@ Requires:       nabu-boot-manager
 Requires:       hexagonrpc-nabu >= 0.5.0-4.nabu1.test
 Requires:       iris-vaapi-nabu >= 0.5.0-4.nabu1.test
 Requires:       libssc-nabu >= 2026.9.6-4
-Requires:       python3-ssc-nabu >= 2026.9.6-4
 Requires:       iio-sensor-proxy-nabu >= 2026.9.6-4
 Requires:       nabu-hardware-provenance >= 1.0.0-2
 Requires:       xiaomi-nabu-firmware
@@ -538,6 +537,8 @@ fi
 - Copy Android sensor calibration into volatile runtime storage through bounded,
   nofollow, regular-file-only C++ descriptors and an atomically replaced target;
   retain Python only for build-time tests.
+- Keep the Python SSC bindings optional; normal sensor readiness uses the native
+  libssc CLI and services and does not execute Python on the tablet.
 - Hide the raw persist mount behind a root-only parent to prevent Android UID
   1000 ownership from granting the desktop user access to calibration records.
 - Require the hardened camera EEPROM reader and exact released sensor/provenance
