@@ -226,6 +226,9 @@ grep -Fqx '/usr/bin/mkdir -p /mnt/vendor/persist' "$core" \
 grep -Fqx 'd /mnt/vendor 0700 root root -' \
     "$root/vendor-src/nabu-system-integration-2.0.0/runtime/nabu-private-mounts.conf" \
     || fail "persist privacy tmpfiles policy missing"
+! grep -Fq '/mnt/vendor/persist' \
+    "$root/vendor-src/nabu-system-integration-2.0.0/runtime/nabu-private-mounts.conf" \
+    || fail "tmpfiles must not chmod the read-only persist mount root"
 
 for spec in "$root"/*-nabu-meta.spec; do
     if grep -E '^Obsoletes:' "$spec" | grep -Ev '^Obsoletes:[[:space:]]+nabu-' >/dev/null; then

@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        90%{?dist}
+Release:        91%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -533,6 +533,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-91
+- Keep the persist filesystem mounted read-only and stop tmpfiles from trying to
+  change the mounted root; enforce Linux-user privacy at /mnt/vendor instead.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-90
 - Copy Android sensor calibration into volatile runtime storage through bounded,
   nofollow, regular-file-only C++ descriptors and an atomically replaced target;
