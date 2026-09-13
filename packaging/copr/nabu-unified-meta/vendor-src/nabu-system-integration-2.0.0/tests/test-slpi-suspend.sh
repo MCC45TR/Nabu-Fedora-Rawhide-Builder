@@ -52,3 +52,7 @@ NABU_SLPI_STATE_DIR=${state_dir} SYSTEMCTL_BIN=${mock} \
 grep -Fxq 'start hexagonrpcd-sdsp.service' "${log_file}"
 grep -Fxq 'start hexagonrpcd-adsp-rootpd.service' "${log_file}"
 grep -Fxq 'start iio-sensor-proxy.service' "${log_file}"
+for unit in hexagonrpcd-adsp-rootpd.service hexagonrpcd-sdsp.service \
+	iio-sensor-proxy.service; do
+	grep -Fxq "reset-failed ${unit}" "${log_file}"
+done

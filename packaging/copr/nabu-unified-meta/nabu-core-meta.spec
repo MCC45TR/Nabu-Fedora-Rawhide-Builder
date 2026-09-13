@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        87%{?dist}
+Release:        88%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -249,6 +249,10 @@ install -Dm0644 system-integration/runtime/90-senemos-nabu.preset %{buildroot}%{
 install -Dm0644 system-integration/runtime/10-nabu-sensor-stack.conf %{buildroot}%{_unitdir}/iio-sensor-proxy.service.d/10-nabu-sensor-stack.conf
 install -Dm0644 system-integration/runtime/20-nabu-sensor-cache.conf %{buildroot}%{_unitdir}/iio-sensor-proxy.service.d/20-nabu-sensor-cache.conf
 install -Dm0644 system-integration/runtime/20-nabu-runtime-registry.conf %{buildroot}%{_unitdir}/hexagonrpcd-sdsp.service.d/20-nabu-runtime-registry.conf
+install -Dm0644 system-integration/runtime/20-nabu-fastrpc-restart.conf %{buildroot}%{_unitdir}/hexagonrpcd-adsp-rootpd.service.d/20-nabu-fastrpc-restart.conf
+install -Dm0644 system-integration/runtime/20-nabu-plasmalogin-stop.conf %{buildroot}%{_unitdir}/plasmalogin.service.d/20-nabu-bounded-stop.conf
+install -Dm0644 system-integration/runtime/20-nabu-session-stop.conf %{buildroot}%{_unitdir}/session-.scope.d/20-nabu-bounded-stop.conf
+install -Dm0644 system-integration/runtime/20-nabu-user-manager-stop.conf %{buildroot}%{_unitdir}/user@.service.d/20-nabu-bounded-stop.conf
 install -Dm0644 system-integration/runtime/10-nabu-wlan-firmware-order.conf %{buildroot}%{_unitdir}/rmtfs.service.d/10-nabu-wlan-firmware-order.conf
 install -Dm0644 system-integration/runtime/90-nabu-user-slice-freeze.conf %{buildroot}%{_unitdir}/systemd-suspend.service.d/90-nabu-user-slice-freeze.conf
 install -Dm0644 system-integration/runtime/20-nabu-host-key-persistence.conf %{buildroot}%{_unitdir}/sshd.service.d/20-nabu-host-key-persistence.conf
@@ -316,6 +320,12 @@ grep -Fq -- '--sensor accelerometer --timeout 1' \
 (cd system-integration && bash tests/test-selinux-label-preparation.sh)
 (cd system-integration && bash tests/test-suspend-user-slice-policy.sh)
 (cd system-integration && bash tests/test-slpi-suspend.sh)
+grep -Fxq 'StartLimitIntervalSec=60s' system-integration/runtime/20-nabu-fastrpc-restart.conf
+grep -Fxq 'StartLimitBurst=4' system-integration/runtime/20-nabu-fastrpc-restart.conf
+grep -Fxq 'TimeoutStopFailureMode=kill' system-integration/runtime/20-nabu-fastrpc-restart.conf
+grep -Fxq 'TimeoutStopSec=10s' system-integration/runtime/20-nabu-plasmalogin-stop.conf
+grep -Fxq 'TimeoutStopSec=10s' system-integration/runtime/20-nabu-session-stop.conf
+grep -Fxq 'TimeoutStopSec=15s' system-integration/runtime/20-nabu-user-manager-stop.conf
 grep -Fq 'policy.linking.role-based.loopbacks = disabled' %{SOURCE29}
 grep -Fq 'node.name = "alsa_output.platform-sound.HiFi__Speaker__sink"' %{SOURCE29}
 grep -Fq 'node.hidden = true' %{SOURCE29}
@@ -412,6 +422,14 @@ fi
 %{_unitdir}/iio-sensor-proxy.service.d/20-nabu-sensor-cache.conf
 %dir %{_unitdir}/hexagonrpcd-sdsp.service.d
 %{_unitdir}/hexagonrpcd-sdsp.service.d/20-nabu-runtime-registry.conf
+%dir %{_unitdir}/hexagonrpcd-adsp-rootpd.service.d
+%{_unitdir}/hexagonrpcd-adsp-rootpd.service.d/20-nabu-fastrpc-restart.conf
+%dir %{_unitdir}/plasmalogin.service.d
+%{_unitdir}/plasmalogin.service.d/20-nabu-bounded-stop.conf
+%dir %{_unitdir}/session-.scope.d
+%{_unitdir}/session-.scope.d/20-nabu-bounded-stop.conf
+%dir %{_unitdir}/user@.service.d
+%{_unitdir}/user@.service.d/20-nabu-bounded-stop.conf
 %dir %{_unitdir}/rmtfs.service.d
 %{_unitdir}/rmtfs.service.d/10-nabu-wlan-firmware-order.conf
 %dir %{_unitdir}/systemd-suspend.service.d
@@ -501,6 +519,12 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-88
+- Bound PlasmaLogin, login-session and user-manager shutdown so a wedged
+  GPU/DSP desktop cannot prevent reboot indefinitely.
+- Give ADSP FastRPC a restart window that actually rate-limits repeated attach
+  failures, and reset that budget for an intentional suspend resume.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-87
 - Make all Nabu TuneD profiles ARM-native instead of inheriting unsupported
   x86 boost, SATA ALPM and NMI-watchdog controls.

@@ -29,6 +29,10 @@ start_if_recorded() {
 	local marker=$2
 
 	if [[ -e ${marker} ]]; then
+		# A transient attach failure may have consumed the bounded restart
+		# budget while the DSP was coming back.  A deliberate resume is a new
+		# recovery attempt, so clear that state before restoring the client.
+		"${systemctl_bin}" reset-failed "${unit}" || :
 		"${systemctl_bin}" start "${unit}"
 		unlink "${marker}"
 	fi
