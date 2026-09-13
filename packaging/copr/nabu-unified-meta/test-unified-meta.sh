@@ -215,7 +215,7 @@ grep -Fq 'BuildRequires:  libssc-nabu-devel >= 2026.9.6-4' "$core" \
     || fail "typed TCS3701 libssc build dependency missing"
 ! grep -Eq '^Requires:[[:space:]]+python3-ssc-nabu' "$core" \
     || fail "Python SSC bindings remain in the tablet runtime dependency path"
-grep -Fqx 'Requires:       nabu-hardware-provenance >= 1.0.0-2' "$core" \
+grep -Fqx 'Requires:       nabu-hardware-provenance >= 1.0.0-3' "$core" \
     || fail "read-only hardware provenance dependency missing"
 grep -Fqx '/usr/bin/chown root:root /mnt/vendor' "$core" \
     || fail "persist privacy ownership gate is not fail closed"

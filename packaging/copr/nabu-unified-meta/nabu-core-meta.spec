@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        91%{?dist}
+Release:        92%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -61,7 +61,7 @@ Requires:       hexagonrpc-nabu >= 0.5.0-4.nabu1.test
 Requires:       iris-vaapi-nabu >= 0.5.0-4.nabu1.test
 Requires:       libssc-nabu >= 2026.9.6-4
 Requires:       iio-sensor-proxy-nabu >= 2026.9.6-4
-Requires:       nabu-hardware-provenance >= 1.0.0-2
+Requires:       nabu-hardware-provenance >= 1.0.0-3
 Requires:       xiaomi-nabu-firmware
 Requires:       senemos-nabu-plymouth >= 2.0.0-37.test
 # Keep the hardware-facing camera stack in CORE so every supported desktop
@@ -533,6 +533,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-92
+- Require the native C++ hardware provenance runtime so an existing Python
+  revision cannot satisfy the production hardware inventory dependency.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-91
 - Keep the persist filesystem mounted read-only and stop tmpfiles from trying to
   change the mounted root; enforce Linux-user privacy at /mnt/vendor instead.
