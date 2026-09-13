@@ -143,3 +143,5 @@ cc41ff2cb71375a1117d9a7f6be84b5546f46a17d5389b006b0412e4413ccd92  0141-clk-qcom-
 4220cea34565a982a698ecc4ad6a66483c7194650be7ac49496eb1c7288cc755  0143-media-ov8856-bound-cold-probe-recovery.patch
 edd665289be367eaa4e84a29b11593a6eeb3df47e966a5fc353f52a1df8d3afd  0144-arm64-dts-qcom-enable-bounded-OV8856-recovery-on-Nab.patch
 d842dbbefcdfca26aa05947ee6434ef11f0b796948465af84adbd699d7930ba6  0145-clk-qcom-restore-firmware-owned-Nabu-DSI-branches.patch
+7902960ea26ba91314d0338290fdb154b7d4d3c05a11c189e05ba8fa4ed16d68  0146-ufs-qcom-keep-Nabu-runtime-link-active.patch
+092754075bdf8259ad901f940161b8162ef4e745c322026da637c4af9e7357e4  0147-senemos-recover-from-persistent-Nabu-kernel-stalls.patch

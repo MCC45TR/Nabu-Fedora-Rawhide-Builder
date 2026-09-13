@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -162,6 +162,8 @@ Patch0142:      0142-dt-bindings-media-ov8856-allow-a-bounded-probe-power.patch
 Patch0143:      0143-media-ov8856-bound-cold-probe-recovery.patch
 Patch0144:      0144-arm64-dts-qcom-enable-bounded-OV8856-recovery-on-Nab.patch
 Patch0145:      0145-clk-qcom-restore-firmware-owned-Nabu-DSI-branches.patch
+Patch0146:      0146-ufs-qcom-keep-Nabu-runtime-link-active.patch
+Patch0147:      0147-senemos-recover-from-persistent-Nabu-kernel-stalls.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -363,7 +365,14 @@ for setting in \
     'CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y' \
     'CONFIG_HW_RANDOM=y' \
     'CONFIG_HW_RANDOM_ARM_SMCCC_TRNG=y' \
-    'CONFIG_CRYPTO_DEV_QCOM_RNG=y'; do
+    'CONFIG_CRYPTO_DEV_QCOM_RNG=y' \
+    'CONFIG_DETECT_HUNG_TASK=y' \
+    'CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=120' \
+    'CONFIG_BOOTPARAM_HUNG_TASK_PANIC=1' \
+    'CONFIG_DETECT_HUNG_TASK_BLOCKER=y' \
+    'CONFIG_WQ_WATCHDOG=y' \
+    'CONFIG_BOOTPARAM_WQ_STALL_PANIC=0' \
+    'CONFIG_PANIC_TIMEOUT=15'; do
     grep -Fxq "$setting" %{buildroot}/boot/config-%{uname_r}
 done
 ! grep -Eq '^CONFIG_(MODULE_SIG_FORCE|VIRTUALIZATION|KVM|TCG_FTPM_TEE|IMA|EVM)=(y|m)$' \
@@ -406,6 +415,7 @@ grep -A8 -F 'rng@793000' %{_builddir}/nabu-final.dts \
     | grep -Fq 'compatible = "qcom,prng-ee";'
 grep -A8 -F 'rng@793000' %{_builddir}/nabu-final.dts \
     | grep -Fq 'clock-names = "core";'
+grep -Fq 'qcom,broken-runtime-pm;' %{_builddir}/nabu-final.dts
 grep -Fxq '# CONFIG_ACPI is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_PCI is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_ARCH_MEDIATEK is not set' %{buildroot}/boot/config-%{uname_r}
@@ -423,6 +433,11 @@ grep -Fq 'console-size = <0x100000>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
 grep -Fq 'ftrace-size = <0x200000>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+grep -Fq 'qcom,broken-runtime-pm;' \
+    arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+grep -Fq 'qcom,broken-runtime-pm' drivers/ufs/host/ufs-qcom.c
+grep -A4 -F 'qcom,broken-runtime-pm' drivers/ufs/host/ufs-qcom.c \
+    | grep -Fq 'hba->caps &= ~UFSHCD_CAP_RPM_AUTOSUSPEND;'
 grep -Fq '#define FASTRPC_SDSP_IOVA_BASE' drivers/misc/fastrpc.c
 grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
     drivers/misc/fastrpc.c
@@ -497,6 +512,13 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-11
+- Keep Nabu's UFS logical units active at runtime after live HIL captured a
+  Samsung UniPro TC replay timeout during device-WLUN resume, failed link
+  recovery and an aborted root EXT4 journal.
+- Preserve system suspend and active-state clock policies, while adding
+  persistent hung-task/workqueue evidence and a bounded panic reboot.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-10
 - Restore the six firmware-owned bonded-DSI byte/pixel branches to
   CLK_IGNORE_UNUSED after r8 HIL showed that they cannot halt safely during

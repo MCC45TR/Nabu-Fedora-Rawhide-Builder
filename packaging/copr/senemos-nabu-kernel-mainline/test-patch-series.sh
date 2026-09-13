@@ -275,6 +275,13 @@ for setting in \
     'CONFIG_HW_RANDOM=y' \
     'CONFIG_HW_RANDOM_ARM_SMCCC_TRNG=y' \
     'CONFIG_CRYPTO_DEV_QCOM_RNG=y' \
+    'CONFIG_DETECT_HUNG_TASK=y' \
+    'CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=120' \
+    'CONFIG_BOOTPARAM_HUNG_TASK_PANIC=1' \
+    'CONFIG_DETECT_HUNG_TASK_BLOCKER=y' \
+    'CONFIG_WQ_WATCHDOG=y' \
+    'CONFIG_BOOTPARAM_WQ_STALL_PANIC=0' \
+    'CONFIG_PANIC_TIMEOUT=15' \
     'CONFIG_PLATFORM_PROFILE=y' \
     'CONFIG_XIAOMI_NABU_POWER_PROFILE=y' \
     'CONFIG_QCOM_SSC_CCT=m' \
@@ -319,6 +326,15 @@ grep -A8 -F 'of_machine_is_compatible("xiaomi,nabu")' "$ufs_qcom" \
     | grep -Fq 'usleep_range(960, 970);'
 grep -A10 -F 'of_machine_is_compatible("xiaomi,nabu")' "$ufs_qcom" \
     | grep -Fq 'usleep_range(200, 210);'
+grep -Fq 'qcom,broken-runtime-pm' "$ufs_qcom"
+grep -A4 -F 'qcom,broken-runtime-pm' "$ufs_qcom" \
+    | grep -Fq 'hba->caps &= ~UFSHCD_CAP_RPM_AUTOSUSPEND;'
+grep -Fq 'qcom,broken-runtime-pm:' \
+    "$work/linux-$version/Documentation/devicetree/bindings/ufs/qcom,ufs-common.yaml"
+nabu_dts="$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
+grep -Fq 'qcom,broken-runtime-pm;' "$nabu_dts"
+test "$(grep -R -F 'qcom,broken-runtime-pm;' \
+    "$work/linux-$version/arch/arm64/boot/dts" | wc -l)" -eq 1
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
 grep -Fxq '# CONFIG_RPMB is not set' "$config_dir/.config"
 grep -Fq 'nvmem-cells = <&rtc_offset>;' \
