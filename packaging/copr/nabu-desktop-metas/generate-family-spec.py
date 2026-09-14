@@ -95,9 +95,10 @@ for profile in PROFILES:
 # additional for Plasma Mobile. Avoid executing identical install operations
 # twice, especially creation of fixed systemd symlinks.
 gnome_install = remap_sources(section(text("gnome-mobile-nabu-meta"), "install"), "gnome-mobile-nabu-meta")
+kde_build = remap_sources(section(text("kde-plasma-nabu-meta"), "build"), "kde-plasma-nabu-meta")
 kde_install = remap_sources(section(text("kde-plasma-nabu-meta"), "install"), "kde-plasma-nabu-meta")
 mobile_install = remap_sources(section(text("kde-plasma-mobile-nabu-meta"), "install"), "kde-plasma-mobile-nabu-meta")
-mobile_session_install = mobile_install.split("install -Dm0755 kde-integration", 1)[0].rstrip()
+mobile_session_install = mobile_install.split("install -Dm0755 nabu-audio-orientation", 1)[0].rstrip()
 install_parts = [
     "# Shared GNOME and GNOME Mobile payload\n" + gnome_install,
     "# Shared KDE Plasma payload\n" + kde_install,
@@ -134,7 +135,7 @@ out = [
     "",
     "Name:           nabu-desktop-metas",
     "Version:        3.0.0",
-    "Release:        106%{?dist}",
+    "Release:        107%{?dist}",
     "Summary:        Unified desktop profile family for Xiaomi Pad 5",
     "License:        MIT AND GPL-2.0-or-later AND GPL-3.0-or-later AND BSD-2-Clause AND CC0-1.0",
     "URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder",
@@ -159,9 +160,10 @@ out.extend([
     "tar -xzf %{SOURCE1} -C flashlight --strip-components=1",
     "tar -xzf %{SOURCE2} -C kde-integration --strip-components=1",
     "tar --zstd -xf %{SOURCE3} -C widgets --strip-components=1",
-    "chmod +x kde-integration/kde/senemos-nabu-color-profile kde-integration/tests/mock-kscreen-doctor",
+    "chmod +x kde-integration/tests/mock-kscreen-doctor",
     "",
     "%build",
+    kde_build,
     "",
     "%install",
     "\n\n".join(install_parts),
@@ -179,9 +181,36 @@ for profile in PROFILES:
 
 out.extend([
     "%changelog",
+    "* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-107",
+    "- Move the Nabu widget into plasma-nabu-kcm and require its native KCM.",
+    "",
     "* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-106",
-    "- Remove the exact vendor-owned legacy automatic ICC enablement link.",
-    "- Preserve explicit user-selected KDE color profile policy.",
+    "- Remove only the exact vendor-owned legacy automatic ICC enablement link so",
+    "  Plasma lists profiles for explicit selection without enqueueing a missing",
+    "  auto-apply unit.",
+    "",
+    "* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-105",
+    "- Replace the three Python KDE runtime helpers with native C++20/QtCore",
+    "  binaries; retain Python only for isolated package tests.",
+    "- Keep ICC handling explicit and user-selected; no automatic profile command",
+    "  or service is installed.",
+    "",
+    "* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-104",
+    "- Keep all panel-specific ICC profiles discoverable by stock KDE/KScreen.",
+    "- Stop selecting or changing a color profile automatically at user login.",
+    "- Rebuild the KDE payload deterministically from its reviewed source tree.",
+    "",
+    "* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-103",
+    "- Rebuild source payloads reproducibly without generated Python bytecode.",
+    "- Require the corrected core meta build containing the complete test archive.",
+    "",
+    "* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-102",
+    "- Enable bounded per-user panel-variant ICC selection for all Plasma users.",
+    "- Prefer kernel panel identity and retain a read-only UEFI fallback.",
+    "",
+    "* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-101",
+    "- Select the factory-derived ICC automatically for each Nabu panel and user.",
+    "- Preserve user-selected profiles and the accurate KWin ICC pipeline.",
     "",
     "* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-100",
     "- Build all five desktop manifests from one COPR source family.",

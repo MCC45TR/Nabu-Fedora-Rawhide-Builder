@@ -20,7 +20,7 @@ BuildRequires:  python3
 BuildRequires:  gettext
 BuildRequires:  glib2
 BuildRequires:  systemd-rpm-macros
-Requires:       nabu-core-meta >= 3.0.0-35
+Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       coreutils

@@ -8,7 +8,7 @@ License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
 Source0:        nabu-kde-l10n-1.1.0.tar.gz
 BuildArch:      noarch
-Requires:       nabu-core-meta >= 3.0.0
+Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       coreutils

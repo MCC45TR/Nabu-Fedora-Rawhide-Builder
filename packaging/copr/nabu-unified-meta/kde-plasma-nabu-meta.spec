@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        21%{?dist}
+Release:        22%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -22,7 +22,7 @@ BuildRequires:  lcms2
 BuildRequires:  python3
 BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  systemd-rpm-macros
-Requires:       nabu-core-meta >= 3.0.0-34
+Requires:       nabu-core-meta >= 3.0.0-89
 # Plasma and setup translations are a hard release contract. Fedora language
 # packs are selected later from the locale chosen in Plasma Setup.
 Requires:       glibc-all-langpacks
@@ -79,6 +79,7 @@ Requires:       nano
 Requires:       fastfetch
 Requires:       plasma-systemmonitor
 Requires:       plasma-welcome
+Requires:       plasma-nabu-kcm >= 1.0.0-1
 Requires:       kinfocenter
 Requires:       libcanberra-backend-pulse
 Requires:       mesa-vulkan-drivers
@@ -104,7 +105,6 @@ Provides:       nabu-language-support = 1.1.0-1.test.fc46
 Provides:       nabu-kde-l10n = %{version}-%{release}
 Provides:       nabu-plasma-setup-l10n = %{version}-%{release}
 Provides:       nabu-plasma-login-theme-abi = 1
-Provides:       nabu-flashlight-integration-plasma = %{version}-%{release}
 Obsoletes:      nabu-plasma-base < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-minimal-meta < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-optimal-meta < %{legacy_meta_max}
@@ -116,7 +116,6 @@ Obsoletes:      nabu-language-support < %{legacy_meta_max}
 Obsoletes:      nabu-kde-l10n < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-setup-l10n < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-login-theme < %{legacy_meta_max}
-Obsoletes:      nabu-flashlight-integration-plasma < %{legacy_meta_max}
 
 %description
 The only KDE Plasma desktop manifest for Nabu. It contains the formerly
@@ -165,9 +164,6 @@ install -Dm0644 %{SOURCE5} %{buildroot}%{_prefix}/lib/plasmalogin/plasmalogin.co
 install -Dm0644 %{SOURCE6} %{buildroot}%{_datadir}/backgrounds/nabu/nabu-plasma-login.svg
 install -Dm0644 %{SOURCE7} %{buildroot}%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf
 install -Dm0644 %{SOURCE8} %{buildroot}%{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf
-install -d %{buildroot}%{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight
-cp -a flashlight/plasma/. %{buildroot}%{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight/
-install -Dm0644 flashlight/plasma-update/org.senemos.nabu.flashlight.js %{buildroot}%{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 %check
 test "$(od -An -tx1 -N4 nabu-audio-orientation | tr -d ' \n')" = 7f454c46
@@ -179,9 +175,6 @@ KSCREEN_DOCTOR="$PWD/kde-integration/tests/mock-kscreen-doctor" ./senemos-nabu-d
 bash -n kde-integration/kde/senemos-nabu-color-settings
 desktop-file-validate kde-integration/kde/org.senemos.nabu.colorprofiles.desktop
 python3 -c 'import json, pathlib; root=pathlib.Path("widgets"); expected={"com.mcc45tr.filesearch","com.mcc45tr.mweather","com.mcc45tr.analogclock"}; assert {json.loads((root/x/"metadata.json").read_text())["KPlugin"]["Id"] for x in expected} == expected'
-python3 -m json.tool flashlight/plasma/metadata.json >/dev/null
-grep -Fq '/usr/libexec/nabu-sar-control' flashlight/plasma/contents/ui/main.qml
-grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 
 %files
 %{_presetdir}/95-nabu-plasma-login.preset
@@ -218,8 +211,6 @@ grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 %dir %{_unitdir}/user@.service.d
 %{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf
 %{_prefix}/lib/plasmalogin/plasmalogin.conf.d/80-nabu-plasma-login-theme.conf
-%{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight/
-%{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 %post
 # Remove only the exact legacy vendor link that enabled automatic ICC
@@ -260,6 +251,9 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-22
+- Move the Nabu Plasma widget into the native plasma-nabu-kcm package.
+
 * Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-20
 - Expose the four physical speakers separately in Plasma's Built-in Audio test.
 - Migrate restored two-channel volume state without leaving rear speakers muted.

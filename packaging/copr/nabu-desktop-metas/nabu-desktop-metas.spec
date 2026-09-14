@@ -3,7 +3,7 @@
 
 Name:           nabu-desktop-metas
 Version:        3.0.0
-Release:        106%{?dist}
+Release:        107%{?dist}
 Summary:        Unified desktop profile family for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-or-later AND BSD-2-Clause AND CC0-1.0
 URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder
@@ -33,8 +33,8 @@ BuildRequires:  gcc-c++
 BuildRequires:  gettext
 BuildRequires:  glib2
 BuildRequires:  lcms2
-BuildRequires:  python3
 BuildRequires:  pkgconfig(Qt6Core)
+BuildRequires:  python3
 BuildRequires:  systemd-rpm-macros
 
 %description
@@ -223,6 +223,7 @@ Requires:       nano
 Requires:       fastfetch
 Requires:       plasma-systemmonitor
 Requires:       plasma-welcome
+Requires:       plasma-nabu-kcm >= 1.0.0-1
 Requires:       kinfocenter
 Requires:       libcanberra-backend-pulse
 Requires:       mesa-vulkan-drivers
@@ -248,7 +249,6 @@ Provides:       nabu-language-support = 1.1.0-1.test.fc46
 Provides:       nabu-kde-l10n = %{version}-%{release}
 Provides:       nabu-plasma-setup-l10n = %{version}-%{release}
 Provides:       nabu-plasma-login-theme-abi = 1
-Provides:       nabu-flashlight-integration-plasma = %{version}-%{release}
 Obsoletes:      nabu-plasma-base < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-minimal-meta < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-optimal-meta < %{legacy_meta_max}
@@ -260,7 +260,6 @@ Obsoletes:      nabu-language-support < %{legacy_meta_max}
 Obsoletes:      nabu-kde-l10n < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-setup-l10n < %{legacy_meta_max}
 Obsoletes:      nabu-plasma-login-theme < %{legacy_meta_max}
-Obsoletes:      nabu-flashlight-integration-plasma < %{legacy_meta_max}
 
 %description -n kde-plasma-nabu-meta
 The only KDE Plasma desktop manifest for Nabu. It contains the formerly
@@ -300,6 +299,7 @@ Requires:       plasma-nm
 Requires:       plasma-pa
 Requires:       plasma-keyboard
 Requires:       plasma5support
+Requires:       plasma-nabu-kcm >= 1.0.0-1
 Requires:       bluedevil
 Requires:       NetworkManager
 Requires:       mesa-dri-drivers
@@ -347,7 +347,6 @@ Provides:       nabu-kde-widgets = %{version}-%{release}
 Provides:       nabu-language-support = %{version}-%{release}
 Provides:       nabu-kde-l10n = %{version}-%{release}
 Provides:       nabu-plasma-login-theme-abi = 1
-Provides:       nabu-flashlight-integration-plasma = %{version}-%{release}
 Obsoletes:      nabu-kde-mobile-base < %{legacy_meta_max}
 Obsoletes:      nabu-kde-mobile-minimal-meta < %{legacy_meta_max}
 Obsoletes:      nabu-kde-mobile-optimal-meta < %{legacy_meta_max}
@@ -475,9 +474,6 @@ install -Dm0644 %{SOURCE5} %{buildroot}%{_prefix}/lib/plasmalogin/plasmalogin.co
 install -Dm0644 %{SOURCE6} %{buildroot}%{_datadir}/backgrounds/nabu/nabu-plasma-login.svg
 install -Dm0644 %{SOURCE7} %{buildroot}%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf
 install -Dm0644 %{SOURCE8} %{buildroot}%{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf
-install -d %{buildroot}%{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight
-cp -a flashlight/plasma/. %{buildroot}%{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight/
-install -Dm0644 flashlight/plasma-update/org.senemos.nabu.flashlight.js %{buildroot}%{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 # Plasma Mobile session-only payload
 install -Dm0644 %{SOURCE9} %{buildroot}%{_datadir}/nabu-plasma-mobile/wayland-sessions/plasma-mobile.desktop
@@ -505,35 +501,24 @@ grep -Fqx 'ProtectSystem=false' %{SOURCE15}
 
 # kde-plasma-nabu-meta
 test "$(od -An -tx1 -N4 nabu-audio-orientation | tr -d ' \n')" = 7f454c46
-test "$(od -An -tx1 -N4 senemos-nabu-display-profile | tr -d ' \n')" = 7f454c46
-test "$(od -An -tx1 -N4 senemos-nabu-color-profile | tr -d ' \n')" = 7f454c46
 grep -Fq 'audio.position = [ FL FR RL RR ]' kde-integration/kde/nabu-speaker-filter-chain.conf
 ./senemos-nabu-color-profile catalog
 SENEMOS_NABU_COLOR_BINARY="$PWD/senemos-nabu-color-profile" python3 -m unittest -v kde-integration/tests/test_color_profile.py
 NABU_AUDIO_ORIENTATION_BINARY="$PWD/nabu-audio-orientation" python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
 KSCREEN_DOCTOR="$PWD/kde-integration/tests/mock-kscreen-doctor" ./senemos-nabu-display-profile native --dry-run
-test ! -e kde-integration/kde/nabu-color-profile-auto.service
-! grep -Fq 'nabu-color-profile-auto.service' kde-integration/kde/90-nabu-kde.preset
 bash -n kde-integration/kde/senemos-nabu-color-settings
 desktop-file-validate kde-integration/kde/org.senemos.nabu.colorprofiles.desktop
 python3 -c 'import json, pathlib; root=pathlib.Path("widgets"); expected={"com.mcc45tr.filesearch","com.mcc45tr.mweather","com.mcc45tr.analogclock"}; assert {json.loads((root/x/"metadata.json").read_text())["KPlugin"]["Id"] for x in expected} == expected'
-python3 -m json.tool flashlight/plasma/metadata.json >/dev/null
-grep -Fq '/usr/libexec/nabu-sar-control' flashlight/plasma/contents/ui/main.qml
-grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 
 # kde-plasma-mobile-nabu-meta
 test "$(od -An -tx1 -N4 nabu-audio-orientation | tr -d ' \n')" = 7f454c46
 ./senemos-nabu-color-profile catalog
 SENEMOS_NABU_COLOR_BINARY="$PWD/senemos-nabu-color-profile" python3 -m unittest -v kde-integration/tests/test_color_profile.py
 NABU_AUDIO_ORIENTATION_BINARY="$PWD/nabu-audio-orientation" python3 -m unittest -v kde-integration/tests/test_audio_orientation.py
-test ! -e kde-integration/kde/nabu-color-profile-auto.service
-! grep -Fq 'nabu-color-profile-auto.service' kde-integration/kde/90-nabu-kde.preset
+KSCREEN_DOCTOR="$PWD/kde-integration/tests/mock-kscreen-doctor" ./senemos-nabu-display-profile native --dry-run
 bash -n kde-integration/kde/senemos-nabu-color-settings
 desktop-file-validate kde-integration/kde/org.senemos.nabu.colorprofiles.desktop
 python3 -c 'import json, pathlib; root=pathlib.Path("widgets"); expected={"com.mcc45tr.filesearch","com.mcc45tr.mweather","com.mcc45tr.analogclock"}; assert {json.loads((root/x/"metadata.json").read_text())["KPlugin"]["Id"] for x in expected} == expected'
-python3 -m json.tool flashlight/plasma/metadata.json >/dev/null
-grep -Fq '/usr/libexec/nabu-sar-control' flashlight/plasma/contents/ui/main.qml
-grep -Fq 'Keep awake while held' flashlight/plasma/contents/ui/main.qml
 
 %posttrans -n gnome-nabu-meta
 %{_libexecdir}/senemos-nabu/nabu-restore-kde-locales || :
@@ -579,9 +564,8 @@ touch /var/lib/nabu-gnome-mobile-sync/pending
 %{_userunitdir}/org.gnome.Shell@initial-setup.service.d/20-nabu-mobile-user-mode.conf
 
 %post -n kde-plasma-nabu-meta
-# Releases before 3.0.0-105 enabled an automatic ICC assignment unit. Remove
-# only that exact vendor-owned legacy link; preserve an administrator-created
-# replacement or a differently targeted link.
+# Remove only the exact legacy vendor link that enabled automatic ICC
+# assignment. Preserve any administrator-created replacement.
 legacy_icc_link=%{_sysconfdir}/systemd/user/graphical-session.target.wants/nabu-color-profile-auto.service
 if [ -L "$legacy_icc_link" ] &&
    [ "$(readlink -- "$legacy_icc_link")" = "%{_userunitdir}/nabu-color-profile-auto.service" ]; then
@@ -654,10 +638,10 @@ fi
 %dir %{_unitdir}/user@.service.d
 %{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf
 %{_prefix}/lib/plasmalogin/plasmalogin.conf.d/80-nabu-plasma-login-theme.conf
-%{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight/
-%{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 %post -n kde-plasma-mobile-nabu-meta
+# Remove only the exact legacy vendor link that enabled automatic ICC
+# assignment. Preserve any administrator-created replacement.
 legacy_icc_link=%{_sysconfdir}/systemd/user/graphical-session.target.wants/nabu-color-profile-auto.service
 if [ -L "$legacy_icc_link" ] &&
    [ "$(readlink -- "$legacy_icc_link")" = "%{_userunitdir}/nabu-color-profile-auto.service" ]; then
@@ -736,8 +720,6 @@ fi
 %dir %{_unitdir}/user@.service.d
 %{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf
 %{_prefix}/lib/plasmalogin/plasmalogin.conf.d/80-nabu-plasma-login-theme.conf
-%{_datadir}/plasma/plasmoids/org.senemos.nabu.flashlight/
-%{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/org.senemos.nabu.flashlight.js
 
 %posttrans -n phosh-nabu-meta
 %{_libexecdir}/senemos-nabu/nabu-restore-kde-locales || :
@@ -749,6 +731,9 @@ fi
 %{_sysconfdir}/rpm/macros.nabu-languages
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-107
+- Move the Nabu widget into plasma-nabu-kcm and require its native KCM.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-106
 - Remove only the exact vendor-owned legacy automatic ICC enablement link so
   Plasma lists profiles for explicit selection without enqueueing a missing
