@@ -8,6 +8,13 @@ the complete Nabu patch and configuration gate passes. The accepted commit then
 triggers the COPR SCM package's automatic rebuild; a failed port leaves the last
 working repository result untouched.
 
+Release 7.2.4-13 adds the documented NT36523 `double_tap_to_wake` sysfs ABI and
+the built-in uinput capability used by the opt-in Sensor DSP tilt-wake bridge.
+The touchscreen attribute is created only when Device Tree declares both the
+gesture and wake source, and the userspace bridge can emit only `KEY_WAKEUP`.
+Neither mechanism changes Android/vendor calibration data or broadens access
+to any firmware partition.
+
 Release 7.2.4-12 adds the charge-full and SOC-derived charge-now attributes
 required by UPower's charge-based accounting. UPower can therefore combine
 the fuel gauge's measured current and voltage with remaining charge, allowing

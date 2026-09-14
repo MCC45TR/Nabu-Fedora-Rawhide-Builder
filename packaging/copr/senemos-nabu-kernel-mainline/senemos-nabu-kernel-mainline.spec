@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        12%{?dist}
+Release:        13%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -165,6 +165,7 @@ Patch0145:      0145-clk-qcom-restore-firmware-owned-Nabu-DSI-branches.patch
 Patch0146:      0146-ufs-qcom-keep-Nabu-runtime-link-active.patch
 Patch0147:      0147-senemos-recover-from-persistent-Nabu-kernel-stalls.patch
 Patch0148:      0148-power-supply-qcom_fg-expose-charge-telemetry.patch
+Patch0149:      0149-Input-nt36523-expose-runtime-double-tap-wake-control.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -521,6 +522,12 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-13
+- Add a documented runtime double-tap wake ABI without changing the default.
+- Enable the restricted uinput bridge required for opt-in Sensor DSP tilt wake.
+- Expose neither control unless the matching firmware and kernel capability is
+  present, and keep all Android/vendor calibration partitions read-only.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-12
 - Expose charge-full and SOC-derived charge-now values from qcom_fg so UPower
   can combine them with measured current and voltage for KDE battery and

@@ -501,6 +501,15 @@ grep -Fq 'return dev_err_probe(&pdev->dev, -EPROBE_DEFER,' \
     "$work/linux-$version/drivers/gpu/drm/msm/dsi/dsi.c"
 grep -Fq 'alloc_ordered_workqueue("nvt_esd_check_wq", WQ_MEM_RECLAIM);' \
     "$work/linux-$version/drivers/input/touchscreen/nt36523/nt36xxx.c"
+touch_driver="$work/linux-$version/drivers/input/touchscreen/nt36523/nt36xxx.c"
+grep -Fq 'static DEVICE_ATTR_RW(double_tap_to_wake);' "$touch_driver"
+grep -A5 -F 'if (ts->double_tap_supported && ts->wakeup_source)' "$touch_driver" \
+    | grep -Fq 'devm_device_add_groups(&client->dev, nvt_runtime_groups);'
+grep -Fq 'CONFIG_INPUT_UINPUT=y' "$config_dir/.config"
+grep -Fq 'What:' \
+    "$work/linux-$version/Documentation/ABI/testing/sysfs-driver-nt36523"
+grep -Fq 'novatek,double-tap-to-wake' \
+    "$work/linux-$version/Documentation/ABI/testing/sysfs-driver-nt36523"
 # Trigger STOP must preserve the active ASM setup state so the next prepare
 # closes it, but it must not wait for the optional rendered-EOS event. Nabu's
 # ADSP does not reliably emit that event and the extra wait stalls stream close.
