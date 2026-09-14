@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        13%{?dist}
+Release:        14%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -522,6 +522,9 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-14
+- Use Linux 7.2's single-group managed sysfs registration API for DT2W.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-13
 - Add a documented runtime double-tap wake ABI without changing the default.
 - Enable the restricted uinput bridge required for opt-in Sensor DSP tilt wake.

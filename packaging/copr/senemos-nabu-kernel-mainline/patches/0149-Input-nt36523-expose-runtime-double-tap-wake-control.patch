@@ -107,7 +107,7 @@ index 7560d66af..cd4adaf2b 100644
  		ts->db_wakeup = 0;
  	}
 +	if (ts->double_tap_supported && ts->wakeup_source) {
-+		ret = devm_device_add_groups(&client->dev, nvt_runtime_groups);
++		ret = devm_device_add_group(&client->dev, &nvt_runtime_group);
 +		if (ret)
 +			NVT_ERR("failed to create runtime attributes: %d\n", ret);
 +	}
@@ -157,4 +157,3 @@ index fbe5e9964..e6d277409 100644
  CONFIG_CHARGER_QCOM_SMB2=m
 -- 
 2.55.0
-

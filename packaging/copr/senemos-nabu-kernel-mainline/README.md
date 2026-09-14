@@ -8,7 +8,9 @@ the complete Nabu patch and configuration gate passes. The accepted commit then
 triggers the COPR SCM package's automatic rebuild; a failed port leaves the last
 working repository result untouched.
 
-Release 7.2.4-13 adds the documented NT36523 `double_tap_to_wake` sysfs ABI and
+Release 7.2.4-14 carries the documented NT36523 `double_tap_to_wake` sysfs ABI
+using Linux 7.2's managed single-group registration API. Release 13 is retained
+only as the rejected compile-gate attempt and was never installed. The ABI adds
 the built-in uinput capability used by the opt-in Sensor DSP tilt-wake bridge.
 The touchscreen attribute is created only when Device Tree declares both the
 gesture and wake source, and the userspace bridge can emit only `KEY_WAKEUP`.
