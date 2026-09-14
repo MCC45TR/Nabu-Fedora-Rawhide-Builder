@@ -3,7 +3,7 @@
 
 Name:           nabu-desktop-metas
 Version:        3.0.0
-Release:        107%{?dist}
+Release:        108%{?dist}
 Summary:        Unified desktop profile family for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-or-later AND BSD-2-Clause AND CC0-1.0
 URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder
@@ -172,6 +172,7 @@ Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       color-filesystem
+Requires:       colord-kde
 Requires:       coreutils
 Requires:       curl
 Requires:       filesystem
@@ -274,6 +275,7 @@ Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       color-filesystem
+Requires:       colord-kde
 Requires:       coreutils
 Requires:       curl
 Requires:       filesystem
@@ -731,6 +733,9 @@ fi
 %{_sysconfdir}/rpm/macros.nabu-languages
 
 %changelog
+* Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-108
+- Install the stock KDE color-profile KCM for explicit ICC selection.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-107
 - Move the Nabu widget into plasma-nabu-kcm and require its native KCM.
 

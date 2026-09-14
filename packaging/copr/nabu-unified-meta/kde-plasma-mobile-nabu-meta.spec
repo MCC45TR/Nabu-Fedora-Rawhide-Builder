@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-mobile-nabu-meta
 Version:        3.0.0
-Release:        18%{?dist}
+Release:        19%{?dist}
 Summary:        Complete KDE Plasma Mobile release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -29,6 +29,7 @@ Requires:       nabu-core-meta >= 3.0.0-89
 Requires:       glibc-all-langpacks
 Requires:       bash
 Requires:       color-filesystem
+Requires:       colord-kde
 Requires:       coreutils
 Requires:       curl
 Requires:       filesystem
@@ -247,6 +248,9 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
+* Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-19
+- Install the stock KDE color-profile KCM for explicit ICC selection.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-18
 - Move the Nabu Plasma widget into the native plasma-nabu-kcm package.
 
