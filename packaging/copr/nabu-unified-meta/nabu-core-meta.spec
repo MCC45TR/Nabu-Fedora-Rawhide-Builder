@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        92%{?dist}
+Release:        93%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -18,7 +18,7 @@ Source7:        90-nabu-kernel-maintenance.preset
 Source8:        kernel.conf
 Source9:        nabu-system-integration-2.0.0.tar.zst
 Source10:       nabu-flashlight-integration-1.0.0.tar.gz
-Source11:       nabu-sar-service-0.3.0.tar.zst
+Source11:       nabu-sar-service-0.3.1.tar.zst
 Source12:       nabu-ssc-probe.c
 Source13:       nabu-pen-autopair
 Source14:       82-nabu-pen-autopair.rules
@@ -533,6 +533,11 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-93
+- Reject constant or saturated ADUX1050 reports before grip classification,
+  calibration capture, or logind inhibition; export explicit data-quality
+  evidence and reduce unhealthy unchanged D-Bus updates to one per five seconds.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-92
 - Require the native C++ hardware provenance runtime so an existing Python
   revision cannot satisfy the production hardware inventory dependency.

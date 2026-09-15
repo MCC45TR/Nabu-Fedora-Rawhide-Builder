@@ -55,7 +55,7 @@ grep -Fxq 'TimeoutStopFailureMode=kill' "$fastrpc_restart" || fail "ADSP FastRPC
 grep -Fxq 'TimeoutStopSec=10s' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/20-nabu-plasmalogin-stop.conf" || fail "PlasmaLogin shutdown is not bounded"
 grep -Fxq 'TimeoutStopSec=10s' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/20-nabu-session-stop.conf" || fail "login session shutdown is not bounded"
 grep -Fxq 'TimeoutStopSec=15s' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/20-nabu-user-manager-stop.conf" || fail "user manager shutdown is not bounded"
-grep -Fq 'Source11:       nabu-sar-service-0.3.0.tar.zst' "$core" || fail "SAR 0.3.0 source missing"
+grep -Fq 'Source11:       nabu-sar-service-0.3.1.tar.zst' "$core" || fail "SAR 0.3.1 source missing"
 grep -Fq '%{_libexecdir}/nabu-sar-control' "$core" || fail "SAR control helper not packaged"
 grep -Fq '%{_unitdir}/nabu-cct-iio-bridge.service' "$core" || fail "CCT bridge unit not packaged"
 grep -Fq '%{_prefix}/lib/modules-load.d/nabu-cct-iio.conf' "$core" || fail "CCT module policy not packaged"
@@ -119,7 +119,8 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
     grep -Fq 'firewall-offline-cmd --add-service=kdeconnect' "$kde_spec" || fail "KDE Connect firewall policy missing in $kde_spec"
     grep -Fq '%firewalld_reload' "$kde_spec" || fail "firewalld reload missing in $kde_spec"
     ! grep -Eq '^Requires:[[:space:]]+(langpacks|hunspell)-tr$' "$kde_spec" || fail "maintainer locale forced in $kde_spec"
-    grep -Fq "grep -Fq '/usr/libexec/nabu-sar-control'" "$kde_spec" || fail "KDE SAR widget gate missing in $kde_spec"
+    grep -Fqx 'Requires:       plasma-nabu-kcm >= 1.0.0-1' "$kde_spec" \
+        || fail "native Nabu KCM/widget dependency missing in $kde_spec"
     grep -Fq '%{_prefix}/lib/environment.d/90-nabu-powerdevil.conf' "$kde_spec" || fail "Nabu DSI PowerDevil policy missing in $kde_spec"
     grep -Fq 'legacy_icc_link=%{_sysconfdir}/systemd/user/graphical-session.target.wants/nabu-color-profile-auto.service' "$kde_spec" \
         || fail "legacy automatic ICC enablement is not removed in $kde_spec"
@@ -187,8 +188,8 @@ for retired in nabu-system-integration nabu-kde-integration nabu-kde-config nabu
 done
 
 (cd "$root/vendor" && sha256sum -c SHA256SUMS >/dev/null) || fail "vendored source checksum"
-sar_archive="$root/vendor/nabu-sar-service-0.3.0.tar.zst"
-sar_prefix="nabu-sar-service-0.3.0"
+sar_archive="$root/vendor/nabu-sar-service-0.3.1.tar.zst"
+sar_prefix="nabu-sar-service-0.3.1"
 tar --zstd -xOf "$sar_archive" \
     "$sar_prefix/src/nabu-cct-iio-bridge.c" \
     | grep -Fq '#define CCT_INVALID_WARNING_USEC (30 * G_USEC_PER_SEC)' \
@@ -209,6 +210,13 @@ grep -Fq 'if (service->classifier.enabled &&' <<<"$sar_service" \
     || fail "disabled SAR mapping is still reported as invalid"
 grep -Fq '#define PROPERTIES_EMIT_INTERVAL_USEC G_USEC_PER_SEC' <<<"$sar_service" \
     || fail "unchanged SAR telemetry is not rate limited"
+grep -Fq 'UNHEALTHY_PROPERTIES_EMIT_INTERVAL_USEC' <<<"$sar_service" \
+    || fail "unhealthy SAR telemetry has no low-wakeup rate limit"
+grep -Fq 'DataUsable' <<<"$sar_service" \
+    || fail "SAR data-quality validity is not exported"
+sar_health=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/src/sar-health.cpp")
+grep -Fq 'NABU_SAR_SAMPLE_QUALITY_STUCK_SATURATED' <<<"$sar_health" \
+    || fail "fixed saturated ADUX1050 data is not rejected"
 sar_monitor=$(tar --zstd -xOf "$sar_archive" "$sar_prefix/src/nabu-ssc-monitor.c")
 grep -Fq 'org.senemos.Nabu.Sensors' <<<"$sar_monitor" \
     || fail "read-only SSC algorithm inventory is missing"
