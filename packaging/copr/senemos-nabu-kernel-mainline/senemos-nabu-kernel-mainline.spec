@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.4
-Release:        14%{?dist}
+Release:        15%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -166,6 +166,8 @@ Patch0146:      0146-ufs-qcom-keep-Nabu-runtime-link-active.patch
 Patch0147:      0147-senemos-recover-from-persistent-Nabu-kernel-stalls.patch
 Patch0148:      0148-power-supply-qcom_fg-expose-charge-telemetry.patch
 Patch0149:      0149-Input-nt36523-expose-runtime-double-tap-wake-control.patch
+Patch0150:      0150-Input-nt36523-keep-routine-lifecycle-logging-at-debu.patch
+Patch0151:      0151-power-supply-reduce-deferred-probe-and-telemetry-log.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -522,6 +524,17 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Tue Sep 15 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-15
+- Keep NT36523 probe capability summaries and user-visible wake actions at
+  informational level while moving successful suspend, resume, firmware and
+  pen lifecycle chatter to dynamic debug.
+- Preserve genuine SPI, firmware, ESD and wake-transition failures at error
+  level so reduced journal noise does not hide hardware regressions.
+- Emit LN8000 and SMB5 identity only after a successful probe, and keep raw
+  charger register maps plus one-second ADC telemetry behind debug logging.
+- Preserve charger protection events, fail-safe transitions and all hardware
+  errors at their existing visible levels.
+
 * Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-14
 - Use Linux 7.2's single-group managed sysfs registration API for DT2W.
 

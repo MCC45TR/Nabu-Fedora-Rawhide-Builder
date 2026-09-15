@@ -502,9 +502,32 @@ grep -Fq 'return dev_err_probe(&pdev->dev, -EPROBE_DEFER,' \
 grep -Fq 'alloc_ordered_workqueue("nvt_esd_check_wq", WQ_MEM_RECLAIM);' \
     "$work/linux-$version/drivers/input/touchscreen/nt36523/nt36xxx.c"
 touch_driver="$work/linux-$version/drivers/input/touchscreen/nt36523/nt36xxx.c"
+touch_header="$work/linux-$version/drivers/input/touchscreen/nt36523/nt36xxx.h"
 grep -Fq 'static DEVICE_ATTR_RW(double_tap_to_wake);' "$touch_driver"
 grep -A5 -F 'if (ts->double_tap_supported && ts->wakeup_source)' "$touch_driver" \
     | grep -Fq 'devm_device_add_group(&client->dev, &nvt_runtime_group);'
+grep -Fq '#define NVT_LOG(fmt, args...) \' "$touch_header"
+grep -A1 -F '#define NVT_LOG(fmt, args...) \' "$touch_header" \
+    | grep -Fq 'pr_debug('
+grep -A1 -F '#define NVT_INFO(fmt, args...) \' "$touch_header" \
+    | grep -Fq 'pr_info('
+grep -A1 -F '#define NVT_ERR(fmt, args...) \' "$touch_header" \
+    | grep -Fq 'pr_err('
+! grep -Fq '#define NVT_DEBUG' "$touch_header"
+grep -Fq 'NVT_LOG("tx auto copy mode enable' "$touch_driver"
+! grep -Fq 'NVT_ERR("tx auto copy mode enable' "$touch_driver"
+grep -Fq 'NVT_ERR("%s", tmp_dump);' "$touch_driver"
+ln8000_driver="$work/linux-$version/drivers/power/supply/ln8000_charger.c"
+smbx_driver="$work/linux-$version/drivers/power/supply/qcom_smbx.c"
+grep -A1 -F '#define ln_diag(fmt, ...) \' "$ln8000_driver" \
+    | grep -Fq 'pr_debug('
+grep -Fq 'ln_diag("%s\n", temp_buf);' "$ln8000_driver"
+grep -Fq 'ln_diag("adc_vin=%d(th=%d)' "$ln8000_driver"
+grep -Fq 'ln_err("protection or telemetry fault' "$ln8000_driver"
+grep -Fq '"LN8000 device 0x%02x registered\n"' "$ln8000_driver"
+! grep -Fq '"device id=0x%x\n"' "$ln8000_driver"
+grep -Fq '"Generation %s charger registered\n"' "$smbx_driver"
+! grep -Fq '"Generation %s\n"' "$smbx_driver"
 grep -Fq 'CONFIG_INPUT_UINPUT=y' "$config_dir/.config"
 grep -Fq 'What:' \
     "$work/linux-$version/Documentation/ABI/testing/sysfs-driver-nt36523"

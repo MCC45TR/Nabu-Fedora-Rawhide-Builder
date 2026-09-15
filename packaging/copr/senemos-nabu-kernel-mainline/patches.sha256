@@ -147,3 +147,5 @@ d842dbbefcdfca26aa05947ee6434ef11f0b796948465af84adbd699d7930ba6  0145-clk-qcom-
 092754075bdf8259ad901f940161b8162ef4e745c322026da637c4af9e7357e4  0147-senemos-recover-from-persistent-Nabu-kernel-stalls.patch
 103f8caf9c49417b0012e5a57ce2599576a564671873e5de8963a0653f58f273  0148-power-supply-qcom_fg-expose-charge-telemetry.patch
 54b919352ea2406d936bcb0140b34bed2bfc0908976699e8e712a68d01d34e20  0149-Input-nt36523-expose-runtime-double-tap-wake-control.patch
+08ad4d322085c900a60bc5b57556e39ea8168543ddcdd073493d8eeb49e5032e  0150-Input-nt36523-keep-routine-lifecycle-logging-at-debu.patch
+44947ff7441e4fbb26585c54fd278661df8ce9f00ecd8ae7ce8a7d9f00526704  0151-power-supply-reduce-deferred-probe-and-telemetry-log.patch
