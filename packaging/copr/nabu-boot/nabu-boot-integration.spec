@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        45.test%{?dist}
+Release:        46.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -121,6 +121,9 @@ popd
 %check
 bash -n payload/usr/bin/nabu-regenerate-uki
 bash -n payload/usr/libexec/senemos-nabu/kernel-build-identity
+! grep -Fwq 'deferred_probe_timeout=0' payload/usr/lib/senemos-nabu/boot-policy.conf
+! grep -Fwq 'deferred_probe_timeout=0' payload/etc/systemd/ukify.conf
+grep -Fwq 'fw_devlink=permissive' payload/usr/lib/senemos-nabu/boot-policy.conf
 grep -Fq 'plymouth.enable=0' payload/usr/bin/nabu-regenerate-uki
 grep -Fq 'systemd.show_status=yes' payload/usr/bin/nabu-regenerate-uki
 grep -Fq 'systemd.log_level=info' payload/usr/bin/nabu-regenerate-uki
@@ -326,6 +329,12 @@ fi
 %{_datadir}/plymouth/themes/senemos-nabu/
 
 %changelog
+* Tue Sep 15 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-46.test
+- Stop forcing the deferred-probe timeout to expire at late init, so Nabu
+  camera, audio and remote-processor consumers can continue to bind safely.
+- Retain permissive firmware links until the complete SM8150 dependency graph
+  has passed physical boot and suspend qualification.
+
 * Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-45.test
 - Generate an explicit menu for each managed SENEMOS family plus Android so
   rEFInd cannot rediscover stale loaders from other internal volumes.
