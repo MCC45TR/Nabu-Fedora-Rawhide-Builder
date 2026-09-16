@@ -28,6 +28,13 @@ tar -czf "$kde_archive" \
     --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
     -C "$source_dir/vendor-src" "$kde_name"
 
+# Refuse an incomplete or altered vendor payload before rpmbuild. This also
+# catches archives hidden by the repository-wide *.tar.* ignore rule.
+(
+    cd "$source_dir/vendor"
+    sha256sum --strict -c SHA256SUMS
+)
+
 install -m0644 "$copr_dir/nabu-repository-config/nabu-linux-copr.repo" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-repository-config/90-nabu-disable-cisco-openh264.repo" "$top_dir/SOURCES/"
 install -m0644 "$copr_dir/nabu-kernel-maintenance/nabu-kernel-maintenance.service" "$top_dir/SOURCES/"

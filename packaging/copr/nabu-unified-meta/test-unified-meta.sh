@@ -173,6 +173,8 @@ grep -Fq '%{_sysconfdir}/udev/rules.d/60-block-scheduler.rules' "$root/nabu-core
     || fail "generic removable-media scheduler rule is not masked for Nabu UFS"
 grep -Fq 'readlink %{buildroot}%{_sysconfdir}/udev/rules.d/60-block-scheduler.rules' "$root/nabu-core-meta.spec" \
     || fail "Nabu UFS scheduler mask has no package gate"
+grep -Fq 'sha256sum --strict -c SHA256SUMS' "$root/build-srpms.sh" \
+    || fail "unified SRPM build does not verify its vendor payload manifest"
 grep -Fxq ' ID_MODEL=Xiaomi Pad 5' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/90-nabu-mcc45tr.hwdb" || fail "hardware model branding is not Xiaomi Pad 5"
 grep -Fq 'modules-load.d/nabu-audio-codecs.conf' "$root/nabu-core-meta.spec" || fail "obsolete early audio module list not masked"
 grep -Fq 'readlink %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf' "$root/nabu-core-meta.spec" || fail "audio module mask package gate missing"
