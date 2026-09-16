@@ -3,7 +3,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        93%{?dist}
+Release:        94%{?dist}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -234,6 +234,13 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/modules-load.d/scsi_dh.conf
 # ALSA module set was available.  Device modalias loading after switch-root is
 # sufficient, so mask the obsolete image-era list for existing installations.
 ln -s /dev/null %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
+# Fedora's removable-media BFQ rule also matches every UFS LUN while the Nabu
+# controller is still enumerating. Its writes fail with EBUSY on five LUNs and
+# are inappropriate for this fixed UFS topology; retain the kernel-selected
+# mq-deadline scheduler by masking only that generic vendor rule.
+install -d -m0755 %{buildroot}%{_sysconfdir}/udev/rules.d
+ln -s /dev/null \
+    %{buildroot}%{_sysconfdir}/udev/rules.d/60-block-scheduler.rules
 install -Dm0755 system-integration/runtime/nabu-slpi-suspend %{buildroot}%{_libexecdir}/senemos-nabu/nabu-slpi-suspend
 install -Dm0755 system-integration/runtime/nabu-sensor-session-gate %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-session-gate
 install -Dm0755 system-integration/runtime/nabu-sensor-registry-runtime %{buildroot}%{_libexecdir}/senemos-nabu/nabu-sensor-registry-runtime
@@ -349,6 +356,7 @@ grep -Fxq 'TAG-="systemd"' %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-syste
 test ! -e %{buildroot}%{_udevrulesdir}/81-nabu-sensor-orientation.rules
 test ! -e %{buildroot}%{_libexecdir}/nabu-import-mount-matrix
 test "$(readlink %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf)" = /dev/null
+test "$(readlink %{buildroot}%{_sysconfdir}/udev/rules.d/60-block-scheduler.rules)" = /dev/null
 ! grep -Eq '(^|,)senemos-nabu-kernel-mainline-unstable(,|$)' %{SOURCE17}
 meson test -C sar-build --print-errorlogs
 bash -n sar-service/tools/nabu-cct-iio-setup
@@ -402,6 +410,7 @@ fi
 %config(noreplace) %{_sysconfdir}/systemd/zram-generator.conf
 %config(noreplace) %{_sysconfdir}/modules-load.d/scsi_dh.conf
 %{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf
+%{_sysconfdir}/udev/rules.d/60-block-scheduler.rules
 %config(noreplace) %{_sysconfdir}/pulse/daemon.conf.d/89-xiaomi_nabu.conf
 %config(noreplace) %{_sysconfdir}/pulse/default.pa.d/nabu.pa
 %dir %{_sysconfdir}/wireplumber
@@ -533,6 +542,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Tue Sep 15 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-94
+- Keep the fixed UFS topology on its kernel-selected mq-deadline scheduler and
+  mask Fedora's removable-media BFQ rule that races five Nabu LUNs at boot.
+
 * Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-93
 - Reject constant or saturated ADUX1050 reports before grip classification,
   calibration capture, or logind inhibition; export explicit data-quality

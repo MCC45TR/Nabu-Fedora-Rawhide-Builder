@@ -169,6 +169,10 @@ grep -Fxq 'wifi.wake-on-wlan=12' "$wifi_policy" || fail "Nabu selective Wi-Fi wa
 grep -Fxq 'wifi.cloned-mac-address=permanent' "$wifi_policy" || fail "Nabu permanent Wi-Fi identity policy missing"
 ! grep -Eq '^wifi\.cloned-mac-address=(stable|stable-ssid|random)$' "$wifi_policy" || fail "Nabu Wi-Fi policy still randomizes the associated MAC"
 grep -Fxq 'kernel.panic = 15' "$root/90-nabu-panic-recovery.conf" || fail "kernel panic reboot timeout missing"
+grep -Fq '%{_sysconfdir}/udev/rules.d/60-block-scheduler.rules' "$root/nabu-core-meta.spec" \
+    || fail "generic removable-media scheduler rule is not masked for Nabu UFS"
+grep -Fq 'readlink %{buildroot}%{_sysconfdir}/udev/rules.d/60-block-scheduler.rules' "$root/nabu-core-meta.spec" \
+    || fail "Nabu UFS scheduler mask has no package gate"
 grep -Fxq ' ID_MODEL=Xiaomi Pad 5' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/90-nabu-mcc45tr.hwdb" || fail "hardware model branding is not Xiaomi Pad 5"
 grep -Fq 'modules-load.d/nabu-audio-codecs.conf' "$root/nabu-core-meta.spec" || fail "obsolete early audio module list not masked"
 grep -Fq 'readlink %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf' "$root/nabu-core-meta.spec" || fail "audio module mask package gate missing"
