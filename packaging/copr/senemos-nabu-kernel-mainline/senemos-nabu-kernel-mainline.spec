@@ -170,6 +170,7 @@ Patch0152:      0152-senemos-complete-BPF-LSM-and-select-one-pstore-back.patch
 Patch0153:      0153-ASoC-qcom-describe-unidirectional-DAI-links.patch
 Patch0154:      0154-arm64-dts-qcom-complete-Nabu-audio-metadata.patch
 Patch0155:      0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch
+Patch0156:      0156-tools-uapi-linux-types-match-128-bit-host-ABI.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -219,11 +220,7 @@ export KBUILD_BUILD_HOST=copr
 export KBUILD_BUILD_TIMESTAMP='@0'
 export KBUILD_BUILD_VERSION=1
 export LOCALVERSION=
-# LLVM remains the target compiler.  Rawhide's host-side Clang currently
-# omits __SIZEOF_INT128__ when building resolve_btfids against arm64 UAPI
-# headers, leaving __u128 undefined.  Build host helpers with GCC, which
-# advertises the native 128-bit type; do not weaken the kernel BTF policy.
-make ARCH=arm64 LLVM=1 HOSTCC=gcc defconfig
+make ARCH=arm64 LLVM=1 defconfig
 KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-minimal.config
 # This package targets one SM8150 device. Avoid the Fedora general-purpose
@@ -236,13 +233,13 @@ senemos/configs/prune-nabu-config.sh .config
 KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-security.config \
     senemos/configs/nabu-rng.config
-make ARCH=arm64 LLVM=1 HOSTCC=gcc olddefconfig
+make ARCH=arm64 LLVM=1 olddefconfig
 # Refresh auto.conf after merging the Nabu identity fragment. Otherwise the
 # immediately following release gate can retain defconfig's SCM suffix.
-make -s ARCH=arm64 LLVM=1 HOSTCC=gcc syncconfig
+make -s ARCH=arm64 LLVM=1 syncconfig
 rm -f include/config/kernel.release
-test "$(make -s ARCH=arm64 LLVM=1 HOSTCC=gcc kernelrelease)" = '%{uname_r}'
-make ARCH=arm64 LLVM=1 HOSTCC=gcc KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
+test "$(make -s ARCH=arm64 LLVM=1 kernelrelease)" = '%{uname_r}'
+make ARCH=arm64 LLVM=1 KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
     qcom/sm8150-xiaomi-nabu-iris-camera.dtb modules
 
 %install
@@ -250,7 +247,7 @@ install -Dm0644 arch/arm64/boot/Image \
     %{buildroot}/boot/vmlinuz-%{uname_r}
 install -Dm0644 System.map %{buildroot}/boot/System.map-%{uname_r}
 install -Dm0644 .config %{buildroot}/boot/config-%{uname_r}
-make ARCH=arm64 LLVM=1 HOSTCC=gcc modules_install \
+make ARCH=arm64 LLVM=1 modules_install \
     MODLIB=%{buildroot}%{_prefix}/lib/modules/%{uname_r} DEPMOD=/bin/true
 rm -f %{buildroot}%{_prefix}/lib/modules/%{uname_r}/{build,source}
 install -Dm0644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb \
@@ -553,8 +550,8 @@ fi
 
 %changelog
 * Wed Sep 16 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.6-1
-- Build BTF host helpers with GCC on Rawhide while retaining Clang for the
-  arm64 kernel and keeping vmlinux BTF enabled.
+- Match the newer arm64 host UAPI 128-bit types in the tools-only header so
+  Rawhide can build vmlinux BTF without changing the kernel build compiler.
 - Rebase the checksum-locked Nabu kernel patch series onto Linux 7.2.6.
 - Retain the measured NT36523 and charger log-level corrections while
   preserving genuine hardware, protection and fail-safe errors.

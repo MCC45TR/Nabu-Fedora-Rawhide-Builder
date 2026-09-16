@@ -151,3 +151,4 @@ d842dbbefcdfca26aa05947ee6434ef11f0b796948465af84adbd699d7930ba6  0145-clk-qcom-
 ee4bb826de70536990c71e0e8c1cfb2e39b8777ac8fee74dc2a670c277fb6ede  0153-ASoC-qcom-describe-unidirectional-DAI-links.patch
 81e55ccafcda0bc420df0e1ed18d2a61a0b77a7f981f64501bed42c2b74cda32  0154-arm64-dts-qcom-complete-Nabu-audio-metadata.patch
 c6afcd7f14ee01eae6310de79022c2f63691582e27764faa21f2f5ba0ac28558  0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch
+15bb5b304b2382a699daa8e29a7abbfba2beb8d4560a776d8370b72f207eb664  0156-tools-uapi-linux-types-match-128-bit-host-ABI.patch
