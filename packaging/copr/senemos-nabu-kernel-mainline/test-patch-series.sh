@@ -1,8 +1,18 @@
 #!/usr/bin/bash
 set -Eeuo pipefail
 
+reject_grep() {
+    if grep "$@"; then
+        printf 'ERROR: forbidden pattern matched: grep %q\n' "$*" >&2
+        return 1
+    else
+        status=$?
+        [[ $status == 1 ]] || return "$status"
+    fi
+}
+
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-! grep -Eq '^Provides:[[:space:]]+kernel-uname-r' \
+reject_grep -Eq '^Provides:[[:space:]]+kernel-uname-r' \
     "$root/senemos-nabu-kernel-mainline.spec"
 grep -Fxq 'Provides:       kernel-nabu-core-uname-r' \
     "$root/senemos-nabu-kernel-mainline.spec"
@@ -68,7 +78,7 @@ grep -A7 -F 'rear_camera_eeprom: eeprom@51' "$camera_dtsi" \
     | grep -Fq 'read-only;'
 grep -A7 -F 'front_camera_eeprom: eeprom@50' "$camera_dtsi" \
     | grep -Fq 'read-only;'
-! grep -Fq 'SM8150_MMCX>, <&rpmhpd SM8150_MX' "$camera_dtsi"
+reject_grep -Fq 'SM8150_MMCX>, <&rpmhpd SM8150_MX' "$camera_dtsi"
 grep -Fq 'static DEVICE_ATTR_RO(panel_revision);' \
     "$work/linux-$version/drivers/gpu/drm/panel/panel-novatek-nt36523.c"
 panel_driver="$work/linux-$version/drivers/gpu/drm/panel/panel-novatek-nt36523.c"
@@ -103,8 +113,11 @@ grep -Fq 'int iris_core_deinit_for_system_suspend(struct iris_core *core)' \
 grep -Fq 'if (!list_empty(&core->instances)) {' "$iris_core"
 grep -Fq 'reinit_completion(&core->core_init_done);' "$iris_core"
 grep -Fq 'return iris_core_deinit_for_system_suspend(core);' "$iris_probe"
-! grep -A14 -F 'static int __maybe_unused iris_system_suspend' "$iris_probe" \
-    | grep -Fq 'Keep the controller powered'
+if grep -A14 -F 'static int __maybe_unused iris_system_suspend' "$iris_probe" \
+    | grep -Fq 'Keep the controller powered'; then
+    printf 'ERROR: Iris suspend still keeps the controller powered\n' >&2
+    exit 1
+fi
 # Linux 7.2.5 fixed four Iris regressions adjacent to Nabu's large legacy-VPU
 # port.  Lock those stable fixes into the downstream patch gate so a future
 # rebase cannot silently restore the 7.2.4 behavior.
@@ -122,8 +135,11 @@ test "$state_log_line" -lt "$state_store_line"
 grep -Fq '"plat:%s:%s", dev_name(core->dev), info);' "$iris_vidc"
 grep -A25 -F 'void iris_vpu_power_off(struct iris_core *core)' "$iris_vpu" \
     | grep -Fq 'disable_irq(core->irq);'
-! grep -A25 -F 'void iris_vpu_power_off(struct iris_core *core)' "$iris_vpu" \
-    | grep -Fq 'disable_irq_nosync(core->irq);'
+if grep -A25 -F 'void iris_vpu_power_off(struct iris_core *core)' "$iris_vpu" \
+    | grep -Fq 'disable_irq_nosync(core->irq);'; then
+    printf 'ERROR: Iris power-off still uses disable_irq_nosync()\n' >&2
+    exit 1
+fi
 grep -Fq 'ADC5_USB_IN_V_16 describes the hardware divider.' \
     "$work/linux-$version/drivers/power/supply/qcom_smbx.c"
 if grep -Fq 'val->intval *= 16;' \
@@ -165,7 +181,7 @@ grep -Fq 'qcom,derive-mac-address-from-soc-serial;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 grep -Fq 'qcom,derive-bd-address-from-soc-serial;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
-! grep -Fq 'local-bd-address = [ 21 00 00 00 5a ad ];' \
+reject_grep -Fq 'local-bd-address = [ 21 00 00 00 5a ad ];' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 test -s "$work/linux-$version/senemos/configs/nabu-security.config"
 test -s "$work/linux-$version/senemos/configs/nabu-rng.config"
@@ -381,7 +397,7 @@ grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' "$config_dir/.config"
 grep -Fxq '# CONFIG_RPMB is not set' "$config_dir/.config"
 grep -Fq 'nvmem-cells = <&rtc_offset>;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
-! grep -Fq 'allow-set-time;' \
+reject_grep -Fq 'allow-set-time;' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
 grep -Fq 'IRQF_NO_AUTOEN' \
     "$work/linux-$version/drivers/remoteproc/qcom_q6v5.c"
@@ -466,11 +482,11 @@ grep -Fq 'controller IRQ presence inference disabled' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 grep -Fq 'nabu_keyboard_publish_state(keyboard, false, true);' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
-! grep -Fq 'gpiod_get_value_cansleep(keyboard->detect);' \
+reject_grep -Fq 'gpiod_get_value_cansleep(keyboard->detect);' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
-! grep -Fq 'mod_delayed_work(system_percpu_wq, &keyboard->detect_work,' \
+reject_grep -Fq 'mod_delayed_work(system_percpu_wq, &keyboard->detect_work,' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
-! grep -Fq 'connected = !keyboard->connected;' \
+reject_grep -Fq 'connected = !keyboard->connected;' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 # Keep Nabu's verified one-way front ends explicit; this prevents ASoC from
 # creating impossible stream directions and then warning about absent BEs.
@@ -550,7 +566,7 @@ grep -Fq '.poll                           = iris_poll,' \
 slim_ngd="$work/linux-$version/drivers/slimbus/qcom-ngd-ctrl.c"
 grep -Fq 'struct delayed_work ngd_up_work;' "$slim_ngd"
 grep -Fq 'mod_delayed_work(system_dfl_wq, &ctrl->ngd_up_work,' "$slim_ngd"
-! grep -Fq 'mod_delayed_work(system_wq, &ctrl->ngd_up_work,' "$slim_ngd"
+reject_grep -Fq 'mod_delayed_work(system_wq, &ctrl->ngd_up_work,' "$slim_ngd"
 grep -Fq 'cancel_delayed_work_sync(&ctrl->ngd_up_work);' "$slim_ngd"
 test "$(grep -c 'mod_delayed_work(system_percpu_wq, &.*status_changed_work' \
     "$work/linux-$version/drivers/power/supply/ln8000_charger.c")" -eq 4
@@ -579,9 +595,9 @@ grep -A1 -F '#define NVT_INFO(fmt, args...) \' "$touch_header" \
     | grep -Fq 'pr_info('
 grep -A1 -F '#define NVT_ERR(fmt, args...) \' "$touch_header" \
     | grep -Fq 'pr_err('
-! grep -Fq '#define NVT_DEBUG' "$touch_header"
+reject_grep -Fq '#define NVT_DEBUG' "$touch_header"
 grep -Fq 'NVT_LOG("tx auto copy mode enable' "$touch_driver"
-! grep -Fq 'NVT_ERR("tx auto copy mode enable' "$touch_driver"
+reject_grep -Fq 'NVT_ERR("tx auto copy mode enable' "$touch_driver"
 grep -Fq 'NVT_ERR("%s", tmp_dump);' "$touch_driver"
 ln8000_driver="$work/linux-$version/drivers/power/supply/ln8000_charger.c"
 smbx_driver="$work/linux-$version/drivers/power/supply/qcom_smbx.c"
@@ -591,9 +607,9 @@ grep -Fq 'ln_diag("%s\n", temp_buf);' "$ln8000_driver"
 grep -Fq 'ln_diag("adc_vin=%d(th=%d)' "$ln8000_driver"
 grep -Fq 'ln_err("protection or telemetry fault' "$ln8000_driver"
 grep -Fq '"LN8000 device 0x%02x registered\n"' "$ln8000_driver"
-! grep -Fq '"device id=0x%x\n"' "$ln8000_driver"
+reject_grep -Fq '"device id=0x%x\n"' "$ln8000_driver"
 grep -Fq '"Generation %s charger registered\n"' "$smbx_driver"
-! grep -Fq '"Generation %s\n"' "$smbx_driver"
+reject_grep -Fq '"Generation %s\n"' "$smbx_driver"
 grep -Fq 'CONFIG_INPUT_UINPUT=y' "$config_dir/.config"
 grep -Fq 'What:' \
     "$work/linux-$version/Documentation/ABI/testing/sysfs-driver-nt36523"
@@ -604,7 +620,7 @@ grep -Fq 'novatek,double-tap-to-wake' \
 # ADSP does not reliably emit that event and the extra wait stalls stream close.
 q6asm_dai="$work/linux-$version/sound/soc/qcom/qdsp6/q6asm-dai.c"
 test "$(grep -c 'prtd->state = Q6ASM_STREAM_STOPPED;' "$q6asm_dai")" -eq 1
-! grep -Fq 'eos_done' "$q6asm_dai"
+reject_grep -Fq 'eos_done' "$q6asm_dai"
 grep -A4 -F 'case SNDRV_PCM_TRIGGER_STOP:' "$q6asm_dai" \
     | grep -Fq 'CMD_EOS'
 resv_line=$(grep -n -F 'obj->resv = r_obj->resv;' \
@@ -615,8 +631,6 @@ bookkeeping_line=$(grep -n -F 'ret = msm_gem_init_bookkeeping(obj);' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_gem.c" | head -n1 | cut -d: -f1)
 test "$resv_line" -lt "$gem_init_line"
 test "$gem_init_line" -lt "$bookkeeping_line"
-! grep -Fxq 'CONFIG_DEBUG_INFO=y' "$config_dir/.config"
-! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' "$config_dir/.config"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
 

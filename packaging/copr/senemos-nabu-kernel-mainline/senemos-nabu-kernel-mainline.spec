@@ -273,6 +273,16 @@ printf '%%s\n' '%{nabu_build_stamp}' > \
     %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %check
+reject_grep() {
+    if grep "$@"; then
+        echo "Forbidden pattern matched: grep $*" >&2
+        return 1
+    else
+        status=$?
+        test "$status" -eq 1 || return "$status"
+    fi
+}
+
 test -s %{buildroot}/boot/vmlinuz-%{uname_r}
 test -s %{buildroot}/boot/System.map-%{uname_r}
 test -s %{buildroot}/boot/config-%{uname_r}
@@ -286,8 +296,11 @@ test ! -e %{buildroot}%{_prefix}/lib/modules/%{uname_r}/build
 test ! -e %{buildroot}%{_prefix}/lib/modules/%{uname_r}/source
 find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
     -type f -name '*.ko.zst' -print -quit | grep -q .
-! find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
-    -type f -name '*.ko' -print -quit | grep -q .
+if find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
+    -type f -name '*.ko' -print -quit | grep -q .; then
+    echo 'Uncompressed kernel module found in runtime payload' >&2
+    exit 1
+fi
 grep -Fxq '%{nabu_build_stamp}' \
     %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 grep -Fxq 'ConditionPathExists=!/etc/initrd-release' \
@@ -383,7 +396,7 @@ for setting in \
     'CONFIG_PANIC_TIMEOUT=15'; do
     grep -Fxq "$setting" %{buildroot}/boot/config-%{uname_r}
 done
-! grep -Eq '^CONFIG_(MODULE_SIG_FORCE|VIRTUALIZATION|KVM|TCG_FTPM_TEE|IMA|EVM)=(y|m)$' \
+reject_grep -Eq '^CONFIG_(MODULE_SIG_FORCE|VIRTUALIZATION|KVM|TCG_FTPM_TEE|IMA|EVM)=(y|m)$' \
     %{buildroot}/boot/config-%{uname_r}
 grep -Eq '^[[:space:]]*\.name[[:space:]]*=[[:space:]]*"default-key"' \
     drivers/md/dm-inlinecrypt.c
@@ -412,7 +425,7 @@ scripts/dtc/dtc -I dtb -O dts \
     -o %{_builddir}/nabu-final.dts \
     %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
 grep -Fq 'model = "Xiaomi Pad 5";' %{_builddir}/nabu-final.dts
-! grep -Fq 'with cameras' %{_builddir}/nabu-final.dts
+reject_grep -Fq 'with cameras' %{_builddir}/nabu-final.dts
 grep -A10 -F 'ramoops@b0000000' %{_builddir}/nabu-final.dts \
     | grep -Fq 'record-size = <0x100000>;'
 grep -A10 -F 'ramoops@b0000000' %{_builddir}/nabu-final.dts \
@@ -432,7 +445,7 @@ grep -Fq 'vbus-supply = <&pm8150b_vbus>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 grep -Fq 'nvmem-cells = <&rtc_offset>;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
-! grep -Fq 'allow-set-time;' \
+reject_grep -Fq 'allow-set-time;' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 grep -Fq 'IRQF_NO_AUTOEN' drivers/remoteproc/qcom_q6v5.c
 grep -Fq 'record-size = <0x100000>;' \
@@ -457,9 +470,9 @@ grep -A12 -F 'case POWER_SUPPLY_PROP_CHARGE_NOW:' \
 grep -Fq '#define FASTRPC_SDSP_IOVA_BASE' drivers/misc/fastrpc.c
 grep -Fq 'dev->bus_dma_limit = iova_start + FASTRPC_SDSP_IOVA_SIZE - 1;' \
     drivers/misc/fastrpc.c
-! grep -Fq 'lionsemi,allow-direct-charging' \
+reject_grep -Fq 'lionsemi,allow-direct-charging' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
-! grep -Fq 'mod_delayed_work(system_wq, &chip->thermal_work' \
+reject_grep -Fq 'mod_delayed_work(system_wq, &chip->thermal_work' \
     drivers/power/supply/qcom_smbx.c
 grep -Fq 'belling,bl24sa64' \
     Documentation/devicetree/bindings/eeprom/at24.yaml
@@ -475,10 +488,17 @@ grep -A7 -F 'rear_camera_eeprom: eeprom@51' \
 grep -A7 -F 'front_camera_eeprom: eeprom@50' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi \
     | grep -Fq 'read-only;'
-! grep -Fq 'SM8150_MMCX>, <&rpmhpd SM8150_MX' \
+reject_grep -Fq 'SM8150_MMCX>, <&rpmhpd SM8150_MX' \
     arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-camera.dtsi
 grep -Fq 'ranges = <0 0xb100 0x100>;' arch/arm64/boot/dts/qcom/pm8150.dtsi
-! grep -Eq '^CONFIG_DEBUG_INFO_BTF(=y|=m)$' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DEBUG_INFO=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DEBUG_INFO_DWARF5=y' %{buildroot}/boot/config-%{uname_r}
+grep -Fxq 'CONFIG_DEBUG_INFO_BTF=y' %{buildroot}/boot/config-%{uname_r}
+if grep -Fxq 'CONFIG_DEBUG_INFO_BTF_MODULES=y' \
+    %{buildroot}/boot/config-%{uname_r}; then
+    echo 'Per-module BTF is forbidden in the Nabu runtime kernel' >&2
+    exit 1
+fi
 test "$(grep -c '=m$' %{buildroot}/boot/config-%{uname_r})" -lt 450
 # Built-in platform prerequisites (I2C_QCOM_CCI, SM_CAMCC_8150 and DMA-BUF
 # heaps) are validated through the config checks above.  Only loadable camera
