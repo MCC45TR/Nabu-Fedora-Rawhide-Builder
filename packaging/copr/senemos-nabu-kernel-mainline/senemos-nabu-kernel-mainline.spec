@@ -170,7 +170,7 @@ Patch0152:      0152-senemos-complete-BPF-LSM-and-select-one-pstore-back.patch
 Patch0153:      0153-ASoC-qcom-describe-unidirectional-DAI-links.patch
 Patch0154:      0154-arm64-dts-qcom-complete-Nabu-audio-metadata.patch
 Patch0155:      0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch
-Patch0156:      0156-tools-uapi-linux-types-match-128-bit-host-ABI.patch
+Patch0156:      0156-tools-linux-types-match-128-bit-host-ABI.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
