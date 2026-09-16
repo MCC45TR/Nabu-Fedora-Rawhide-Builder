@@ -1,9 +1,9 @@
 %global debug_package %{nil}
-%global legacy_meta_max 9999999999-99
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        94%{?dist}
+Release:        95%{?dist}
+%global legacy_meta_max %{version}-%{release}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -542,6 +542,11 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Wed Sep 16 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-95
+- Bound legacy package migration to this CORE EVR so virtual compatibility
+  Provides are not obsoleted by the package that supplies them.
+- Include and checksum-gate the deterministic SAR 0.3.1 source archive.
+
 * Tue Sep 15 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-94
 - Keep the fixed UFS topology on its kernel-selected mq-deadline scheduler and
   mask Fedora's removable-media BFQ rule that races five Nabu LUNs at boot.

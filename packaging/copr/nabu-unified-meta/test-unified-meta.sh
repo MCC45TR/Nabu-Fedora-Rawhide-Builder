@@ -175,6 +175,11 @@ grep -Fq 'readlink %{buildroot}%{_sysconfdir}/udev/rules.d/60-block-scheduler.ru
     || fail "Nabu UFS scheduler mask has no package gate"
 grep -Fq 'sha256sum --strict -c SHA256SUMS' "$root/build-srpms.sh" \
     || fail "unified SRPM build does not verify its vendor payload manifest"
+grep -Fq '%global legacy_meta_max %{version}-%{release}' "$root/nabu-core-meta.spec" \
+    || fail "CORE legacy migration is not bounded by its own EVR"
+if grep -Fq '%global legacy_meta_max 9999999999-99' "$root/nabu-core-meta.spec"; then
+    fail "CORE legacy migration still self-obsoletes virtual Provides"
+fi
 grep -Fxq ' ID_MODEL=Xiaomi Pad 5' "$root/vendor-src/nabu-system-integration-2.0.0/runtime/90-nabu-mcc45tr.hwdb" || fail "hardware model branding is not Xiaomi Pad 5"
 grep -Fq 'modules-load.d/nabu-audio-codecs.conf' "$root/nabu-core-meta.spec" || fail "obsolete early audio module list not masked"
 grep -Fq 'readlink %{buildroot}%{_sysconfdir}/modules-load.d/nabu-audio-codecs.conf' "$root/nabu-core-meta.spec" || fail "audio module mask package gate missing"
