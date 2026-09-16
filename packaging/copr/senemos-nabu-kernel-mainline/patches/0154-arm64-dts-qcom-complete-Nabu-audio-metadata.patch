@@ -1,0 +1,125 @@
+From 6889ddddc0bedba5b4c216a4ad8a62a6bc6e0bac Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Tue, 15 Sep 2026 21:52:27 +0300
+Subject: [PATCH] arm64: dts: qcom: complete Nabu audio metadata
+
+Describe the verified direction of the two QDSP front ends and identify all
+four amplifiers without enabling unverified speaker-protection firmware.
+Give WCD934x children a conservative inherited DMA mask and demote valid
+partial SoundWire port use from an error to debug diagnostics.
+
+Signed-off-by: SENEMOS patch gate <mcc45tr@gmail.com>
+
+---
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts |  6 ++++++
+ drivers/mfd/wcd934x.c                           | 13 +++++++++++++
+ drivers/soundwire/qcom.c                        |  4 ++--
+ 3 files changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index 4a2cebbd0..503da0849 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -572,6 +572,7 @@ cs35l41_br: cs35l41@40 {
+ 		VP-supply = <&vph_pwr>;
+ 		#sound-dai-cells = <1>;
+ 		sound-name-prefix = "BR";
++		cirrus,subsystem-id = "nabu";
+ 		cirrus,boost-peak-milliamp = <4000>;
+ 		cirrus,boost-ind-nanohenry = <1000>;
+ 		cirrus,boost-cap-microfarad = <15>;
+@@ -591,6 +592,7 @@ cs35l41_tr: cs35l41@41 {
+ 		VP-supply = <&vph_pwr>;
+ 		#sound-dai-cells = <1>;
+ 		sound-name-prefix = "TR";
++		cirrus,subsystem-id = "nabu";
+ 		cirrus,boost-peak-milliamp = <4000>;
+ 		cirrus,boost-ind-nanohenry = <1000>;
+ 		cirrus,boost-cap-microfarad = <15>;
+@@ -610,6 +612,7 @@ cs35l41_bl: cs35l41@42 {
+ 		VP-supply = <&vph_pwr>;
+ 		#sound-dai-cells = <1>;
+ 		sound-name-prefix = "BL";
++		cirrus,subsystem-id = "nabu";
+ 		cirrus,boost-peak-milliamp = <4000>;
+ 		cirrus,boost-ind-nanohenry = <1000>;
+ 		cirrus,boost-cap-microfarad = <15>;
+@@ -629,6 +632,7 @@ cs35l41_tl: cs35l41@43 {
+ 		VP-supply = <&vph_pwr>;
+ 		#sound-dai-cells = <1>;
+ 		sound-name-prefix = "TL";
++		cirrus,subsystem-id = "nabu";
+ 		cirrus,boost-peak-milliamp = <4000>;
+ 		cirrus,boost-ind-nanohenry = <1000>;
+ 		cirrus,boost-cap-microfarad = <15>;
+@@ -998,6 +1002,7 @@ &sound {
+ 
+ 	mm1-dai-link {
+ 		link-name = "MultiMedia1";
++		playback-only;
+ 		cpu {
+ 			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
+ 		};
+@@ -1005,6 +1010,7 @@ cpu {
+ 
+ 	mm2-dai-link {
+ 		link-name = "MultiMedia2";
++		capture-only;
+ 		cpu {
+ 			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA2>;
+ 		};
+diff --git a/drivers/mfd/wcd934x.c b/drivers/mfd/wcd934x.c
+index 3c3080e8c..4bdd5e38e 100644
+--- a/drivers/mfd/wcd934x.c
++++ b/drivers/mfd/wcd934x.c
+@@ -2,6 +2,7 @@
+ // Copyright (c) 2019, Linaro Limited
+ 
+ #include <linux/clk.h>
++#include <linux/dma-mapping.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/interrupt.h>
+ #include <linux/kernel.h>
+@@ -182,6 +183,18 @@ static int wcd934x_slim_status_up(struct slim_device *sdev)
+ 		return ret;
+ 	}
+ 
++	/*
++	 * MFD children inherit their DMA masks from the parent.  SLIMbus does
++	 * not initialize one, so platform enumeration otherwise has to coerce
++	 * the two OF-backed children and warns for each of them.  Use the same
++	 * conservative 32-bit mask before creating the children.
++	 */
++	if (!dev->dma_mask) {
++		ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(32));
++		if (ret)
++			return dev_err_probe(dev, ret, "Failed to set DMA mask\n");
++	}
++
+ 	ret = mfd_add_devices(dev, PLATFORM_DEVID_AUTO, wcd934x_devices,
+ 			      ARRAY_SIZE(wcd934x_devices), NULL, 0, NULL);
+ 	if (ret) {
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 3d8f5a81e..22e975167 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1427,7 +1427,7 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
+ 	ret = of_property_read_u32(np, "qcom,din-ports", &val);
+ 	if (!ret) { /* only if present */
+ 		if (val != ctrl->num_din_ports) {
+-			dev_err(ctrl->dev, "din-ports (%d) mismatch with controller (%d)",
++			dev_dbg(ctrl->dev, "using %d of %d controller DIN ports\n",
+ 				val, ctrl->num_din_ports);
+ 		}
+ 
+@@ -1437,7 +1437,7 @@ static int qcom_swrm_get_port_config(struct qcom_swrm_ctrl *ctrl)
+ 	ret = of_property_read_u32(np, "qcom,dout-ports", &val);
+ 	if (!ret) { /* only if present */
+ 		if (val != ctrl->num_dout_ports) {
+-			dev_err(ctrl->dev, "dout-ports (%d) mismatch with controller (%d)",
++			dev_dbg(ctrl->dev, "using %d of %d controller DOUT ports\n",
+ 				val, ctrl->num_dout_ports);
+ 		}
+ 
+-- 
+2.55.0

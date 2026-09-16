@@ -1,4 +1,4 @@
-From 8ec0edaf1cdb7e47c86922b8edc12f3f9453ac54 Mon Sep 17 00:00:00 2001
+From d2312bcab25671d29d8b0eeec10fb8c7652760b7 Mon Sep 17 00:00:00 2001
 From: mcc45tr <mcc45tr@gmail.com>
 Date: Sun, 6 Sep 2026 23:16:13 +0300
 Subject: [PATCH] media: qcom: iris: reinitialize legacy VPU5 across s2idle
@@ -18,16 +18,16 @@ preserve software teardown if a normal runtime resume fails.
 
 Signed-off-by: mcc45tr <mcc45tr@gmail.com>
 ---
- drivers/media/platform/qcom/iris/iris_core.c  | 42 ++++++++++++++++---
+ drivers/media/platform/qcom/iris/iris_core.c  | 38 +++++++++++++++----
  drivers/media/platform/qcom/iris/iris_core.h  |  1 +
  drivers/media/platform/qcom/iris/iris_probe.c |  7 ++--
- 3 files changed, 41 insertions(+), 9 deletions(-)
+ 3 files changed, 35 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/media/platform/qcom/iris/iris_core.c b/drivers/media/platform/qcom/iris/iris_core.c
-index 61f36ad9a1cd..b827c6481bdf 100644
+index bc1334089..5d0568d37 100644
 --- a/drivers/media/platform/qcom/iris/iris_core.c
 +++ b/drivers/media/platform/qcom/iris/iris_core.c
-@@ -11,8 +11,19 @@
+@@ -11,6 +11,15 @@
  #include "iris_state.h"
  #include "iris_vpu_common.h"
  
@@ -42,23 +42,13 @@ index 61f36ad9a1cd..b827c6481bdf 100644
 +
  void iris_core_deinit(struct iris_core *core)
  {
-+	int ret;
-+
- 	/*
- 	 * The core starts in DEINIT and remains there while allow_fw_boot is
- 	 * disabled.  Do not resume power domains, issue PAS shutdown, or touch
-@@ -22,16 +33,34 @@ void iris_core_deinit(struct iris_core *core)
- 	if (READ_ONCE(core->state) == IRIS_CORE_DEINIT)
- 		return;
- 
--	pm_runtime_resume_and_get(core->dev);
-+	ret = pm_runtime_resume_and_get(core->dev);
+ 	int ret;
+@@ -26,19 +35,31 @@ void iris_core_deinit(struct iris_core *core)
+ 	ret = pm_runtime_resume_and_get(core->dev);
  
  	mutex_lock(&core->lock);
--	iris_fw_unload(core);
--	iris_vpu_power_off(core);
--	iris_hfi_queues_deinit(core);
--	core->state = IRIS_CORE_DEINIT;
+-	if (core->state != IRIS_CORE_DEINIT) {
+-		iris_fw_unload(core);
 +	if (core->state != IRIS_CORE_DEINIT)
 +		iris_core_deinit_locked(core, ret >= 0);
 +	mutex_unlock(&core->lock);
@@ -66,11 +56,15 @@ index 61f36ad9a1cd..b827c6481bdf 100644
 +	if (ret >= 0)
 +		pm_runtime_put_sync(core->dev);
 +}
-+
+ 
+-		if (ret >= 0)
+-			iris_vpu_power_off(core);
 +int iris_core_deinit_for_system_suspend(struct iris_core *core)
 +{
 +	int ret = 0;
-+
+ 
+-		iris_hfi_queues_deinit(core);
+-		core->state = IRIS_CORE_DEINIT;
 +	mutex_lock(&core->lock);
 +	if (!list_empty(&core->instances)) {
 +		dev_warn(core->dev,
@@ -80,15 +74,16 @@ index 61f36ad9a1cd..b827c6481bdf 100644
 +		dev_info(core->dev,
 +			 "quiescing legacy VPU5 for system suspend\n");
 +		iris_core_deinit_locked(core, true);
-+	}
+ 	}
  	mutex_unlock(&core->lock);
  
--	pm_runtime_put_sync(core->dev);
+-	if (ret >= 0)
+-		pm_runtime_put_sync(core->dev);
 +	return ret;
  }
  
  static int iris_wait_for_system_response(struct iris_core *core)
-@@ -117,6 +146,7 @@ int iris_core_init(struct iris_core *core)
+@@ -124,6 +145,7 @@ int iris_core_init(struct iris_core *core)
  		goto error_unload_fw;
  
  	dev_info(core->dev, "initializing HFI core\n");
@@ -97,7 +92,7 @@ index 61f36ad9a1cd..b827c6481bdf 100644
  	if (ret)
  		goto error_unload_fw;
 diff --git a/drivers/media/platform/qcom/iris/iris_core.h b/drivers/media/platform/qcom/iris/iris_core.h
-index d872ae9037e4..658c75ea2258 100644
+index d872ae903..658c75ea2 100644
 --- a/drivers/media/platform/qcom/iris/iris_core.h
 +++ b/drivers/media/platform/qcom/iris/iris_core.h
 @@ -126,5 +126,6 @@ struct iris_core {
@@ -108,7 +103,7 @@ index d872ae9037e4..658c75ea2258 100644
  
  #endif
 diff --git a/drivers/media/platform/qcom/iris/iris_probe.c b/drivers/media/platform/qcom/iris/iris_probe.c
-index 72a79092fa20..2f53dd30150a 100644
+index 72a79092f..2f53dd301 100644
 --- a/drivers/media/platform/qcom/iris/iris_probe.c
 +++ b/drivers/media/platform/qcom/iris/iris_probe.c
 @@ -363,11 +363,12 @@ static int __maybe_unused iris_system_suspend(struct device *dev)
@@ -127,3 +122,6 @@ index 72a79092fa20..2f53dd30150a 100644
  
  	return pm_runtime_force_suspend(dev);
  }
+-- 
+2.55.0
+

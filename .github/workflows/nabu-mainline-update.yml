@@ -17,24 +17,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
+          fetch-depth: 0
+      - name: Install the deterministic patch-gate tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes dwarves gnupg
       - name: Apply the Nabu series to the latest Linux stable release
+        id: update
         env:
+          NABU_STABLE_SERIES: "7.2"
           TMPDIR: ${{ runner.temp }}
         run: packaging/copr/senemos-nabu-kernel-mainline/update-upstream.sh
       - name: Publish an accepted stable update
+        if: steps.update.outputs.updated == 'true'
         run: |
-          if git diff --quiet; then
-            echo "No upstream stable update."
-            exit 0
-          fi
           git config user.name "SENEMOS kernel updater"
           git config user.email "mcc45tr@gmail.com"
           git add \
             packaging/copr/senemos-nabu-kernel-mainline/upstream.sha256 \
             packaging/copr/senemos-nabu-kernel-mainline/senemos-nabu-kernel-mainline.spec
-          git commit -m "packaging: update Nabu stable mainline kernel"
+          git commit -m "packaging: update Nabu stable kernel to ${{ steps.update.outputs.version }}-1"
           git pull --rebase origin main
           git push origin HEAD:main
+      - name: Report the accepted COPR trigger
+        if: steps.update.outputs.updated == 'true'
+        run: |
+          {
+            echo "## Nabu stable kernel"
+            echo
+            echo "Accepted signed Linux ${{ steps.update.outputs.version }} as release 1."
+            echo "The push to main triggers the COPR SCM package with auto-rebuild enabled."
+          } >> "$GITHUB_STEP_SUMMARY"

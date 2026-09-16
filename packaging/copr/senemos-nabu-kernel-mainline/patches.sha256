@@ -21,7 +21,7 @@ db2240aef6d9f6b5ffe2fc0c62a5a1df5d7c7a7eb49f779593e719af97f57036  0017-senemos-c
 dd16bcbf7b84d637ee71a447aa19b352611315146872d86497c7ad80a5c0f7d5  0021-config-drop-runtime-test-drivers-from-release-builds.patch
 c3699f552f92e0a143a21a77a8a6cb0065f709b8472102231b76963d54bc65e2  0022-senemos-isolate-mainline-kernel-identity.patch
 31fcc49110ec65efd46e2af866452255ee5633f8af7652c1aa708e6fc189fabc  0023-media-qcom-add-Xiaomi-Nabu-camera-support.patch
-92a982e6a312154a25546929d9bd60a4a7ba6104127507cf4837ad21796bfccb  0024-media-qcom-port-Nabu-Iris-VA-API-support-to-6.17.patch
+c45b7a4df9052c8da4b19a50d3b0bccfa92e9d2b1647fd6c57d31a81e8fd8510  0024-media-qcom-port-Nabu-Iris-VA-API-support-to-6.17.patch
 5120b2fda68096f7dfae7fbeffd36bf794b2b0b627100326e9c7de8b74a008c1  0025-kernel-overlay-speed-up-VP9-capture-for-FFmpeg.patch
 e6d811fe4e7df36e73564caf232d1d0ae397ca1d59cd31e005fcdde47ffb4790  0026-kernel-overlay-harden-P010-and-external-module-build.patch
 a2c44954c93e19005cb64c331b317d3b94533e5005cde74a4cb8afef5fddec67  0027-kernel-overlay-preserve-usable-legacy-VP9-output.patch
@@ -86,9 +86,7 @@ df613799124f9f215dad2e607cd50112082d9440fed1d438dc81c58ca8c74ae0  0083-ASoC-qcom
 37dea86d53c480b86b0094354f893ddd2d81b3f107a46bb2a1e7280bdfedb82f  0086-senemos-restore-Fedora-PSI-and-ALSA-sequencer.patch
 67429eafb8375fe53dc86e4bc3405e2b3cbe5ff20bed72ac7355f4f2a1a47f25  0087-senemos-retain-SM8150-OSM-L3-interconnect.patch
 fa2c3022bd429af210fa6be6adc719f64251ac592f8a5c17387c7918eebd3344  0088-Bluetooth-restore-Fedora-RFCOMM-and-BNEP-protocols.patch
-efb69354e327d510b36d9f7293d70571aecf84957e8489255956ec3ace801c3f  0089-drm-msm-Recover-HW-before-retire-hung-submit.patch
-61d1344790ff8ad63d93c4a27350fe121aff97c9762a968f323f12b084f61686  0090-drm-msm-remove-objects-from-evict-list-after-pinning.patch
-e2156ab033ad038ce37b9c111ffc10c88b7924f88c9f67967d82118d89450ad1  0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch
+4e65d8fbe0841b2fba08b796bf29fba09da473405ba3dff4386f76d6425bf51a  0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch
 56493770022d047d887bda4accba1d2c6be315df1c1c37d7f5a2fd56403f7391  0092-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch
 8e955bf82bae171d6474bef76b18e9b9a977f3b0a875a44a004a67ed3c1329f6  0093-senemos-enable-multigenerational-LRU.patch
 687a51a7b4efef99b1962dd08e91cb46cf617c5eb74ddaa23667bb75b036072a  0094-drm-msm-align-A640-private-VMAs-to-64K.patch
@@ -126,7 +124,7 @@ a95a92ea6f04f60d0a66299eea125aeebb21094effeeb55fdbf26b5d0b7fc9cb  0125-soc-qcom-
 22f356d3a93210a82b71088f95f5e4f720db9b0562157d383ca7af6f72eb9de1  0126-media-qcom-iris-use-VPU5-firmware-encoder-buffer-sizes.patch
 e88d93dd98cd149665c0c31d1d6d6bb79a26c15cc700934b15f1823fe44c1371  0127-power-supply-qcom_smbx-fix-SMB5-USB-voltage-reporting.patch
 3f78b0660d445abb11b185f6534e0d3f918c41a35b66651e6ba9a0d76a873b8f  0128-media-qcom-iris-keep-VPU5-decoder-counts-sequence-safe.patch
-876ba266ac79edc292dd4864edd66b157cbb890f67db23aa659159997fd3c91b  0129-media-qcom-iris-reinitialize-legacy-VPU5-across-s2idle.patch
+14a48a388aa0742a73547d83fd60c420e612c4c94cb6934b85daa69c5233e950  0129-media-qcom-iris-reinitialize-legacy-VPU5-across-s2idle.patch
 22399d88bed7726339632ae74eb73a2c11aa43e4d1b0306c7b742dc03e78117f  0130-dt-bindings-eeprom-add-Belling-BL24SA64.patch
 7c3790e3dce313f27ee357f02e523d38af82c91ac058034f0d92fee20c688a63  0131-dt-bindings-i2c-add-SM8150-CCI-compatible.patch
 0a5cf2cb796def69c0606f5d3d5bd527da0ea704eee15e1db33addf4b67a8cb7  0132-drm-panel-expose-Xiaomi-Nabu-panel-revision.patch
@@ -149,3 +147,7 @@ d842dbbefcdfca26aa05947ee6434ef11f0b796948465af84adbd699d7930ba6  0145-clk-qcom-
 54b919352ea2406d936bcb0140b34bed2bfc0908976699e8e712a68d01d34e20  0149-Input-nt36523-expose-runtime-double-tap-wake-control.patch
 08ad4d322085c900a60bc5b57556e39ea8168543ddcdd073493d8eeb49e5032e  0150-Input-nt36523-keep-routine-lifecycle-logging-at-debu.patch
 44947ff7441e4fbb26585c54fd278661df8ce9f00ecd8ae7ce8a7d9f00526704  0151-power-supply-reduce-deferred-probe-and-telemetry-log.patch
+7197890fd127dd42416c23ee22399cf1c1beae839201824c37099874f46c0c07  0152-senemos-complete-BPF-LSM-and-select-one-pstore-back.patch
+ee4bb826de70536990c71e0e8c1cfb2e39b8777ac8fee74dc2a670c277fb6ede  0153-ASoC-qcom-describe-unidirectional-DAI-links.patch
+81e55ccafcda0bc420df0e1ed18d2a61a0b77a7f981f64501bed42c2b74cda32  0154-arm64-dts-qcom-complete-Nabu-audio-metadata.patch
+c6afcd7f14ee01eae6310de79022c2f63691582e27764faa21f2f5ba0ac28558  0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch

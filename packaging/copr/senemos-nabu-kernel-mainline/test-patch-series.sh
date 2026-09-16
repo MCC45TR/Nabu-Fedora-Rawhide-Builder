@@ -105,6 +105,25 @@ grep -Fq 'reinit_completion(&core->core_init_done);' "$iris_core"
 grep -Fq 'return iris_core_deinit_for_system_suspend(core);' "$iris_probe"
 ! grep -A14 -F 'static int __maybe_unused iris_system_suspend' "$iris_probe" \
     | grep -Fq 'Keep the controller powered'
+# Linux 7.2.5 fixed four Iris regressions adjacent to Nabu's large legacy-VPU
+# port.  Lock those stable fixes into the downstream patch gate so a future
+# rebase cannot silently restore the 7.2.4 behavior.
+iris_gen1="$work/linux-$version/drivers/media/platform/qcom/iris/iris_hfi_gen1.c"
+iris_state="$work/linux-$version/drivers/media/platform/qcom/iris/iris_state.c"
+iris_vidc="$work/linux-$version/drivers/media/platform/qcom/iris/iris_vidc.c"
+iris_vpu="$work/linux-$version/drivers/media/platform/qcom/iris/iris_vpu_common.c"
+grep -A8 -F '.cap_id = GOP_SIZE,' "$iris_gen1" \
+    | grep -Fq '.hfi_id = HFI_PROPERTY_CONFIG_VENC_INTRA_PERIOD,'
+state_log_line=$(grep -n -F '"state changed from %x to %x' "$iris_state" \
+    | cut -d: -f1)
+state_store_line=$(grep -n -F 'inst->state = request_state;' "$iris_state" \
+    | cut -d: -f1)
+test "$state_log_line" -lt "$state_store_line"
+grep -Fq '"plat:%s:%s", dev_name(core->dev), info);' "$iris_vidc"
+grep -A25 -F 'void iris_vpu_power_off(struct iris_core *core)' "$iris_vpu" \
+    | grep -Fq 'disable_irq(core->irq);'
+! grep -A25 -F 'void iris_vpu_power_off(struct iris_core *core)' "$iris_vpu" \
+    | grep -Fq 'disable_irq_nosync(core->irq);'
 grep -Fq 'ADC5_USB_IN_V_16 describes the hardware divider.' \
     "$work/linux-$version/drivers/power/supply/qcom_smbx.c"
 if grep -Fq 'val->intval *= 16;' \
@@ -243,6 +262,11 @@ for setting in \
     'CONFIG_LEDS_TRIGGER_PATTERN=m' \
     'CONFIG_GPIO_SHARED_PROXY=y' \
     'CONFIG_BPF_LSM=y' \
+    'CONFIG_DEBUG_INFO=y' \
+    'CONFIG_DEBUG_INFO_DWARF5=y' \
+    'CONFIG_DEBUG_INFO_BTF=y' \
+    'CONFIG_EFI_VARS_PSTORE=y' \
+    'CONFIG_EFI_VARS_PSTORE_DEFAULT_DISABLE=y' \
     'CONFIG_SECURITY_YAMA=y' \
     'CONFIG_SECURITY_LOCKDOWN_LSM=y' \
     'CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y' \
@@ -289,6 +313,17 @@ for setting in \
     if ! grep -Fxq "$setting" "$config_dir/.config"; then
         printf 'ERROR: final Nabu config is missing required setting: %s\n' \
             "$setting" >&2
+        exit 1
+    fi
+done
+for forbidden in \
+    'CONFIG_DEBUG_INFO_NONE=y' \
+    'CONFIG_DEBUG_INFO_REDUCED=y' \
+    'CONFIG_DEBUG_INFO_SPLIT=y' \
+    'CONFIG_DEBUG_INFO_BTF_MODULES=y'; do
+    if grep -Fxq "$forbidden" "$config_dir/.config"; then
+        printf 'ERROR: final Nabu config enables forbidden setting: %s\n' \
+            "$forbidden" >&2
         exit 1
     fi
 done
@@ -402,7 +437,13 @@ recover_line=$(grep -n -F 'gpu->funcs->recover(gpu);' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_gpu.c" | cut -d: -f1)
 retire_line=$(grep -n -F 'retire_submits(gpu);' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_gpu.c" | head -n1 | cut -d: -f1)
+irq_enable_line=$(grep -n -F 'priv->disable_err_irq = false;' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_gpu.c" | head -n1 | cut -d: -f1)
 test "$recover_line" -lt "$retire_line"
+test "$irq_enable_line" -lt "$recover_line"
+grep -A22 -F 'if (!vm->managed)' \
+    "$work/linux-$version/drivers/gpu/drm/msm/msm_gpu.c" \
+    | grep -Fq 'put_task_struct(task);'
 grep -A18 -F 'msm_gem_vm_bo_validate' \
     "$work/linux-$version/drivers/gpu/drm/msm/msm_gem_vma.c" \
     | grep -Fq 'drm_gpuvm_bo_evict(vm_bo, false);'
@@ -431,6 +472,31 @@ grep -Fq 'nabu_keyboard_publish_state(keyboard, false, true);' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
 ! grep -Fq 'connected = !keyboard->connected;' \
     "$work/linux-$version/drivers/input/misc/xiaomi-nabu-keyboard.c"
+# Keep Nabu's verified one-way front ends explicit; this prevents ASoC from
+# creating impossible stream directions and then warning about absent BEs.
+qcom_sound_common="$work/linux-$version/sound/soc/qcom/common.c"
+nabu_sound_dts="$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts"
+grep -Fq 'link->playback_only = of_property_read_bool(np, "playback-only");' \
+    "$qcom_sound_common"
+grep -Fq 'link->capture_only = of_property_read_bool(np, "capture-only");' \
+    "$qcom_sound_common"
+grep -A4 -F 'mm1-dai-link {' "$nabu_sound_dts" \
+    | grep -Fq 'playback-only;'
+grep -A4 -F 'mm2-dai-link {' "$nabu_sound_dts" \
+    | grep -Fq 'capture-only;'
+test "$(grep -c 'cirrus,subsystem-id = "nabu";' "$nabu_sound_dts")" -eq 4
+grep -Fq 'dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(32))' \
+    "$work/linux-$version/drivers/mfd/wcd934x.c"
+grep -Fq 'using %d of %d controller DIN ports' \
+    "$work/linux-$version/drivers/soundwire/qcom.c"
+# SM8150 powers Adreno through GMU power domains. Optional legacy supplies may
+# be absent, but real regulator probe failures must still abort initialization.
+msm_gpu="$work/linux-$version/drivers/gpu/drm/msm/msm_gpu.c"
+test "$(grep -c 'devm_regulator_get_optional(&pdev->dev' "$msm_gpu")" -ge 2
+grep -Fq 'PTR_ERR(gpu->gpu_reg) == -ENODEV' "$msm_gpu"
+grep -Fq 'ret = PTR_ERR(gpu->gpu_reg);' "$msm_gpu"
+grep -Fq 'PTR_ERR(gpu->gpu_cx) == -ENODEV' "$msm_gpu"
+grep -Fq 'ret = PTR_ERR(gpu->gpu_cx);' "$msm_gpu"
 # Qualcomm downstream uses EOS only for playback. Capture STOP must pause the
 # read stream so PipeWire recovery does not underflow TX and wedge CMD_CLOSE.
 q6asm_dai="$work/linux-$version/sound/soc/qcom/qdsp6/q6asm-dai.c"

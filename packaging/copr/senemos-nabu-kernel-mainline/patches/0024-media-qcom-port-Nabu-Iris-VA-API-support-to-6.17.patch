@@ -1,11 +1,16 @@
-From 4f29de580df01fd31ca166cf1c12227d45a1c9af Mon Sep 17 00:00:00 2001
+From eca665033950c8bc33ea2e52c735462ef85b8bc8 Mon Sep 17 00:00:00 2001
 From: MCC45TR <mursitcancihan@gmail.com>
 Date: Tue, 25 Aug 2026 16:44:10 +0300
-Subject: [PATCH 24/30] media: qcom: port Nabu Iris VA-API support to 6.17
+Subject: [PATCH] media: qcom: port Nabu Iris VA-API support to 6.17
 
 Adapt the CFM880/nabu-iris kernel overlay at commit 4762dd9c594db58bcfa4a42997d9ec75866e98a1 to the current Nabu 6.17 line while preserving the existing v1.4.0.6 device changes.
 
 Add the SM8150 Iris1 DT node, Nabu firmware path, legacy Venus coordination, cached capture, firmware boot gating, session recovery, concurrent decode handling, and 10-bit decode support.
+
+When rebasing onto Linux 7.2.5, retain its stable fixes for the gen1 GOP/HFI
+mapping, state-transition diagnostics, encoder/decoder bus identity and
+synchronous threaded-IRQ shutdown.  Adapt those fixes to the legacy VPU5 API
+rather than reverting them with the older Iris port.
 
 Source: https://github.com/CFM880/nabu-iris/tree/4762dd9c594db58bcfa4a42997d9ec75866e98a1
 
@@ -18,7 +23,7 @@ Link: https://github.com/CFM880/iris-vaapi/blob/main/docs/video-decode-setup.en.
  .../media/platform/qcom/iris/iris_buffer.h    |   2 -
  .../media/platform/qcom/iris/iris_common.c    | 253 ++++-
  .../media/platform/qcom/iris/iris_common.h    |   4 +
- drivers/media/platform/qcom/iris/iris_core.c  |  63 +-
+ drivers/media/platform/qcom/iris/iris_core.c  |  56 +-
  drivers/media/platform/qcom/iris/iris_core.h  |  19 +-
  drivers/media/platform/qcom/iris/iris_ctrls.c | 756 +++----------
  drivers/media/platform/qcom/iris/iris_ctrls.h |  18 +-
@@ -27,12 +32,12 @@ Link: https://github.com/CFM880/iris-vaapi/blob/main/docs/video-decode-setup.en.
  .../qcom/iris/iris_hfi_gen1_command.c         | 609 ++++++++---
  .../qcom/iris/iris_hfi_gen1_defines.h         | 106 +-
  .../qcom/iris/iris_hfi_gen1_response.c        | 305 +++++-
- .../qcom/iris/iris_hfi_gen2_command.c         | 341 ++----
+ .../qcom/iris/iris_hfi_gen2_command.c         | 340 ++----
  .../qcom/iris/iris_hfi_gen2_defines.h         |  48 -
  .../media/platform/qcom/iris/iris_hfi_queue.c | 146 ++-
  .../media/platform/qcom/iris/iris_hfi_queue.h |  24 +-
  .../media/platform/qcom/iris/iris_instance.h  |  88 +-
- .../platform/qcom/iris/iris_platform_common.h | 190 ++--
+ .../platform/qcom/iris/iris_platform_common.h | 189 ++--
  .../platform/qcom/iris/iris_platform_gen2.c   | 995 ++++++++++++++++++
  .../qcom/iris/iris_platform_qcs8300.h         | 536 +++++++++-
  .../platform/qcom/iris/iris_platform_sm8250.c | 483 +++++++++
@@ -58,12 +63,12 @@ Link: https://github.com/CFM880/iris-vaapi/blob/main/docs/video-decode-setup.en.
  drivers/media/platform/qcom/venus/core.h      |   2 +-
  drivers/media/platform/qcom/venus/firmware.c  |  14 +-
  drivers/media/platform/qcom/venus/hfi_venus.c |  10 +
- 47 files changed, 5553 insertions(+), 3412 deletions(-)
+ 47 files changed, 5550 insertions(+), 3406 deletions(-)
  create mode 100644 drivers/media/platform/qcom/iris/iris_platform_gen2.c
  create mode 100644 drivers/media/platform/qcom/iris/iris_platform_sm8250.c
 
 diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
-index 1327b2c547af..743bbcc2b314 100644
+index 1327b2c54..743bbcc2b 100644
 --- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 +++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
 @@ -1070,6 +1070,11 @@ bluetooth: bluetooth {
@@ -79,7 +84,7 @@ index 1327b2c547af..743bbcc2b314 100644
  	status = "okay";
  
 diff --git a/arch/arm64/boot/dts/qcom/sm8150.dtsi b/arch/arm64/boot/dts/qcom/sm8150.dtsi
-index 310d299ee949..1add352d8008 100644
+index f0225358f..99a8ee445 100644
 --- a/arch/arm64/boot/dts/qcom/sm8150.dtsi
 +++ b/arch/arm64/boot/dts/qcom/sm8150.dtsi
 @@ -3785,6 +3785,88 @@ usb_2_dwc3: usb@a800000 {
@@ -172,7 +177,7 @@ index 310d299ee949..1add352d8008 100644
  			compatible = "qcom,sm8150-videocc";
  			reg = <0 0x0ab00000 0 0x10000>;
 diff --git a/drivers/media/platform/qcom/iris/Makefile b/drivers/media/platform/qcom/iris/Makefile
-index 48e415cbc439..963b4044fc57 100644
+index 48e415cbc..963b4044f 100644
 --- a/drivers/media/platform/qcom/iris/Makefile
 +++ b/drivers/media/platform/qcom/iris/Makefile
 @@ -4,16 +4,14 @@ qcom-iris-objs += iris_buffer.o \
@@ -203,7 +208,7 @@ index 48e415cbc439..963b4044fc57 100644
               iris_vpu_common.o \
  
 diff --git a/drivers/media/platform/qcom/iris/iris_buffer.c b/drivers/media/platform/qcom/iris/iris_buffer.c
-index 246ad0abbac3..13cdbc9b335d 100644
+index 246ad0abb..13cdbc9b3 100644
 --- a/drivers/media/platform/qcom/iris/iris_buffer.c
 +++ b/drivers/media/platform/qcom/iris/iris_buffer.c
 @@ -15,11 +15,8 @@
@@ -778,7 +783,7 @@ index 246ad0abbac3..13cdbc9b335d 100644
  	vbuf->flags |= buf->flags;
  
 diff --git a/drivers/media/platform/qcom/iris/iris_buffer.h b/drivers/media/platform/qcom/iris/iris_buffer.h
-index 75bb76776182..325d30fce5c9 100644
+index 75bb76776..325d30fce 100644
 --- a/drivers/media/platform/qcom/iris/iris_buffer.h
 +++ b/drivers/media/platform/qcom/iris/iris_buffer.h
 @@ -27,7 +27,6 @@ struct iris_inst;
@@ -798,7 +803,7 @@ index 75bb76776182..325d30fce5c9 100644
  };
  
 diff --git a/drivers/media/platform/qcom/iris/iris_common.c b/drivers/media/platform/qcom/iris/iris_common.c
-index 25836561bcf3..b39eefada534 100644
+index 25836561b..b39eefada 100644
 --- a/drivers/media/platform/qcom/iris/iris_common.c
 +++ b/drivers/media/platform/qcom/iris/iris_common.c
 @@ -9,6 +9,10 @@
@@ -1121,7 +1126,7 @@ index 25836561bcf3..b39eefada534 100644
  
  error:
 diff --git a/drivers/media/platform/qcom/iris/iris_common.h b/drivers/media/platform/qcom/iris/iris_common.h
-index b2a27b781c9a..918787124f1f 100644
+index b2a27b781..918787124 100644
 --- a/drivers/media/platform/qcom/iris/iris_common.h
 +++ b/drivers/media/platform/qcom/iris/iris_common.h
 @@ -13,6 +13,10 @@ int iris_vb2_buffer_to_driver(struct vb2_buffer *vb2, struct iris_buffer *buf);
@@ -1136,7 +1141,7 @@ index b2a27b781c9a..918787124f1f 100644
  
  #endif
 diff --git a/drivers/media/platform/qcom/iris/iris_core.c b/drivers/media/platform/qcom/iris/iris_core.c
-index 52bf56e517f9..61f36ad9a1cd 100644
+index 8c335dbfc..bc1334089 100644
 --- a/drivers/media/platform/qcom/iris/iris_core.c
 +++ b/drivers/media/platform/qcom/iris/iris_core.c
 @@ -3,6 +3,7 @@
@@ -1147,36 +1152,37 @@ index 52bf56e517f9..61f36ad9a1cd 100644
  #include <linux/pm_runtime.h>
  
  #include "iris_core.h"
-@@ -12,15 +13,22 @@
- 
- void iris_core_deinit(struct iris_core *core)
+@@ -14,13 +15,21 @@ void iris_core_deinit(struct iris_core *core)
  {
+ 	int ret;
+ 
 +	/*
 +	 * The core starts in DEINIT and remains there while allow_fw_boot is
-+	 * disabled.  Do not resume power domains, issue PAS shutdown, or touch
++	 * disabled. Do not resume power domains, issue PAS shutdown, or touch
 +	 * VPU registers when no firmware/HFI state was ever initialized.
-+	 * Qualcomm's current driver has the same state guard.
 +	 */
 +	if (READ_ONCE(core->state) == IRIS_CORE_DEINIT)
 +		return;
 +
- 	pm_runtime_resume_and_get(core->dev);
+ 	ret = pm_runtime_resume_and_get(core->dev);
  
  	mutex_lock(&core->lock);
--	if (core->state != IRIS_CORE_DEINIT) {
--		iris_fw_unload(core);
--		iris_vpu_power_off(core);
--		iris_hfi_queues_deinit(core);
--		core->state = IRIS_CORE_DEINIT;
--	}
-+	iris_fw_unload(core);
-+	iris_vpu_power_off(core);
-+	iris_hfi_queues_deinit(core);
-+	core->state = IRIS_CORE_DEINIT;
+ 	if (core->state != IRIS_CORE_DEINIT) {
+ 		iris_fw_unload(core);
+ 
+-		if (!ret)
++		if (ret >= 0)
+ 			iris_vpu_power_off(core);
+ 
+ 		iris_hfi_queues_deinit(core);
+@@ -28,21 +37,33 @@ void iris_core_deinit(struct iris_core *core)
+ 	}
  	mutex_unlock(&core->lock);
  
- 	pm_runtime_put_sync(core->dev);
-@@ -28,15 +36,27 @@ void iris_core_deinit(struct iris_core *core)
+-	if (!ret)
++	if (ret >= 0)
+ 		pm_runtime_put_sync(core->dev);
+ }
  
  static int iris_wait_for_system_response(struct iris_core *core)
  {
@@ -1205,7 +1211,7 @@ index 52bf56e517f9..61f36ad9a1cd 100644
  		return -ETIMEDOUT;
  	}
  
-@@ -58,28 +78,45 @@ int iris_core_init(struct iris_core *core)
+@@ -64,28 +85,45 @@ int iris_core_init(struct iris_core *core)
  
  	core->state = IRIS_CORE_INIT;
  
@@ -1258,7 +1264,7 @@ index 52bf56e517f9..61f36ad9a1cd 100644
  	if (ret)
  		goto error_unload_fw;
 diff --git a/drivers/media/platform/qcom/iris/iris_core.h b/drivers/media/platform/qcom/iris/iris_core.h
-index 24da60448cf2..d872ae9037e4 100644
+index 24da60448..d872ae903 100644
 --- a/drivers/media/platform/qcom/iris/iris_core.h
 +++ b/drivers/media/platform/qcom/iris/iris_core.h
 @@ -16,6 +16,8 @@
@@ -1327,7 +1333,7 @@ index 24da60448cf2..d872ae9037e4 100644
  	struct platform_inst_fw_cap		inst_fw_caps_dec[INST_FW_CAP_MAX];
  	struct platform_inst_fw_cap		inst_fw_caps_enc[INST_FW_CAP_MAX];
 diff --git a/drivers/media/platform/qcom/iris/iris_ctrls.c b/drivers/media/platform/qcom/iris/iris_ctrls.c
-index 10e33b8a73f6..6cc289a41884 100644
+index 391e1fc5f..6cc289a41 100644
 --- a/drivers/media/platform/qcom/iris/iris_ctrls.c
 +++ b/drivers/media/platform/qcom/iris/iris_ctrls.c
 @@ -98,62 +98,6 @@ static enum platform_inst_fw_cap_type iris_get_cap_id(u32 id)
@@ -2121,7 +2127,7 @@ index 10e33b8a73f6..6cc289a41884 100644
 -int iris_set_intra_period(struct iris_inst *inst, enum platform_inst_fw_cap_type cap_id)
 -{
 -	const struct iris_hfi_session_ops *hfi_ops = inst->hfi_session_ops;
--	u32 gop_size = inst->fw_caps[GOP_SIZE].value;
+-	u32 gop_size = inst->fw_caps[cap_id].value;
 -	u32 b_frame = inst->fw_caps[B_FRAME].value;
 -	u32 hfi_id = inst->fw_caps[cap_id].hfi_id;
 -	struct hfi_intra_period intra_period;
@@ -2313,7 +2319,7 @@ index 10e33b8a73f6..6cc289a41884 100644
  	int ret;
  	u32 i;
 diff --git a/drivers/media/platform/qcom/iris/iris_ctrls.h b/drivers/media/platform/qcom/iris/iris_ctrls.h
-index 3c462ec9190b..0fcc79bfbf8b 100644
+index 3c462ec91..0fcc79bfb 100644
 --- a/drivers/media/platform/qcom/iris/iris_ctrls.h
 +++ b/drivers/media/platform/qcom/iris/iris_ctrls.h
 @@ -22,8 +22,8 @@ int iris_set_level(struct iris_inst *inst, enum platform_inst_fw_cap_type cap_id
@@ -2349,7 +2355,7 @@ index 3c462ec9190b..0fcc79bfbf8b 100644
  
  #endif
 diff --git a/drivers/media/platform/qcom/iris/iris_firmware.c b/drivers/media/platform/qcom/iris/iris_firmware.c
-index 1a476146d758..18fd4017d7f7 100644
+index 1a476146d..18fd4017d 100644
 --- a/drivers/media/platform/qcom/iris/iris_firmware.c
 +++ b/drivers/media/platform/qcom/iris/iris_firmware.c
 @@ -12,15 +12,15 @@
@@ -2477,7 +2483,7 @@ index 1a476146d758..18fd4017d7f7 100644
  
  int iris_set_hw_state(struct iris_core *core, bool resume)
 diff --git a/drivers/media/platform/qcom/iris/iris_hfi_common.c b/drivers/media/platform/qcom/iris/iris_hfi_common.c
-index 8769ec61f117..a4c35c773411 100644
+index 8769ec61f..a4c35c773 100644
 --- a/drivers/media/platform/qcom/iris/iris_hfi_common.c
 +++ b/drivers/media/platform/qcom/iris/iris_hfi_common.c
 @@ -79,6 +79,17 @@ int iris_hfi_core_init(struct iris_core *core)
@@ -2539,7 +2545,7 @@ index 8769ec61f117..a4c35c773411 100644
  	return ret;
  }
 diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
-index 7674b47ad6c4..d1b458ece77f 100644
+index 7674b47ad..d1b458ece 100644
 --- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
 +++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
 @@ -6,8 +6,12 @@
@@ -3521,7 +3527,7 @@ index 7674b47ad6c4..d1b458ece77f 100644
 +	return kzalloc(sizeof(struct iris_inst), GFP_KERNEL);
  }
 diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h b/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
-index 0e4dee192384..95c5d5f78cb0 100644
+index 0e4dee192..95c5d5f78 100644
 --- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
 +++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_defines.h
 @@ -18,9 +18,12 @@
@@ -3746,7 +3752,7 @@ index 0e4dee192384..95c5d5f78cb0 100644
  	u32 error;
  	u32 height;
 diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
-index bfd7495bf44f..db8033e1a804 100644
+index bfd7495bf..db8033e1a 100644
 --- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
 +++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
 @@ -4,14 +4,35 @@
@@ -4194,7 +4200,7 @@ index bfd7495bf44f..db8033e1a804 100644
 +	core->hfi_response_ops = &iris_hfi_gen1_response_ops;
 +}
 diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen2_command.c b/drivers/media/platform/qcom/iris/iris_hfi_gen2_command.c
-index ca2954f8bd3a..4ce71a142508 100644
+index ee2730c29..4ce71a142 100644
 --- a/drivers/media/platform/qcom/iris/iris_hfi_gen2_command.c
 +++ b/drivers/media/platform/qcom/iris/iris_hfi_gen2_command.c
 @@ -121,7 +121,6 @@ static u32 iris_hfi_gen2_get_port_from_buf_type(struct iris_inst *inst,
@@ -4493,7 +4499,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  	u32 config_params_size = 0, i, j;
  	const u32 *config_params = NULL;
  	int ret;
-@@ -684,45 +527,37 @@ static int iris_hfi_gen2_session_set_config_params(struct iris_inst *inst, u32 p
+@@ -684,44 +527,37 @@ static int iris_hfi_gen2_session_set_config_params(struct iris_inst *inst, u32 p
  		{HFI_PROP_SIGNAL_COLOR_INFO,          iris_hfi_gen2_set_colorspace             },
  		{HFI_PROP_PROFILE,                    iris_hfi_gen2_set_profile                },
  		{HFI_PROP_LEVEL,                      iris_hfi_gen2_set_level                  },
@@ -4505,7 +4511,6 @@ index ca2954f8bd3a..4ce71a142508 100644
  		{HFI_PROP_FRAME_RATE,                 iris_hfi_gen2_set_frame_rate             },
 -		{HFI_PROP_AV1_FILM_GRAIN_PRESENT,     iris_hfi_gen2_set_film_grain             },
 -		{HFI_PROP_AV1_SUPER_BLOCK_ENABLED,    iris_hfi_gen2_set_super_block            },
--		{HFI_PROP_OPB_ENABLE,                 iris_hfi_gen2_set_opb_enable             },
  	};
  
  	if (inst->domain == DECODER) {
@@ -4551,7 +4556,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  		}
  	}
  
-@@ -763,9 +598,6 @@ static int iris_hfi_gen2_session_set_codec(struct iris_inst *inst)
+@@ -762,9 +598,6 @@ static int iris_hfi_gen2_session_set_codec(struct iris_inst *inst)
  		break;
  	case V4L2_PIX_FMT_VP9:
  		codec = HFI_CODEC_DECODE_VP9;
@@ -4561,7 +4566,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  	}
  
  	iris_hfi_gen2_packet_session_property(inst,
-@@ -911,30 +743,25 @@ static int iris_hfi_gen2_subscribe_change_param(struct iris_inst *inst, u32 plan
+@@ -910,30 +743,25 @@ static int iris_hfi_gen2_subscribe_change_param(struct iris_inst *inst, u32 plan
  
  	if ((V4L2_TYPE_IS_OUTPUT(plane) && inst_hfi_gen2->ipsc_properties_set) ||
  	    (V4L2_TYPE_IS_CAPTURE(plane) && inst_hfi_gen2->opsc_properties_set)) {
@@ -4599,7 +4604,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  		break;
  	}
  
-@@ -1018,16 +845,6 @@ static int iris_hfi_gen2_subscribe_change_param(struct iris_inst *inst, u32 plan
+@@ -1017,16 +845,6 @@ static int iris_hfi_gen2_subscribe_change_param(struct iris_inst *inst, u32 plan
  				payload_size = sizeof(u32);
  				payload_type = HFI_PAYLOAD_U32;
  				break;
@@ -4616,7 +4621,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  			default:
  				prop_type = 0;
  				ret = -EINVAL;
-@@ -1064,29 +881,24 @@ static int iris_hfi_gen2_subscribe_property(struct iris_inst *inst, u32 plane)
+@@ -1063,29 +881,24 @@ static int iris_hfi_gen2_subscribe_property(struct iris_inst *inst, u32 plane)
  		return 0;
  
  	if (V4L2_TYPE_IS_OUTPUT(plane)) {
@@ -4654,7 +4659,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  			break;
  		}
  	}
-@@ -1134,9 +946,6 @@ static int iris_hfi_gen2_session_stop(struct iris_inst *inst, u32 plane)
+@@ -1133,9 +946,6 @@ static int iris_hfi_gen2_session_stop(struct iris_inst *inst, u32 plane)
  	struct iris_inst_hfi_gen2 *inst_hfi_gen2 = to_iris_inst_hfi_gen2(inst);
  	int ret = 0;
  
@@ -4664,7 +4669,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  	reinit_completion(&inst->completion);
  
  	iris_hfi_gen2_packet_session_command(inst,
-@@ -1266,26 +1075,26 @@ static u32 iris_hfi_gen2_buf_type_from_driver(u32 domain, enum iris_buffer_type
+@@ -1265,26 +1075,26 @@ static u32 iris_hfi_gen2_buf_type_from_driver(u32 domain, enum iris_buffer_type
  		return HFI_BUFFER_ARP;
  	case BUF_VPSS:
  		return HFI_BUFFER_VPSS;
@@ -4703,7 +4708,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  }
  
  static void iris_hfi_gen2_get_buffer(u32 domain, struct iris_buffer *buffer,
-@@ -1317,7 +1126,7 @@ static int iris_hfi_gen2_session_queue_buffer(struct iris_inst *inst, struct iri
+@@ -1316,7 +1126,7 @@ static int iris_hfi_gen2_session_queue_buffer(struct iris_inst *inst, struct iri
  
  	iris_hfi_gen2_get_buffer(inst->domain, buffer, &hfi_buffer);
  	if (buffer->type == BUF_COMV) {
@@ -4712,7 +4717,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  		if (ret)
  			return ret;
  	}
-@@ -1360,7 +1169,11 @@ static int iris_hfi_gen2_session_release_buffer(struct iris_inst *inst, struct i
+@@ -1359,7 +1169,11 @@ static int iris_hfi_gen2_session_release_buffer(struct iris_inst *inst, struct i
  					inst_hfi_gen2->packet->size);
  }
  
@@ -4725,7 +4730,7 @@ index ca2954f8bd3a..4ce71a142508 100644
  	.session_open = iris_hfi_gen2_session_open,
  	.session_set_config_params = iris_hfi_gen2_session_set_config_params,
  	.session_set_property = iris_hfi_gen2_session_set_property,
-@@ -1375,32 +1188,12 @@ static const struct iris_hfi_session_ops iris_hfi_gen2_session_ops = {
+@@ -1374,32 +1188,12 @@ static const struct iris_hfi_session_ops iris_hfi_gen2_session_ops = {
  	.session_close = iris_hfi_gen2_session_close,
  };
  
@@ -4763,7 +4768,7 @@ index ca2954f8bd3a..4ce71a142508 100644
 +	return kzalloc(sizeof(struct iris_inst_hfi_gen2), GFP_KERNEL);
  }
 diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen2_defines.h b/drivers/media/platform/qcom/iris/iris_hfi_gen2_defines.h
-index 776b21cd11b2..aa1f795f5626 100644
+index 776b21cd1..aa1f795f5 100644
 --- a/drivers/media/platform/qcom/iris/iris_hfi_gen2_defines.h
 +++ b/drivers/media/platform/qcom/iris/iris_hfi_gen2_defines.h
 @@ -70,26 +70,7 @@ enum hfi_rate_control {
@@ -4846,7 +4851,7 @@ index 776b21cd11b2..aa1f795f5626 100644
  
  enum hfi_picture_type {
 diff --git a/drivers/media/platform/qcom/iris/iris_hfi_queue.c b/drivers/media/platform/qcom/iris/iris_hfi_queue.c
-index bf6db23b53e2..c28e8c866f3c 100644
+index bf6db23b5..c28e8c866 100644
 --- a/drivers/media/platform/qcom/iris/iris_hfi_queue.c
 +++ b/drivers/media/platform/qcom/iris/iris_hfi_queue.c
 @@ -3,12 +3,42 @@
@@ -5071,7 +5076,7 @@ index bf6db23b53e2..c28e8c866f3c 100644
  	dma_free_attrs(core->dev, queue_size, core->iface_q_table_vaddr,
  		       core->iface_q_table_daddr, DMA_ATTR_WRITE_COMBINE);
 diff --git a/drivers/media/platform/qcom/iris/iris_hfi_queue.h b/drivers/media/platform/qcom/iris/iris_hfi_queue.h
-index 2174fc5ce618..b084d872fb7e 100644
+index 2174fc5ce..b084d872f 100644
 --- a/drivers/media/platform/qcom/iris/iris_hfi_queue.h
 +++ b/drivers/media/platform/qcom/iris/iris_hfi_queue.h
 @@ -9,10 +9,13 @@
@@ -5114,7 +5119,7 @@ index 2174fc5ce618..b084d872fb7e 100644
  	struct iris_hfi_queue_header *qhdr;
  	dma_addr_t	device_addr;
 diff --git a/drivers/media/platform/qcom/iris/iris_instance.h b/drivers/media/platform/qcom/iris/iris_instance.h
-index a770331d1675..8aa0da43e10a 100644
+index a770331d1..8aa0da43e 100644
 --- a/drivers/media/platform/qcom/iris/iris_instance.h
 +++ b/drivers/media/platform/qcom/iris/iris_instance.h
 @@ -15,20 +15,15 @@
@@ -5267,7 +5272,7 @@ index a770331d1675..8aa0da43e10a 100644
  
  #endif
 diff --git a/drivers/media/platform/qcom/iris/iris_platform_common.h b/drivers/media/platform/qcom/iris/iris_platform_common.h
-index c9256f2323dc..6775ffd5b29a 100644
+index ff48333ad..6775ffd5b 100644
 --- a/drivers/media/platform/qcom/iris/iris_platform_common.h
 +++ b/drivers/media/platform/qcom/iris/iris_platform_common.h
 @@ -7,37 +7,27 @@
@@ -5390,7 +5395,7 @@ index c9256f2323dc..6775ffd5b29a 100644
  	INPUT_BUF_HOST_MAX_COUNT,
  	OUTPUT_BUF_HOST_MAX_COUNT,
  	STAGE,
-@@ -156,33 +140,6 @@ enum platform_inst_fw_cap_type {
+@@ -156,32 +140,6 @@ enum platform_inst_fw_cap_type {
  	P_FRAME_QP_HEVC,
  	B_FRAME_QP_H264,
  	B_FRAME_QP_HEVC,
@@ -5403,7 +5408,6 @@ index c9256f2323dc..6775ffd5b29a 100644
 -	USE_LTR,
 -	MARK_LTR,
 -	B_FRAME,
--	INTRA_PERIOD,
 -	LAYER_ENABLE,
 -	LAYER_TYPE_H264,
 -	LAYER_TYPE_HEVC,
@@ -5424,7 +5428,7 @@ index c9256f2323dc..6775ffd5b29a 100644
  	INST_FW_CAP_MAX,
  };
  
-@@ -231,36 +188,62 @@ struct icc_vote_data {
+@@ -230,36 +188,62 @@ struct icc_vote_data {
  enum platform_pm_domain_type {
  	IRIS_CTRL_POWER_DOMAIN,
  	IRIS_HW_POWER_DOMAIN,
@@ -5501,7 +5505,7 @@ index c9256f2323dc..6775ffd5b29a 100644
  	const u32 *dec_input_prop;
  	unsigned int dec_input_prop_size;
  	const u32 *dec_output_prop_avc;
-@@ -269,9 +252,6 @@ struct iris_firmware_data {
+@@ -268,9 +252,6 @@ struct iris_firmware_data {
  	unsigned int dec_output_prop_hevc_size;
  	const u32 *dec_output_prop_vp9;
  	unsigned int dec_output_prop_vp9_size;
@@ -5511,7 +5515,7 @@ index c9256f2323dc..6775ffd5b29a 100644
  	const u32 *dec_ip_int_buf_tbl;
  	unsigned int dec_ip_int_buf_tbl_size;
  	const u32 *dec_op_int_buf_tbl;
-@@ -282,48 +262,4 @@ struct iris_firmware_data {
+@@ -281,48 +262,4 @@ struct iris_firmware_data {
  	unsigned int enc_op_int_buf_tbl_size;
  };
  
@@ -5562,7 +5566,7 @@ index c9256f2323dc..6775ffd5b29a 100644
  #endif
 diff --git a/drivers/media/platform/qcom/iris/iris_platform_gen2.c b/drivers/media/platform/qcom/iris/iris_platform_gen2.c
 new file mode 100644
-index 000000000000..cf4b92f534b2
+index 000000000..cf4b92f53
 --- /dev/null
 +++ b/drivers/media/platform/qcom/iris/iris_platform_gen2.c
 @@ -0,0 +1,995 @@
@@ -6562,7 +6566,7 @@ index 000000000000..cf4b92f534b2
 +	.enc_op_int_buf_tbl_size = ARRAY_SIZE(sm8550_enc_op_int_buf_tbl),
 +};
 diff --git a/drivers/media/platform/qcom/iris/iris_platform_qcs8300.h b/drivers/media/platform/qcom/iris/iris_platform_qcs8300.h
-index 3cfecae80d1e..35ea0efade73 100644
+index 3cfecae80..35ea0efad 100644
 --- a/drivers/media/platform/qcom/iris/iris_platform_qcs8300.h
 +++ b/drivers/media/platform/qcom/iris/iris_platform_qcs8300.h
 @@ -3,8 +3,537 @@
@@ -7117,7 +7121,7 @@ index 3cfecae80d1e..35ea0efade73 100644
 -#endif
 diff --git a/drivers/media/platform/qcom/iris/iris_platform_sm8250.c b/drivers/media/platform/qcom/iris/iris_platform_sm8250.c
 new file mode 100644
-index 000000000000..6c40d20c67ea
+index 000000000..6c40d20c6
 --- /dev/null
 +++ b/drivers/media/platform/qcom/iris/iris_platform_sm8250.c
 @@ -0,0 +1,483 @@
@@ -7605,7 +7609,7 @@ index 000000000000..6c40d20c67ea
 +	.enc_ip_int_buf_tbl_size = ARRAY_SIZE(sm8250_enc_ip_int_buf_tbl),
 +};
 diff --git a/drivers/media/platform/qcom/iris/iris_power.c b/drivers/media/platform/qcom/iris/iris_power.c
-index 91aa21d4070e..b8d45ff4024f 100644
+index 91aa21d40..b8d45ff40 100644
 --- a/drivers/media/platform/qcom/iris/iris_power.c
 +++ b/drivers/media/platform/qcom/iris/iris_power.c
 @@ -13,6 +13,11 @@
@@ -7724,7 +7728,7 @@ index 91aa21d4070e..b8d45ff4024f 100644
 +	return ret ?: ret2;
 +}
 diff --git a/drivers/media/platform/qcom/iris/iris_power.h b/drivers/media/platform/qcom/iris/iris_power.h
-index 55212660e72d..fef96dc222d3 100644
+index 55212660e..fef96dc22 100644
 --- a/drivers/media/platform/qcom/iris/iris_power.h
 +++ b/drivers/media/platform/qcom/iris/iris_power.h
 @@ -6,8 +6,12 @@
@@ -7741,7 +7745,7 @@ index 55212660e72d..fef96dc222d3 100644
  
  #endif
 diff --git a/drivers/media/platform/qcom/iris/iris_probe.c b/drivers/media/platform/qcom/iris/iris_probe.c
-index c2dcb50a2782..38946cad35ca 100644
+index c2dcb50a2..38946cad3 100644
 --- a/drivers/media/platform/qcom/iris/iris_probe.c
 +++ b/drivers/media/platform/qcom/iris/iris_probe.c
 @@ -10,7 +10,6 @@
@@ -7885,7 +7889,7 @@ index c2dcb50a2782..38946cad35ca 100644
  MODULE_LICENSE("GPL");
 +MODULE_IMPORT_NS("DMA_BUF");
 diff --git a/drivers/media/platform/qcom/iris/iris_resources.c b/drivers/media/platform/qcom/iris/iris_resources.c
-index 773f6548370a..8d8ddd398eea 100644
+index 773f65483..8d8ddd398 100644
 --- a/drivers/media/platform/qcom/iris/iris_resources.c
 +++ b/drivers/media/platform/qcom/iris/iris_resources.c
 @@ -20,6 +20,7 @@ int iris_set_icc_bw(struct iris_core *core, unsigned long icc_bw)
@@ -7946,7 +7950,7 @@ index 773f6548370a..8d8ddd398eea 100644
  
  int iris_disable_unprepare_clock(struct iris_core *core, enum platform_clk_type clk_type)
 diff --git a/drivers/media/platform/qcom/iris/iris_utils.c b/drivers/media/platform/qcom/iris/iris_utils.c
-index ba5c8dc1280c..2829508527fd 100644
+index ba5c8dc12..282950852 100644
 --- a/drivers/media/platform/qcom/iris/iris_utils.c
 +++ b/drivers/media/platform/qcom/iris/iris_utils.c
 @@ -34,22 +34,10 @@ int iris_get_mbpf(struct iris_inst *inst)
@@ -8027,7 +8031,7 @@ index ba5c8dc1280c..2829508527fd 100644
 -		inst->fw_caps[ROTATION].value == 270;
 -}
 diff --git a/drivers/media/platform/qcom/iris/iris_utils.h b/drivers/media/platform/qcom/iris/iris_utils.h
-index 228a5f963812..75740181122f 100644
+index 228a5f963..757401811 100644
 --- a/drivers/media/platform/qcom/iris/iris_utils.h
 +++ b/drivers/media/platform/qcom/iris/iris_utils.h
 @@ -45,14 +45,11 @@ bool iris_res_is_less_than(u32 width, u32 height,
@@ -8046,7 +8050,7 @@ index 228a5f963812..75740181122f 100644
  
  #endif
 diff --git a/drivers/media/platform/qcom/iris/iris_vb2.c b/drivers/media/platform/qcom/iris/iris_vb2.c
-index a2ea2d67f60d..a1067129f46d 100644
+index a2ea2d67f..a1067129f 100644
 --- a/drivers/media/platform/qcom/iris/iris_vb2.c
 +++ b/drivers/media/platform/qcom/iris/iris_vb2.c
 @@ -3,6 +3,8 @@
@@ -8350,7 +8354,7 @@ index a2ea2d67f60d..a1067129f46d 100644
  exit:
  	iris_helper_buffers_done(inst, q->type, VB2_BUF_STATE_ERROR);
 diff --git a/drivers/media/platform/qcom/iris/iris_vb2.h b/drivers/media/platform/qcom/iris/iris_vb2.h
-index a88565fdd3e4..a772e9aa6987 100644
+index a88565fdd..a772e9aa6 100644
 --- a/drivers/media/platform/qcom/iris/iris_vb2.h
 +++ b/drivers/media/platform/qcom/iris/iris_vb2.h
 @@ -7,6 +7,8 @@
@@ -8363,7 +8367,7 @@ index a88565fdd3e4..a772e9aa6987 100644
  			 unsigned int *num_buffers, unsigned int *num_planes,
  			 unsigned int sizes[], struct device *alloc_devs[]);
 diff --git a/drivers/media/platform/qcom/iris/iris_vdec.c b/drivers/media/platform/qcom/iris/iris_vdec.c
-index 9e228b70420e..ab080da75aec 100644
+index 9e228b704..ab080da75 100644
 --- a/drivers/media/platform/qcom/iris/iris_vdec.c
 +++ b/drivers/media/platform/qcom/iris/iris_vdec.c
 @@ -3,28 +3,179 @@
@@ -9092,7 +9096,7 @@ index 9e228b70420e..ab080da75aec 100644
  
  	ret = hfi_ops->session_drain(inst, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 diff --git a/drivers/media/platform/qcom/iris/iris_vdec.h b/drivers/media/platform/qcom/iris/iris_vdec.h
-index 5123d2a340e1..53ed708e07bb 100644
+index 5123d2a34..53ed708e0 100644
 --- a/drivers/media/platform/qcom/iris/iris_vdec.h
 +++ b/drivers/media/platform/qcom/iris/iris_vdec.h
 @@ -7,8 +7,10 @@
@@ -9120,7 +9124,7 @@ index 5123d2a340e1..53ed708e07bb 100644
  int iris_vdec_stop_cmd(struct iris_inst *inst);
  
 diff --git a/drivers/media/platform/qcom/iris/iris_venc.c b/drivers/media/platform/qcom/iris/iris_venc.c
-index a945992f63aa..22afb13ff0a5 100644
+index a945992f6..22afb13ff 100644
 --- a/drivers/media/platform/qcom/iris/iris_venc.c
 +++ b/drivers/media/platform/qcom/iris/iris_venc.c
 @@ -19,8 +19,8 @@ int iris_venc_inst_init(struct iris_inst *inst)
@@ -9472,7 +9476,7 @@ index a945992f63aa..22afb13ff0a5 100644
  
  	ret = hfi_ops->session_drain(inst, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 diff --git a/drivers/media/platform/qcom/iris/iris_venc.h b/drivers/media/platform/qcom/iris/iris_venc.h
-index 00c1716b2747..c4db7433da53 100644
+index 00c1716b2..c4db7433d 100644
 --- a/drivers/media/platform/qcom/iris/iris_venc.h
 +++ b/drivers/media/platform/qcom/iris/iris_venc.h
 @@ -9,6 +9,7 @@
@@ -9484,7 +9488,7 @@ index 00c1716b2747..c4db7433da53 100644
  int iris_venc_try_fmt(struct iris_inst *inst, struct v4l2_format *f);
  int iris_venc_s_fmt(struct iris_inst *inst, struct v4l2_format *f);
 diff --git a/drivers/media/platform/qcom/iris/iris_vidc.c b/drivers/media/platform/qcom/iris/iris_vidc.c
-index 14d63dc76c9b..8351b45369e9 100644
+index 1c052ca23..e7d29f91a 100644
 --- a/drivers/media/platform/qcom/iris/iris_vidc.c
 +++ b/drivers/media/platform/qcom/iris/iris_vidc.c
 @@ -3,12 +3,16 @@
@@ -9916,16 +9920,16 @@ index 14d63dc76c9b..8351b45369e9 100644
  	struct iris_core *core = inst->core;
  	struct platform_inst_caps *caps;
  	u32 fps, mbpf;
-@@ -449,7 +575,7 @@ static int iris_enum_frameintervals(struct file *filp, void *fh,
- 
+@@ -450,7 +576,7 @@ static int iris_enum_frameintervals(struct file *filp, void *fh,
  static int iris_querycap(struct file *filp, void *fh, struct v4l2_capability *cap)
  {
+ 	struct iris_core *core = video_drvdata(filp);
 -	struct iris_inst *inst = iris_get_inst(filp);
 +	struct iris_inst *inst = iris_get_inst(filp, NULL);
+ 	char *info;
  
  	strscpy(cap->driver, IRIS_DRV_NAME, sizeof(cap->driver));
- 
-@@ -463,7 +589,7 @@ static int iris_querycap(struct file *filp, void *fh, struct v4l2_capability *ca
+@@ -470,7 +596,7 @@ static int iris_querycap(struct file *filp, void *fh, struct v4l2_capability *ca
  
  static int iris_g_selection(struct file *filp, void *fh, struct v4l2_selection *s)
  {
@@ -9934,7 +9938,7 @@ index 14d63dc76c9b..8351b45369e9 100644
  
  	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE &&
  	    inst->domain == DECODER)
-@@ -513,7 +639,7 @@ static int iris_g_selection(struct file *filp, void *fh, struct v4l2_selection *
+@@ -520,7 +646,7 @@ static int iris_g_selection(struct file *filp, void *fh, struct v4l2_selection *
  
  static int iris_s_selection(struct file *filp, void *fh, struct v4l2_selection *s)
  {
@@ -9943,7 +9947,7 @@ index 14d63dc76c9b..8351b45369e9 100644
  
  	if (inst->domain == DECODER)
  		return -EINVAL;
-@@ -537,7 +663,7 @@ static int iris_subscribe_event(struct v4l2_fh *fh, const struct v4l2_event_subs
+@@ -544,7 +670,7 @@ static int iris_subscribe_event(struct v4l2_fh *fh, const struct v4l2_event_subs
  
  static int iris_s_parm(struct file *filp, void *fh, struct v4l2_streamparm *a)
  {
@@ -9952,7 +9956,7 @@ index 14d63dc76c9b..8351b45369e9 100644
  
  	if (a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
  	    a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-@@ -551,7 +677,7 @@ static int iris_s_parm(struct file *filp, void *fh, struct v4l2_streamparm *a)
+@@ -558,7 +684,7 @@ static int iris_s_parm(struct file *filp, void *fh, struct v4l2_streamparm *a)
  
  static int iris_g_parm(struct file *filp, void *fh, struct v4l2_streamparm *a)
  {
@@ -9961,7 +9965,7 @@ index 14d63dc76c9b..8351b45369e9 100644
  
  	if (a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
  	    a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-@@ -566,7 +692,7 @@ static int iris_g_parm(struct file *filp, void *fh, struct v4l2_streamparm *a)
+@@ -573,7 +699,7 @@ static int iris_g_parm(struct file *filp, void *fh, struct v4l2_streamparm *a)
  static int iris_dec_cmd(struct file *filp, void *fh,
  			struct v4l2_decoder_cmd *dec)
  {
@@ -9970,7 +9974,7 @@ index 14d63dc76c9b..8351b45369e9 100644
  	int ret = 0;
  
  	mutex_lock(&inst->lock);
-@@ -600,7 +726,7 @@ static int iris_dec_cmd(struct file *filp, void *fh,
+@@ -607,7 +733,7 @@ static int iris_dec_cmd(struct file *filp, void *fh,
  static int iris_enc_cmd(struct file *filp, void *fh,
  			struct v4l2_encoder_cmd *enc)
  {
@@ -9979,7 +9983,7 @@ index 14d63dc76c9b..8351b45369e9 100644
  	int ret = 0;
  
  	mutex_lock(&inst->lock);
-@@ -631,7 +757,7 @@ static int iris_enc_cmd(struct file *filp, void *fh,
+@@ -638,7 +764,7 @@ static int iris_enc_cmd(struct file *filp, void *fh,
  	return ret;
  }
  
@@ -9988,7 +9992,7 @@ index 14d63dc76c9b..8351b45369e9 100644
  	.owner                          = THIS_MODULE,
  	.open                           = iris_open,
  	.release                        = iris_close,
-@@ -676,6 +802,7 @@ static const struct v4l2_ioctl_ops iris_v4l2_ioctl_ops_dec = {
+@@ -683,6 +809,7 @@ static const struct v4l2_ioctl_ops iris_v4l2_ioctl_ops_dec = {
  	.vidioc_streamoff               = v4l2_m2m_ioctl_streamoff,
  	.vidioc_try_decoder_cmd         = v4l2_m2m_ioctl_try_decoder_cmd,
  	.vidioc_decoder_cmd             = iris_dec_cmd,
@@ -9997,7 +10001,7 @@ index 14d63dc76c9b..8351b45369e9 100644
  
  static const struct v4l2_ioctl_ops iris_v4l2_ioctl_ops_enc = {
 diff --git a/drivers/media/platform/qcom/iris/iris_vidc.h b/drivers/media/platform/qcom/iris/iris_vidc.h
-index a26054ff55b5..3cc36266a760 100644
+index a26054ff5..3cc36266a 100644
 --- a/drivers/media/platform/qcom/iris/iris_vidc.h
 +++ b/drivers/media/platform/qcom/iris/iris_vidc.h
 @@ -6,8 +6,21 @@
@@ -10023,7 +10027,7 @@ index a26054ff55b5..3cc36266a760 100644
  int iris_open(struct file *filp);
  int iris_close(struct file *filp);
 diff --git a/drivers/media/platform/qcom/iris/iris_vpu2.c b/drivers/media/platform/qcom/iris/iris_vpu2.c
-index b8714dcbad10..5683948799b5 100644
+index b8714dcba..568394879 100644
 --- a/drivers/media/platform/qcom/iris/iris_vpu2.c
 +++ b/drivers/media/platform/qcom/iris/iris_vpu2.c
 @@ -3,22 +3,17 @@
@@ -10062,7 +10066,7 @@ index b8714dcbad10..5683948799b5 100644
 -	.set_hwmode = iris_vpu_set_hwmode,
  };
 diff --git a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
-index fb6f1016415e..34a9094201cc 100644
+index fb6f10164..34a909420 100644
 --- a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
 +++ b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
 @@ -9,17 +9,6 @@
@@ -11206,7 +11210,7 @@ index fb6f1016415e..34a9094201cc 100644
  	case BUF_DPB:
  		return iris_vpu_dpb_count(inst);
 diff --git a/drivers/media/platform/qcom/iris/iris_vpu_buffer.h b/drivers/media/platform/qcom/iris/iris_vpu_buffer.h
-index 8c0d6b7b5de8..94668c5b3d15 100644
+index 8c0d6b7b5..94668c5b3 100644
 --- a/drivers/media/platform/qcom/iris/iris_vpu_buffer.h
 +++ b/drivers/media/platform/qcom/iris/iris_vpu_buffer.h
 @@ -11,7 +11,6 @@ struct iris_inst;
@@ -11412,7 +11416,7 @@ index 8c0d6b7b5de8..94668c5b3d15 100644
  
  #endif
 diff --git a/drivers/media/platform/qcom/iris/iris_vpu_common.c b/drivers/media/platform/qcom/iris/iris_vpu_common.c
-index ab41da1f47c8..4084a31d9590 100644
+index e4847c107..b7fb07985 100644
 --- a/drivers/media/platform/qcom/iris/iris_vpu_common.c
 +++ b/drivers/media/platform/qcom/iris/iris_vpu_common.c
 @@ -3,17 +3,25 @@
@@ -11893,7 +11897,7 @@ index ab41da1f47c8..4084a31d9590 100644
  	core->iris_platform_data->vpu_ops->power_off_controller(core);
  	iris_unset_icc_bw(core);
 @@ -240,259 +488,266 @@ void iris_vpu_power_off(struct iris_core *core)
- 		disable_irq_nosync(core->irq);
+ 		disable_irq(core->irq);
  }
  
 -int iris_vpu_power_on_controller(struct iris_core *core)
@@ -12355,7 +12359,7 @@ index ab41da1f47c8..4084a31d9590 100644
 -	writel(0x0, core->reg_base + 0xb0088);
 -}
 diff --git a/drivers/media/platform/qcom/venus/core.c b/drivers/media/platform/qcom/venus/core.c
-index 243e342b0ae7..0a41eed4a999 100644
+index 243e342b0..0a41eed4a 100644
 --- a/drivers/media/platform/qcom/venus/core.c
 +++ b/drivers/media/platform/qcom/venus/core.c
 @@ -18,7 +18,6 @@
@@ -12807,7 +12811,7 @@ index 243e342b0ae7..0a41eed4a999 100644
  MODULE_DESCRIPTION("Qualcomm Venus video encoder and decoder driver");
  MODULE_LICENSE("GPL v2");
 diff --git a/drivers/media/platform/qcom/venus/core.h b/drivers/media/platform/qcom/venus/core.h
-index 46705a666776..165f11d1eb52 100644
+index 46705a666..165f11d1e 100644
 --- a/drivers/media/platform/qcom/venus/core.h
 +++ b/drivers/media/platform/qcom/venus/core.h
 @@ -25,7 +25,7 @@
@@ -12820,7 +12824,7 @@ index 46705a666776..165f11d1eb52 100644
  
  #define VENUS_MAX_FPS			240
 diff --git a/drivers/media/platform/qcom/venus/firmware.c b/drivers/media/platform/qcom/venus/firmware.c
-index 1de7436713ed..9eaba13536ab 100644
+index 1de743671..9eaba1353 100644
 --- a/drivers/media/platform/qcom/venus/firmware.c
 +++ b/drivers/media/platform/qcom/venus/firmware.c
 @@ -226,19 +226,26 @@ int venus_boot(struct venus_core *core)
@@ -12862,7 +12866,7 @@ index 1de7436713ed..9eaba13536ab 100644
  						     res->cp_size,
  						     res->cp_nonpixel_start,
 diff --git a/drivers/media/platform/qcom/venus/hfi_venus.c b/drivers/media/platform/qcom/venus/hfi_venus.c
-index bd82066bb6e7..c36ce32cc6b0 100644
+index bd82066bb..c36ce32cc 100644
 --- a/drivers/media/platform/qcom/venus/hfi_venus.c
 +++ b/drivers/media/platform/qcom/venus/hfi_venus.c
 @@ -498,6 +498,11 @@ static int venus_boot_core(struct venus_hfi_device *hdev)

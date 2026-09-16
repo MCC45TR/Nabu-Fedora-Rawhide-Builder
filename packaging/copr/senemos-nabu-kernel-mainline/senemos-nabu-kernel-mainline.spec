@@ -4,8 +4,8 @@
 %global uname_r %{version}-nabu-senemos-mainline
 
 Name:           senemos-nabu-kernel-mainline
-Version:        7.2.4
-Release:        15%{?dist}
+Version:        7.2.6
+Release:        1%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -105,8 +105,6 @@ Patch0085:      0085-senemos-keep-SM8150-video-clock-built-in.patch
 Patch0086:      0086-senemos-restore-Fedora-PSI-and-ALSA-sequencer.patch
 Patch0087:      0087-senemos-retain-SM8150-OSM-L3-interconnect.patch
 Patch0088:      0088-Bluetooth-restore-Fedora-RFCOMM-and-BNEP-protocols.patch
-Patch0089:      0089-drm-msm-Recover-HW-before-retire-hung-submit.patch
-Patch0090:      0090-drm-msm-remove-objects-from-evict-list-after-pinning.patch
 Patch0091:      0091-drm-msm-backport-context-VM-and-GEM-lifetime-fixes.patch
 Patch0092:      0092-drm-msm-a6xx-drain-CCU-before-TTBR0-switch.patch
 Patch0093:      0093-senemos-enable-multigenerational-LRU.patch
@@ -168,10 +166,15 @@ Patch0148:      0148-power-supply-qcom_fg-expose-charge-telemetry.patch
 Patch0149:      0149-Input-nt36523-expose-runtime-double-tap-wake-control.patch
 Patch0150:      0150-Input-nt36523-keep-routine-lifecycle-logging-at-debu.patch
 Patch0151:      0151-power-supply-reduce-deferred-probe-and-telemetry-log.patch
+Patch0152:      0152-senemos-complete-BPF-LSM-and-select-one-pstore-back.patch
+Patch0153:      0153-ASoC-qcom-describe-unidirectional-DAI-links.patch
+Patch0154:      0154-arm64-dts-qcom-complete-Nabu-audio-metadata.patch
+Patch0155:      0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
 BuildRequires:  clang
+BuildRequires:  dwarves
 BuildRequires:  elfutils-libelf-devel
 BuildRequires:  findutils
 BuildRequires:  flex
@@ -221,7 +224,8 @@ KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-minimal.config
 # This package targets one SM8150 device. Avoid the Fedora general-purpose
 # module set and the legacy Venus driver; Nabu uses Iris for video acceleration.
-# Debug information and BTF are not part of the runtime-only device payload.
+# Keep only vmlinux BTF for systemd's BPF-LSM RestrictFileSystems= policy;
+# module debug/BTF data remains excluded from the runtime device payload.
 senemos/configs/prune-nabu-config.sh .config
 # Security and entropy policy is merged after device pruning so neither the
 # release build nor a future pruning update can silently discard these gates.
@@ -524,6 +528,18 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Wed Sep 16 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.6-1
+- Rebase the checksum-locked Nabu kernel patch series onto Linux 7.2.6.
+- Retain the measured NT36523 and charger log-level corrections while
+  preserving genuine hardware, protection and fail-safe errors.
+- Restore vmlinux BTF for systemd BPF-LSM policy and keep ramoops as the only
+  active persistent crash backend.
+- Describe the verified one-way Nabu audio paths, initialize WCD934x child DMA
+  masks and identify all four CS35L41 amplifiers without enabling unsafe DSP.
+- Treat absent legacy Adreno supplies as the valid GMU power-domain topology.
+- Drop two DRM/MSM backports now included by Linux 7.2.6 and lock the upstream
+  hang-recovery, task-reference and GPUVM eviction fixes into the patch gate.
+
 * Tue Sep 15 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.4-15
 - Keep NT36523 probe capability summaries and user-visible wake actions at
   informational level while moving successful suspend, resume, firmware and
