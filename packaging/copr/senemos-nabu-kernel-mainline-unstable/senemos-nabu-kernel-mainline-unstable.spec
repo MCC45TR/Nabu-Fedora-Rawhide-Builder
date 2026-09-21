@@ -1,12 +1,12 @@
 %global debug_package %{nil}
 %global __strip /bin/true
 %global nabu_build_stamp 0000000000
-%global upstream_version 7.3-rc3
-%global kernel_version 7.3.0-rc3
+%global upstream_version 7.3-rc4
+%global kernel_version 7.3.0-rc4
 %global uname_r %{kernel_version}-nabu-senemos-mainline-unstable
 
 Name:           senemos-nabu-kernel-mainline-unstable
-Version:        7.3~rc3
+Version:        7.3~rc4
 Release:        %{nabu_build_stamp}.unstable%{?dist}
 Summary:        Patch-layered latest-mainline SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
