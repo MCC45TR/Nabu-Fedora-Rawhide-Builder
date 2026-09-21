@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        46.test%{?dist}
+Release:        47.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -19,6 +19,7 @@ Requires:       binutils
 Requires:       cpio
 Requires:       dracut
 Requires:       kbd-misc
+Requires:       kmod
 Requires:       systemd-ukify
 Requires:       util-linux-core
 Recommends:     xiaomi-nabu-firmware
@@ -120,6 +121,7 @@ popd
 
 %check
 bash -n payload/usr/bin/nabu-regenerate-uki
+bash tests/test-mainline-modules.sh
 bash -n payload/usr/libexec/senemos-nabu/kernel-build-identity
 ! grep -Fwq 'deferred_probe_timeout=0' payload/usr/lib/senemos-nabu/boot-policy.conf
 ! grep -Fwq 'deferred_probe_timeout=0' payload/etc/systemd/ukify.conf
@@ -329,6 +331,11 @@ fi
 %{_datadir}/plymouth/themes/senemos-nabu/
 
 %changelog
+* Mon Sep 21 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-47.test
+- Refuse mainline UKI generation when essential network, touchscreen, panel
+  or remoteproc modules are missing or belong to another kernel ABI.
+- Publish the deferred-probe correction consistently for all Fedora targets.
+
 * Tue Sep 15 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-46.test
 - Stop forcing the deferred-probe timeout to expire at late init, so Nabu
   camera, audio and remote-processor consumers can continue to bind safely.

@@ -131,13 +131,29 @@ same_managed_family() {
     [[ $name =~ ^${uki_family}-([0-9]{10}|[0-9]+([.][0-9]+){2}|v[0-9]+([.][0-9]+){3})[.]efi$ ]]
 }
 
+validate_mainline_modules() {
+    local release=$1 module vermagic
+    # The legacy 6.x and unstable families have their own module layout.
+    [[ $release == *-nabu-senemos-mainline ]] || return 0
+    for module in ath10k_snoc nt36523_ts panel_novatek_nt36523 qcom_q6v5_pas; do
+        if ! vermagic=$(modinfo -k "$release" -F vermagic "$module"); then
+            printf 'Required Nabu module is missing for %s: %s\n' "$release" "$module" >&2
+            return 1
+        fi
+        if [[ $vermagic != "$release "* ]]; then
+            printf 'Nabu module ABI mismatch for %s: %s (%s)\n' "$release" "$module" "$vermagic" >&2
+            return 1
+        fi
+    done
+}
+
 if ! findmnt --mountpoint /boot/efi >/dev/null 2>&1; then
     printf 'Warning: ESP is not mounted at /boot/efi; deferred Nabu UKI generation.\n' >&2
     printf 'Run after mounting the ESP: nabu-regenerate-uki %q\n' "$kver" >&2
     exit 0
 fi
 
-for command in cpio depmod dracut lsinitrd ukify zstd; do
+for command in cpio depmod dracut lsinitrd modinfo ukify zstd; do
     command -v "$command" >/dev/null 2>&1 || {
         printf 'Required command is missing: %s\n' "$command" >&2
         exit 1
@@ -152,6 +168,7 @@ work_dir="$(mktemp -d /var/tmp/nabu-uki.XXXXXXXX)"
 initrd="${work_dir}/initramfs-${kver}.img"
 staged_uki="${work_dir}/${uki_name}"
 depmod -a "$kver"
+validate_mainline_modules "$kver"
 dracut "${dracut_args[@]}" "$initrd"
 /usr/libexec/senemos-nabu/sanitize-initramfs \
     "$initrd" "${work_dir}/initramfs-root" "${work_dir}/initramfs-contents.txt"
