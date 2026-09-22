@@ -27,7 +27,7 @@ e6d811fe4e7df36e73564caf232d1d0ae397ca1d59cd31e005fcdde47ffb4790  0026-kernel-ov
 a2c44954c93e19005cb64c331b317d3b94533e5005cde74a4cb8afef5fddec67  0027-kernel-overlay-preserve-usable-legacy-VP9-output.patch
 6935271bd58f6fd62238b21d57cac9d2a5520a9c2a59615e1b79ce2c32077dbd  0028-kernel-overlay-filter-hidden-VP9-superframes.patch
 a6684ed23a00fc0f9008c357395d34538abec87bd6e689ef445cf3dce0b01166  0029-kernel-overlay-make-Nabu-Iris-device-tree-append-onl.patch
-700d3e1c7d78711f01ea23e6ecfc14f836e6458395aeee18ca62489a6e265484  0030-media-qcom-adapt-current-Nabu-Iris-overlay-to-Linux-.patch
+df38c77e7a7d1c317783ec2d14b0c524bf27265b867a8fb8eb9571eab15e0d93  0030-media-qcom-adapt-current-Nabu-Iris-overlay-to-Linux-.patch
 314766c4e32c88a8714f6e98b3237800dc82db1007f3f4de5fc8e6915b36d8a0  0031-arm64-nabu-enable-RTC-and-persistent-suspend-diagnos.patch
 62cb790d0c55c5f06c25b2fb80ad69bb884649f8eea92ff185bd483dc46e19e1  0032-spi-geni-qcom-bound-timeout-recovery-state.patch
 8453f7bc768a658191d93b4c2f1af5651c1a845cc79e0d4b3dbaeb54ce2d08f4  0033-Input-nt36523-bound-retries-while-SPI-recovers.patch
@@ -152,3 +152,4 @@ ee4bb826de70536990c71e0e8c1cfb2e39b8777ac8fee74dc2a670c277fb6ede  0153-ASoC-qcom
 81e55ccafcda0bc420df0e1ed18d2a61a0b77a7f981f64501bed42c2b74cda32  0154-arm64-dts-qcom-complete-Nabu-audio-metadata.patch
 c6afcd7f14ee01eae6310de79022c2f63691582e27764faa21f2f5ba0ac28558  0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch
 d06dd872e5fae9ddf542e86ac40aaf2411c4f989a9dc2a70c722d495c22e442e  0156-tools-linux-types-match-128-bit-host-ABI.patch
+a245894435c6d4c7e9fb0e06ef18f3a5dc7fd2956fea214bcd446f06f719dcba  0157-drm-msm-dsi-preserve-SM8150-bonded-PLL-lifetime.patch

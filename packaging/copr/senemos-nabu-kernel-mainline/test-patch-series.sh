@@ -12,9 +12,19 @@ reject_grep() {
 }
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+for tool in git gcc make pahole python3; do
+    command -v "$tool" >/dev/null || {
+        printf 'ERROR: required patch/config gate tool is missing: %s\n' "$tool" >&2
+        exit 1
+    }
+done
 reject_grep -Eq '^Provides:[[:space:]]+kernel-uname-r' \
     "$root/senemos-nabu-kernel-mainline.spec"
 grep -Fxq 'Provides:       kernel-nabu-core-uname-r' \
+    "$root/senemos-nabu-kernel-mainline.spec"
+grep -Fxq 'Provides:       installonlypkg(kernel)' \
+    "$root/senemos-nabu-kernel-mainline.spec"
+grep -Fxq 'Requires:       nabu-boot-integration >= 2.0.0-47.test' \
     "$root/senemos-nabu-kernel-mainline.spec"
 grep -Fq 'KALLSYMS_EXTRA_PASS=1' \
     "$root/senemos-nabu-kernel-mainline.spec"
@@ -46,6 +56,12 @@ git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
 # Match RPM %%autosetup -S git_am, including its reject-mode context rules.
 git -C "$work/linux-$version" am --reject -q "$root"/patches/*.patch
+python3 "$root/test-dsi-pll.py" \
+    "$work/linux-$version/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c"
+# Linux 7.2.7 must release runtime PM even when lowering the OPP fails.
+sed -n '/^int iris_disable_power_domains(/,/^}/p' \
+    "$work/linux-$version/drivers/media/platform/qcom/iris/iris_resources.c" \
+    | grep -Fq 'pm_ret = pm_runtime_put_sync(pd_dev);'
 patch_count=$(find "$root/patches" -maxdepth 1 -type f -name '*.patch' | wc -l)
 test "$(git -C "$work/linux-$version" rev-list --count HEAD)" \
     -eq "$((patch_count + 1))"

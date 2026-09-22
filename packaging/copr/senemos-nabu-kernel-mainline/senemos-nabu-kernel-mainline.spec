@@ -4,7 +4,7 @@
 %global uname_r %{version}-nabu-senemos-mainline
 
 Name:           senemos-nabu-kernel-mainline
-Version:        7.2.6
+Version:        7.2.7
 Release:        1%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
@@ -17,6 +17,8 @@ Source3:        91-nabu-mainline-omit-early-xhci.conf
 Source4:        nabu-mainline-late-xhci.service
 Source5:        nabu-build-stamp
 Source6:        90-nabu-mainline.preset
+Source7:        test-dsi-pll.py
+Source8:        test-runtime-payload.sh
 Patch0001:      0001-arm64-dts-qcom-add-Xiaomi-Pad-5-Nabu.patch
 Patch0002:      0002-drm-panel-nt36523-add-Xiaomi-Nabu-CSOT-panel.patch
 Patch0003:      0003-senemos-add-Fedora-Rawhide-arm64-build-profile.patch
@@ -171,8 +173,10 @@ Patch0153:      0153-ASoC-qcom-describe-unidirectional-DAI-links.patch
 Patch0154:      0154-arm64-dts-qcom-complete-Nabu-audio-metadata.patch
 Patch0155:      0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch
 Patch0156:      0156-tools-linux-types-match-128-bit-host-ABI.patch
+Patch0157:      0157-drm-msm-dsi-preserve-SM8150-bonded-PLL-lifetime.patch
 
 BuildRequires:  bc
+BuildRequires:  binutils
 BuildRequires:  bison
 BuildRequires:  clang
 BuildRequires:  dwarves
@@ -193,8 +197,9 @@ BuildRequires:  systemd-rpm-macros
 BuildRequires:  xz
 BuildRequires:  zstd
 Requires:       nabu-kernel-maintenance-api >= 7
-Requires:       nabu-boot-integration >= 2.0.0-43.test
+Requires:       nabu-boot-integration >= 2.0.0-47.test
 Provides:       kernel-nabu-core-uname-r
+Provides:       installonlypkg(kernel)
 Requires(posttrans): coreutils
 Requires(postun): kmod
 Provides:       senemos-nabu-kernel-mainline-alpha = %{version}-%{release}
@@ -274,6 +279,8 @@ printf '%%s\n' '%{nabu_build_stamp}' > \
     %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %check
+HOSTCC=clang python3 %{SOURCE7} drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
+bash %{SOURCE8} %{buildroot} '%{uname_r}'
 reject_grep() {
     if grep "$@"; then
         echo "Forbidden pattern matched: grep $*" >&2
@@ -549,6 +556,13 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Mon Sep 21 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-1
+- Restore the previously working bonded SM8150 DSI PLL bias lifetime while
+  preserving upstream's standalone-link sequence.
+- Rebase on signed Linux 7.2.7 and retain its Iris power-domain error unwind.
+- Retain older kernel RPMs and their modules through DNF installonly policy.
+- Require the boot policy that permits deferred drivers to bind after init.
+
 * Wed Sep 16 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.6-1
 - Match the newer arm64 host UAPI 128-bit types in the tools-only header so
   Rawhide can build vmlinux BTF without changing the kernel build compiler.

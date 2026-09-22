@@ -20,7 +20,8 @@ install -m0644 "$root/upstream.sha256" "$root/patches.sha256" \
 install -m0644 "$root"/patches/*.patch "$top/SOURCES/"
 install -m0644 "$root/91-nabu-mainline-omit-early-xhci.conf" \
     "$root/nabu-mainline-late-xhci.service" \
-    "$root/90-nabu-mainline.preset" "$top/SOURCES/"
+    "$root/90-nabu-mainline.preset" "$root/test-dsi-pll.py" \
+    "$root/test-runtime-payload.sh" "$top/SOURCES/"
 
 (
     cd "$top/SOURCES"

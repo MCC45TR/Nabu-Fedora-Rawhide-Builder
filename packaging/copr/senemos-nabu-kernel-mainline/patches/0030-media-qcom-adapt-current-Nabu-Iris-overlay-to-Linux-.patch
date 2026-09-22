@@ -441,15 +441,15 @@ index 8d8ddd398eea..98957a74b936 100644
  	if (ret)
  		return ret;
  
-@@ -97,7 +85,7 @@ int iris_disable_power_domains(struct iris_core *core, struct device *pd_dev)
- {
+@@ -98,7 +86,7 @@ int iris_disable_power_domains(struct iris_core *core, struct device *pd_dev)
  	int ret;
+ 	int pm_ret;
  
 -	ret = iris_opp_set_rate(core->dev, 0);
 +	ret = dev_pm_opp_set_rate(core->dev, 0);
- 	if (ret)
- 		return ret;
  
+ 	pm_ret = pm_runtime_put_sync(pd_dev);
+ 	if (!ret)
 @@ -133,7 +121,7 @@ int iris_prepare_enable_clock(struct iris_core *core, enum platform_clk_type clk
  
  	clock = iris_get_clk_by_type(core, clk_type);
@@ -1349,4 +1349,3 @@ index 4dc8f3187cd3..5a14e11d10b1 100644
  CONFIG_MODULES=y
 -- 
 2.55.0
-
