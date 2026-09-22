@@ -5,7 +5,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.7
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -19,6 +19,7 @@ Source5:        nabu-build-stamp
 Source6:        90-nabu-mainline.preset
 Source7:        test-dsi-pll.py
 Source8:        test-runtime-payload.sh
+Source9:        test-audio-power.py
 Patch0001:      0001-arm64-dts-qcom-add-Xiaomi-Pad-5-Nabu.patch
 Patch0002:      0002-drm-panel-nt36523-add-Xiaomi-Nabu-CSOT-panel.patch
 Patch0003:      0003-senemos-add-Fedora-Rawhide-arm64-build-profile.patch
@@ -174,6 +175,7 @@ Patch0154:      0154-arm64-dts-qcom-complete-Nabu-audio-metadata.patch
 Patch0155:      0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch
 Patch0156:      0156-tools-linux-types-match-128-bit-host-ABI.patch
 Patch0157:      0157-drm-msm-dsi-preserve-SM8150-bonded-PLL-lifetime.patch
+Patch0158:      0158-ASoC-qcom-fix-Nabu-speaker-endpoints-and-power-order.patch
 
 BuildRequires:  bc
 BuildRequires:  binutils
@@ -280,6 +282,7 @@ printf '%%s\n' '%{nabu_build_stamp}' > \
 
 %check
 HOSTCC=clang python3 %{SOURCE7} drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
+HOSTCC=clang python3 %{SOURCE9} .
 bash %{SOURCE8} %{buildroot} '%{uname_r}'
 reject_grep() {
     if grep "$@"; then
@@ -556,6 +559,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Tue Sep 22 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-2
+- Repair Nabu speaker DAPM endpoints and frontend shutdown ordering.
+- Preserve four-channel DSP_A framing and test legacy/new DT compatibility.
+
 * Mon Sep 21 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-1
 - Restore the previously working bonded SM8150 DSI PLL bias lifetime while
   preserving upstream's standalone-link sequence.

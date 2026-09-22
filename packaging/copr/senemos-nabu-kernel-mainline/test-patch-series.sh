@@ -58,6 +58,7 @@ git -C "$work/linux-$version" commit -qm "Linux $version"
 git -C "$work/linux-$version" am --reject -q "$root"/patches/*.patch
 python3 "$root/test-dsi-pll.py" \
     "$work/linux-$version/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c"
+python3 "$root/test-audio-power.py" "$work/linux-$version"
 # Linux 7.2.7 must release runtime PM even when lowering the OPP fails.
 sed -n '/^int iris_disable_power_domains(/,/^}/p' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_resources.c" \

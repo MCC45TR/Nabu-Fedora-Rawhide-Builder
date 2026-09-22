@@ -153,3 +153,4 @@ ee4bb826de70536990c71e0e8c1cfb2e39b8777ac8fee74dc2a670c277fb6ede  0153-ASoC-qcom
 c6afcd7f14ee01eae6310de79022c2f63691582e27764faa21f2f5ba0ac28558  0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch
 d06dd872e5fae9ddf542e86ac40aaf2411c4f989a9dc2a70c722d495c22e442e  0156-tools-linux-types-match-128-bit-host-ABI.patch
 a245894435c6d4c7e9fb0e06ef18f3a5dc7fd2956fea214bcd446f06f719dcba  0157-drm-msm-dsi-preserve-SM8150-bonded-PLL-lifetime.patch
+ea011c215300727a16ff5e1a45de1c562062d0982a3679ab9b9ecb7530908d19  0158-ASoC-qcom-fix-Nabu-speaker-endpoints-and-power-order.patch

@@ -21,7 +21,7 @@ install -m0644 "$root"/patches/*.patch "$top/SOURCES/"
 install -m0644 "$root/91-nabu-mainline-omit-early-xhci.conf" \
     "$root/nabu-mainline-late-xhci.service" \
     "$root/90-nabu-mainline.preset" "$root/test-dsi-pll.py" \
-    "$root/test-runtime-payload.sh" "$top/SOURCES/"
+    "$root/test-runtime-payload.sh" "$root/test-audio-power.py" "$top/SOURCES/"
 
 (
     cd "$top/SOURCES"
