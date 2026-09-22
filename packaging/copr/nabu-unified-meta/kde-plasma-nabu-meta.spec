@@ -2,7 +2,7 @@
 %global legacy_meta_max 9999999999-99
 Name:           kde-plasma-nabu-meta
 Version:        3.0.0
-Release:        23%{?dist}
+Release:        24%{?dist}
 Summary:        Complete KDE Plasma release profile for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Proprietary AND BSD-2-Clause AND CC0-1.0
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -21,6 +21,8 @@ BuildRequires:  gcc-c++
 BuildRequires:  lcms2
 BuildRequires:  python3
 BuildRequires:  pkgconfig(Qt6Core)
+BuildRequires:  pkgconfig(Qt6DBus)
+BuildRequires:  dbus-daemon
 BuildRequires:  systemd-rpm-macros
 Requires:       nabu-core-meta >= 3.0.0-89
 # Plasma and setup translations are a hard release contract. Fedora language
@@ -139,7 +141,12 @@ for helper in nabu-audio-orientation senemos-nabu-display-profile senemos-nabu-c
         $(pkg-config --cflags Qt6Core) kde-integration/kde/${helper}.cpp \
         -o ${helper} $(pkg-config --libs Qt6Core)
 done
+%{__cxx} -std=c++20 %{optflags} %{build_ldflags} \
+    $(pkg-config --cflags Qt6Core Qt6DBus) kde-integration/kde/senemos-nabu-brightness-profile.cpp \
+    -o senemos-nabu-brightness-profile $(pkg-config --libs Qt6Core Qt6DBus)
 %install
+install -Dm0755 senemos-nabu-brightness-profile %{buildroot}%{_bindir}/senemos-nabu-brightness-profile
+install -Dm0644 kde-integration/kde/nabu-brightness-profile.service %{buildroot}%{_userunitdir}/nabu-brightness-profile.service
 install -Dm0644 %{SOURCE0} %{buildroot}%{_presetdir}/95-nabu-plasma-login.preset
 install -Dm0755 nabu-audio-orientation %{buildroot}%{_libexecdir}/senemos-nabu/nabu-audio-orientation
 install -Dm0644 kde-integration/kde/nabu-speaker-filter-chain.conf %{buildroot}%{_datadir}/senemos-nabu/nabu-speaker-filter-chain.conf
@@ -167,6 +174,7 @@ install -Dm0644 %{SOURCE7} %{buildroot}%{_prefix}/lib/environment.d/90-nabu-powe
 install -Dm0644 %{SOURCE8} %{buildroot}%{_unitdir}/user@.service.d/90-nabu-compositor-realtime.conf
 
 %check
+NABU_BRIGHTNESS_PROFILE_BINARY="$PWD/senemos-nabu-brightness-profile" python3 kde-integration/tests/test_brightness_profile.py -v
 test "$(od -An -tx1 -N4 nabu-audio-orientation | tr -d ' \n')" = 7f454c46
 grep -Fq 'audio.position = [ FL FR RL RR ]' kde-integration/kde/nabu-speaker-filter-chain.conf
 ./senemos-nabu-color-profile catalog
@@ -178,6 +186,8 @@ desktop-file-validate kde-integration/kde/org.senemos.nabu.colorprofiles.desktop
 python3 -c 'import json, pathlib; root=pathlib.Path("widgets"); expected={"com.mcc45tr.filesearch","com.mcc45tr.mweather","com.mcc45tr.analogclock"}; assert {json.loads((root/x/"metadata.json").read_text())["KPlugin"]["Id"] for x in expected} == expected'
 
 %files
+%{_bindir}/senemos-nabu-brightness-profile
+%{_userunitdir}/nabu-brightness-profile.service
 %{_presetdir}/95-nabu-plasma-login.preset
 %license kde-integration/LICENSE l10n/LICENSES/common/LICENSE-MIT l10n/LICENSES/plasma-workspace/* l10n/LICENSES/plasma-setup/*
 %doc kde-integration/README.md kde-integration/COLOR-PROFILE-PROVENANCE.md
@@ -221,7 +231,7 @@ if [ -L "$legacy_icc_link" ] &&
    [ "$(readlink -- "$legacy_icc_link")" = "%{_userunitdir}/nabu-color-profile-auto.service" ]; then
     rm -f -- "$legacy_icc_link"
 fi
-%systemd_user_post nabu-audio-orientation.service
+%systemd_user_post nabu-audio-orientation.service nabu-brightness-profile.service
 if [ -x /usr/bin/systemctl ]; then
     /usr/bin/systemctl disable sddm.service >/dev/null 2>&1 || :
     /usr/bin/systemctl enable --force plasmalogin.service >/dev/null 2>&1 || :
@@ -247,11 +257,16 @@ if [ -x /usr/bin/systemctl ]; then
     fi
 fi
 %preun
-%systemd_user_preun nabu-audio-orientation.service
+%systemd_user_preun nabu-audio-orientation.service nabu-brightness-profile.service
 %postun
 %systemd_user_postun_with_restart nabu-audio-orientation.service
+%systemd_user_postun nabu-brightness-profile.service
 
 %changelog
+* Tue Sep 22 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-24
+- Add native one-shot KWin brightness profile staging with guarded next-login apply.
+- Preserve KWin learning, smoothing and user enablement; do not run a second daemon.
+
 * Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-23
 - Install the stock KDE color-profile KCM for explicit ICC selection.
 

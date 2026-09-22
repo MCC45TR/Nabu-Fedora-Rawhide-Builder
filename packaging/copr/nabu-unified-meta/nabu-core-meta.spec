@@ -2,7 +2,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        95%{?dist}
+Release:        96%{?dist}
 %global legacy_meta_max %{version}-%{release}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
@@ -42,6 +42,7 @@ BuildRequires:  pkgconfig(gio-2.0)
 BuildRequires:  libssc-nabu-devel >= 2026.9.6-4
 BuildRequires:  pkgconfig(Qt6Core)
 BuildRequires:  pkgconfig(Qt6DBus)
+BuildRequires:  pkgconfig(alsa)
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  systemd-udev
 BuildRequires:  tuned-ppd
@@ -290,6 +291,10 @@ DESTDIR=%{buildroot} meson install -C sar-build
 install -Dm0755 nabu-ssc-probe %{buildroot}%{_bindir}/nabu-ssc-probe
 
 %check
+%{__cxx} -std=c++20 %{optflags} %{build_ldflags} \
+    $(pkg-config --cflags alsa) system-integration/tests/test-ucm-reference.cpp \
+    -o test-ucm-reference $(pkg-config --libs alsa)
+./test-ucm-reference system-integration/HiFi.conf
 bash %{SOURCE18}
 bash %{SOURCE21}
 bash -n %{SOURCE19}
@@ -542,6 +547,10 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Tue Sep 22 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-96
+- Add an explicitly selected Arch reference gain UCM modifier with rollback.
+- Keep default gain conservative and preserve four-channel playback.
+
 * Wed Sep 16 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-95
 - Bound legacy package migration to this CORE EVR so virtual compatibility
   Provides are not obsoleted by the package that supplies them.

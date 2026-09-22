@@ -1,1 +1,2 @@
 enable nabu-audio-orientation.service
+enable nabu-brightness-profile.service
