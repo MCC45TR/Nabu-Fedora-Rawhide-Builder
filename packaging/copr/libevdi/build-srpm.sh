@@ -13,6 +13,7 @@ elif [[ ! -s $top/SOURCES/$archive ]]; then
         -o "$top/SOURCES/$archive"
 fi
 install -m0644 "$root/upstream.sha256" "$root/nabu-displaylink-status.cpp" \
-    "$root/test-status.py" "$root/README.md" "$top/SOURCES/"
+    "$root/test-status.py" "$root/test-procfs.c" "$root/README.md" \
+    "$root/0001-libevdi-check-proc-input-and-bound-sysfs-paths.patch" "$top/SOURCES/"
 (cd "$top/SOURCES" && sha256sum -c upstream.sha256)
 rpmbuild -bs --define "_topdir $top" "$root/libevdi.spec"

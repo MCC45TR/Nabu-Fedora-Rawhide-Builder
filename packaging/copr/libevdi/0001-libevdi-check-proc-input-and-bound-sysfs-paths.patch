@@ -1,0 +1,69 @@
+diff --git a/library/evdi_lib.c b/library/evdi_lib.c
+index 5c437df..3b279b7 100644
+--- a/library/evdi_lib.c
++++ b/library/evdi_lib.c
+@@ -467,7 +467,11 @@ static bool is_correct_parent_device(const char *dirname, size_t dirname_maxlen,
+ {
+ 	char link_path[PATH_MAX];
+ 
+-	snprintf(link_path, MIN(PATH_MAX - 7, dirname_maxlen), "%s/device", dirname);
++	size_t dirname_len = strnlen(dirname, dirname_maxlen);
++	if (dirname_len == dirname_maxlen || dirname_len > sizeof(link_path) - sizeof("/device"))
++		return false;
++	memcpy(link_path, dirname, dirname_len);
++	memcpy(link_path + dirname_len, "/device", sizeof("/device"));
+ 
+ 	if (parent_device == NULL)
+ 		return access(link_path, F_OK) != 0;
+@@ -613,7 +617,8 @@ static enum evdi_device_status evdi_device_to_platform(int device, char *path)
+ 
+ 		snprintf(path, PATH_MAX,
+ 			"/sys/bus/platform/devices/%s", fd_entry->d_name);
+-		snprintf(card_path, PATH_MAX, "%s/drm/card%d", path, device);
++		snprintf(card_path, PATH_MAX, "/sys/bus/platform/devices/%s/drm/card%d",
++			fd_entry->d_name, device);
+ 		if (path_exists(card_path)) {
+ 			status = AVAILABLE;
+ 			break;
+diff --git a/library/evdi_procfs.c b/library/evdi_procfs.c
+index 15bf6cd..bc2746f 100644
+--- a/library/evdi_procfs.c
++++ b/library/evdi_procfs.c
+@@ -24,7 +24,11 @@ static FILE *open_process_folder(const char *pid)
+ 	FILE *pf;
+ 	char command[command_length];
+ 
+-	snprintf(command, command_length, "/proc/%s/stat", pid);
++	/* Linux PID directories fit in 20 digits; reject truncated/non-PID paths. */
++	size_t length = strnlen(pid, 21);
++	if (length == 0 || length > 20 || strspn(pid, "0123456789") != length)
++		return NULL;
++	snprintf(command, command_length, "/proc/%.*s/stat", 20, pid);
+ 	pf = fopen(command, "r");
+ 
+ 	return pf;
+@@ -40,16 +44,21 @@ static char *process_name(FILE *pf)
+ {
+ 	int Xorg_name_len = 7;	// 6 + 1 for null terminator
+ 	char *name = (char *)malloc(Xorg_name_len * sizeof(char));
++	long pid;
+ 
+-	fscanf(pf, "%*s");
+-	fscanf(pf, "%6s", name); // Xorg process had name (Xorg)
++	if (name == NULL)
++		return NULL;
++	if (fscanf(pf, "%ld %6s", &pid, name) != 2) {
++		free(name);
++		return NULL;
++	}
+ 
+ 	return name;
+ }
+ 
+ static bool is_name_Xorg(const char *name)
+ {
+-	return strstr(name, "Xorg") != NULL;
++	return name != NULL && strstr(name, "Xorg") != NULL;
+ }
+ 
+ static bool is_Xorg(const char *pid)
