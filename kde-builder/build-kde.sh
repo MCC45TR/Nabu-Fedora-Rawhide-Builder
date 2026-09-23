@@ -37,7 +37,7 @@ case "$RUNTIME" in
     *) core_die "Unsupported runtime: $RUNTIME" ;;
 esac
 core_require_command "$RUNTIME"
-for cmd in cp debugfs e2fsck fsck.vfat fuse2fs fusermount3 mountpoint resize2fs sha256sum truncate zstd; do
+for cmd in cp debugfs e2fsck fsck.vfat fuse2fs fusermount3 g++ mountpoint resize2fs sha256sum truncate zstd; do
     core_require_command "$cmd"
 done
 
@@ -129,25 +129,10 @@ core_verify_root_locked_shadow "$mount_dir"
 [[ "$(cat "$mount_dir/etc/hostname")" == nabu ]] || core_die 'Final KDE hostname is not nabu'
 [[ "$(stat -c '%u:%g' "$mount_dir/etc")" == 0:0 ]] || core_die 'Final KDE /etc ownership is not root:root'
 [[ "$(stat -c '%u:%g' "$mount_dir/usr")" == 0:0 ]] || core_die 'Final KDE /usr ownership is not root:root'
-python3 - "$mount_dir" "$meta/rpm-file-ownership.tsv" "$reports/final-rpm-ownership.txt" <<'PY'
-import os, sys
-root, manifest, report = sys.argv[1:]
-mismatches = []
-with open(manifest, encoding="utf-8", errors="surrogateescape") as source:
-    for row in source:
-        path, uid, gid = row.rstrip("\n").rsplit("|", 2)
-        target = root + path
-        if not os.path.lexists(target):
-            continue
-        actual = os.lstat(target)
-        if (actual.st_uid, actual.st_gid) != (int(uid), int(gid)):
-            mismatches.append((path, uid, gid, actual.st_uid, actual.st_gid))
-with open(report, "w", encoding="utf-8") as output:
-    output.write(f"mismatches={len(mismatches)}\n")
-    output.writelines(f"{p}|expected={u}:{g}|actual={au}:{ag}\n" for p, u, g, au, ag in mismatches)
-if mismatches:
-    raise SystemExit(f"{len(mismatches)} RPM-owned paths have incorrect ownership")
-PY
+g++ -std=c++20 -O2 -Wall -Wextra -Werror \
+    "$REPO_ROOT/tools/lib/rpm-file-ownership.cpp" -o "$work/rpm-file-ownership"
+"$work/rpm-file-ownership" verify "$mount_dir" \
+    "$meta/rpm-file-ownership.tsv" "$reports/final-rpm-ownership.txt"
 sync; cleanup; trap - EXIT
 
 cmp -s "$CORE_ESP" "$esp_image" || core_die 'KDE changed the verified CORE ESP'

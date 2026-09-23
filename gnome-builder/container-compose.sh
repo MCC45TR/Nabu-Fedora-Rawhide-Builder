@@ -29,8 +29,11 @@ mkdir -p "$META" "$LOGS" /work/dnf-cache
 
 log "Installing GNOME compose tools in the identical Rawhide AArch64 container"
 dnf5 -y --disablerepo='*openh264*' --setopt=install_weak_deps=False install \
-    ca-certificates curl dnf5 e2fsprogs findutils fuse3 python3 rpm systemd util-linux \
+    ca-certificates curl dnf5 e2fsprogs findutils fuse3 gcc-c++ rpm systemd util-linux \
     >"$LOGS/container-tools.log" 2>&1
+g++ -std=c++20 -O2 -Wall -Wextra -Werror \
+    /builder-source/tools/lib/rpm-file-ownership.cpp \
+    -o /work/rpm-file-ownership
 
 mkdir -p "$TARGET"
 fuse2fs -o fakeroot /work/system.img "$TARGET" >"$LOGS/fuse-mount.log" 2>&1
@@ -158,53 +161,9 @@ done
 find "$TARGET" -xdev \( -uid 65534 -o -gid 65534 \) \
     -printf '%u:%g %m %p\n' >"$META/pre-restore-overflow-ownership.txt"
 
-python3 - "$TARGET" "$META/rpm-file-ownership.tsv" <<'PY'
-import os
-import subprocess
-import sys
-
-root, output = sys.argv[1:]
-
-def names(path):
-    result = {}
-    with open(path, encoding="utf-8", errors="surrogateescape") as stream:
-        for line in stream:
-            fields = line.rstrip("\n").split(":")
-            if len(fields) >= 4 and fields[2].isdigit():
-                result[fields[0]] = int(fields[2])
-    return result
-
-uids = names(os.path.join(root, "etc/passwd"))
-gids = names(os.path.join(root, "etc/group"))
-query = subprocess.check_output([
-    "rpm", "--root", root, "-qa", "--qf",
-    "[%{FILENAMES}|%{FILEUSERNAME}|%{FILEGROUPNAME}\\n]",
-], text=True, errors="surrogateescape")
-owners = {}
-for line in query.splitlines():
-    try:
-        path, owner, group = line.rsplit("|", 2)
-    except ValueError:
-        continue
-    if not path.startswith("/") or not os.path.lexists(root + path):
-        continue
-    if owner not in uids or group not in gids:
-        raise SystemExit(f"Cannot resolve RPM ownership for {path}: {owner}:{group}")
-    owners[path] = (uids[owner], gids[group])
-
-for path in (
-    "/etc/nabu-image/desktop-profile",
-    "/etc/nabu-image/README",
-    "/etc/systemd/system/default.target",
-    "/etc/systemd/system/display-manager.service",
-):
-    if os.path.lexists(root + path):
-        owners[path] = (0, 0)
-
-with open(output, "w", encoding="utf-8", errors="surrogateescape") as stream:
-    for path, (uid, gid) in sorted(owners.items()):
-        stream.write(f"{path}|{uid}|{gid}\n")
-PY
+/work/rpm-file-ownership capture "$TARGET" "$META/rpm-file-ownership.tsv" \
+    /etc/nabu-image/desktop-profile /etc/nabu-image/README \
+    /etc/systemd/system/default.target /etc/systemd/system/display-manager.service
 
 [[ -s "$META/rpm-file-ownership.tsv" ]] || die 'RPM ownership metadata is empty'
 source /builder-source/gnome-builder/lib/rpm-special-modes.sh

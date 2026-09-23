@@ -76,12 +76,15 @@ trap cleanup_mounts EXIT
 stage_begin compose-tools "Installing deterministic compose tools"
 core_dnf_retry "$reports/compose-tools.log" \
     -y --disablerepo='*openh264*' --setopt=install_weak_deps=False install \
-    attr binutils cpio curl diffutils dosfstools dracut e2fsprogs findutils fuse3 jq kmod mtools \
+    attr binutils cpio curl diffutils dosfstools dracut e2fsprogs findutils fuse3 gcc-c++ jq kmod mtools \
     policycoreutils python3 python3-libselinux rpm shadow-utils util-linux zstd
 for command in cmp debugfs e2fsck fsck.vfat fuse2fs fusermount3 getfattr lsinitrd mcopy mdir mkfs.ext4 \
     mkfs.vfat objcopy python3 rpm setfiles sha256sum zstd; do
     core_require_command "$command"
 done
+g++ -std=c++20 -O2 -Wall -Wextra -Werror \
+    /workspace/tools/lib/find-missing-rpm-locales.cpp \
+    -o "$work_dir/find-missing-rpm-locales"
 stage_pass "Compose tools installed"
 
 # Fedora's minimal compose container pins RPM to en_US. DNF transactions run
@@ -287,14 +290,14 @@ grep -Eq '^[[:space:]]*300[[:space:]]+nabu-iiosensorproxy-qrtr[[:space:]]+cil' \
 stage_pass "Recovery networking, SSH, late XHCI, CDC logging, SELinux and Plymouth policy selected"
 
 stage_begin locale-payloads "Restoring every RPM-owned Fedora translation payload in CORE"
-python3 /workspace/tools/lib/find-missing-rpm-locales.py "$root" \
+"$work_dir/find-missing-rpm-locales" "$root" \
     "$metadata/locale-rpm-files-before.txt" "$work_dir/locale-repair-packages.txt"
 if [[ -s "$work_dir/locale-repair-packages.txt" ]]; then
     mapfile -t locale_repair_packages <"$work_dir/locale-repair-packages.txt"
     core_dnf_retry "$reports/dnf-locale-repair.log" \
         "${dnf_args[@]}" reinstall "${locale_repair_packages[@]}"
 fi
-python3 /workspace/tools/lib/find-missing-rpm-locales.py "$root" \
+"$work_dir/find-missing-rpm-locales" "$root" \
     "$metadata/locale-rpm-files.txt" "$work_dir/locale-repair-packages-after.txt"
 if [[ -s "$work_dir/locale-repair-packages-after.txt" ]]; then
     sed -n '1,160p' "$metadata/locale-rpm-files.txt" >&2

@@ -32,7 +32,6 @@ Requires:       nabu-device-config
 Requires:       nabu-zram-compat
 Requires:       hexagonrpc-nabu
 Requires:       libssc-nabu
-Requires:       python3-ssc-nabu
 Requires:       iio-sensor-proxy-nabu
 Requires:       nabu-audio-config
 Requires:       nabu-runtime-integration
