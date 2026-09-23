@@ -1,13 +1,27 @@
 %global debug_package %{nil}
 %global __strip /bin/true
 %global nabu_build_stamp 0000000000
+%bcond nabu_el2 0
+%if %{with nabu_el2}
+%global uname_r %{version}-nabu-senemos-el2-experimental
+%else
 %global uname_r %{version}-nabu-senemos-mainline
+%endif
 %global evdi_version 1.15.1
 
+%if %{with nabu_el2}
+Name:           senemos-nabu-kernel-el2-experimental
+%else
 Name:           senemos-nabu-kernel-mainline
+%endif
 Version:        7.2.7
-Release:        4%{?dist}
+%if %{with nabu_el2}
+Release:        1%{?dist}
+Summary:        Isolated KVM-ready Nabu kernel; EL2 firmware handoff still required
+%else
+Release:        5%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
+%endif
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
 ExclusiveArch:  aarch64
@@ -24,6 +38,8 @@ Source9:        test-audio-power.py
 Source10:       https://github.com/DisplayLink/evdi/archive/refs/tags/v%{evdi_version}.tar.gz#/evdi-%{evdi_version}.tar.gz
 Source11:       evdi.sha256
 Source12:       nabu-displaylink.config
+Source13:       nabu-el2-experimental.config
+Source14:       test-el2-dtb.py
 Patch0001:      0001-arm64-dts-qcom-add-Xiaomi-Pad-5-Nabu.patch
 Patch0002:      0002-drm-panel-nt36523-add-Xiaomi-Nabu-CSOT-panel.patch
 Patch0003:      0003-senemos-add-Fedora-Rawhide-arm64-build-profile.patch
@@ -204,18 +220,33 @@ BuildRequires:  xz
 BuildRequires:  zstd
 Requires:       nabu-kernel-maintenance-api >= 7
 Requires:       nabu-boot-integration >= 2.0.0-47.test
+%if %{with nabu_el2}
+Requires:       senemos-nabu-kernel-mainline >= %{version}
+Provides:       kernel-nabu-el2-experimental-uname-r
+Provides:       installonlypkg(kernel)
+%else
 Provides:       kernel-nabu-core-uname-r
 Provides:       installonlypkg(kernel)
 Requires(posttrans): coreutils
 Requires(postun): kmod
 Provides:       senemos-nabu-kernel-mainline-alpha = %{version}-%{release}
 Obsoletes:      senemos-nabu-kernel-mainline-alpha < 7.2.4
+%endif
 
 %description
+%if %{with nabu_el2}
+The exact current Nabu stable patch series with upstream ARM64 KVM enabled.
+This is a separate RPM and kernel ABI, not a firmware EL1-to-EL2 transition.
+No install/remove script, service, ESP write, boot-default change or automatic
+UKI generation is provided. The production kernel is retained as a dependency.
+HYP/TZ reservations and standard PSCI/GIC/timer contracts are verified in DTB.
+Physical EL2, SMP, KVM and peripheral qualification is still required.
+%else
 Official Linux 7.2.y plus a checksum-locked, ordered Xiaomi Pad 5 (nabu)
 patch series. This is the frozen stable-mainline family with its own kernel
 ABI, RPM ownership, maintenance queue and SENEMOS7 UKI namespace. It can
 coexist with the 6.17 fallback and mainline-unstable development channel.
+%endif
 
 %prep
 [[ '%{nabu_build_stamp}' =~ ^[0-9]{10}$ ]]
@@ -246,6 +277,11 @@ senemos/configs/prune-nabu-config.sh .config
 KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-security.config \
     senemos/configs/nabu-rng.config %{SOURCE12}
+%if %{with nabu_el2}
+# Merge only after the production security/device policy. Keep the same DTB;
+# a fabricated hypervisor node or PSCI HVC conduit cannot create EL2 access.
+KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r .config %{SOURCE13}
+%endif
 make ARCH=arm64 LLVM=1 olddefconfig
 # Refresh auto.conf after merging the Nabu identity fragment. Otherwise the
 # immediately following release gate can retain defconfig's SCM suffix.
@@ -285,6 +321,7 @@ done < <(find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
     -type f -name '*.ko' -print0)
 /usr/sbin/depmod -b %{buildroot} -m %{_prefix}/lib/modules %{uname_r}
 
+%if %{without nabu_el2}
 install -Dm0644 %{SOURCE3} \
     %{buildroot}%{_prefix}/lib/dracut/dracut.conf.d/91-nabu-mainline-omit-early-xhci.conf
 install -Dm0644 %{SOURCE4} \
@@ -294,11 +331,13 @@ install -Dm0644 %{SOURCE6} \
 install -d -m0755 %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d
 printf '%%s\n' '%{nabu_build_stamp}' > \
     %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
+%endif
 
 %check
 HOSTCC=clang python3 %{SOURCE7} drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
 HOSTCC=clang python3 %{SOURCE9} .
 bash %{SOURCE8} %{buildroot} '%{uname_r}'
+python3 %{SOURCE14} %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
 # Upstream EVDI does not emit MODULE_VERSION. Its version is pinned by Source11;
 # validate real module metadata, not a nonexistent modinfo version field.
 test "$(modinfo -F name %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel/drivers/gpu/drm/evdi/evdi.ko.zst)" = 'evdi'
@@ -331,6 +370,7 @@ if find %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel \
     echo 'Uncompressed kernel module found in runtime payload' >&2
     exit 1
 fi
+%if %{without nabu_el2}
 grep -Fxq '%{nabu_build_stamp}' \
     %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 grep -Fxq 'ConditionPathExists=!/etc/initrd-release' \
@@ -339,6 +379,11 @@ grep -Fq 'test ! -d /usr/lib/modules/$(uname -r)' \
     %{buildroot}%{_unitdir}/nabu-mainline-late-xhci.service
 grep -Fxq 'enable nabu-mainline-late-xhci.service' \
     %{buildroot}%{_presetdir}/90-nabu-mainline.preset
+%else
+test ! -e %{buildroot}%{_prefix}/lib/senemos-nabu/uki-version.d
+test ! -e %{buildroot}%{_unitdir}
+test ! -e %{buildroot}%{_prefix}/lib/dracut
+%endif
 grep -Fxq 'CONFIG_VIDEO_QCOM_IRIS=m' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq '# CONFIG_VIDEO_QCOM_VENUS is not set' %{buildroot}/boot/config-%{uname_r}
 grep -Fxq 'CONFIG_VIDEO_QCOM_CAMSS=m' %{buildroot}/boot/config-%{uname_r}
@@ -426,8 +471,21 @@ for setting in \
     'CONFIG_PANIC_TIMEOUT=15'; do
     grep -Fxq "$setting" %{buildroot}/boot/config-%{uname_r}
 done
-reject_grep -Eq '^CONFIG_(MODULE_SIG_FORCE|VIRTUALIZATION|KVM|TCG_FTPM_TEE|IMA|EVM)=(y|m)$' \
+reject_grep -Eq '^CONFIG_(MODULE_SIG_FORCE|TCG_FTPM_TEE|IMA|EVM)=(y|m)$' \
     %{buildroot}/boot/config-%{uname_r}
+%if %{with nabu_el2}
+for setting in CONFIG_VIRTUALIZATION=y CONFIG_KVM=y CONFIG_ARM_GIC_V3=y \
+    CONFIG_ARM_ARCH_TIMER=y CONFIG_ARM_PSCI_FW=y CONFIG_SMP=y \
+    CONFIG_ARM_SMMU_DISABLE_BYPASS_BY_DEFAULT=y CONFIG_STRICT_KERNEL_RWX=y; do
+    grep -Fxq "$setting" %{buildroot}/boot/config-%{uname_r}
+done
+reject_grep -Eq '^CONFIG_(NVHE_EL2_DEBUG|NVHE_EL2_TRACING|PTDUMP_STAGE2_DEBUGFS|PKVM_DISABLE_STAGE2_ON_PANIC)=(y|m)$' \
+    %{buildroot}/boot/config-%{uname_r}
+grep -Eq ' [tT] kvm_arm_init$' %{buildroot}/boot/System.map-%{uname_r}
+grep -Eq ' [tT] __kvm_nvhe___kvm_hyp_init$' %{buildroot}/boot/System.map-%{uname_r}
+%else
+reject_grep -Eq '^CONFIG_(VIRTUALIZATION|KVM)=(y|m)$' %{buildroot}/boot/config-%{uname_r}
+%endif
 grep -Eq '^[[:space:]]*\.name[[:space:]]*=[[:space:]]*"default-key"' \
     drivers/md/dm-inlinecrypt.c
 grep -Fq 'ctx->key_type = BLK_CRYPTO_KEY_TYPE_HW_WRAPPED;' \
@@ -539,6 +597,7 @@ for module in qcom-iris qcom-camss cn3927 ov13b10 ov8856 at24 qcom-ssc-cct \
         -type f -name "$module.ko.zst" -print -quit | grep -q .
 done
 
+%if %{without nabu_el2}
 %post
 %systemd_post nabu-mainline-late-xhci.service
 marker=/var/lib/nabu-kernel-maintenance/late-xhci-service-migrated
@@ -563,11 +622,15 @@ mv -f "$temporary" /var/lib/nabu-kernel-maintenance/pending.d/mainline
 if [ "$1" -eq 0 ]; then
     /usr/sbin/depmod -a || :
 fi
+%endif
 
 %files
+%if %{without nabu_el2}
 %{_prefix}/lib/dracut/dracut.conf.d/91-nabu-mainline-omit-early-xhci.conf
 %{_unitdir}/nabu-mainline-late-xhci.service
 %{_presetdir}/90-nabu-mainline.preset
+%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
+%endif
 /boot/vmlinuz-%{uname_r}
 /boot/System.map-%{uname_r}
 /boot/config-%{uname_r}
@@ -575,9 +638,13 @@ fi
 %{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu-iris-camera.dtb
 %{_prefix}/lib/modules/%{uname_r}/modules.*
 %{_prefix}/lib/modules/%{uname_r}/kernel/
-%{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Wed Sep 23 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-5
+- Share current patch/DisplayLink pipeline with an opt-in isolated EL2 variant.
+- Validate PSCI, GICv3, timer PPIs, CPUs and secure reservations in compiled DTB.
+- Keep the experimental variant free of boot integration scripts and services.
+
 * Wed Sep 23 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-4
 - Isolate EVDI Kbuild from Fedora userspace GCC CFLAGS without relaxing WERROR.
 - Keep kernel hardening, symbol-version and module-signature policies intact.

@@ -1,5 +1,9 @@
 # SENEMOS Nabu mainline kernel
 
+An opt-in EL2/KVM variant now uses this same kernel and DT patch series. Its
+isolated build and hardware qualification limits are documented in
+[EL2-EXPERIMENT.md](EL2-EXPERIMENT.md). The default build remains unchanged.
+
 Release 7.2.7-4 adds optional USB DisplayLink support: upstream `udl.ko` for
 older adapters and checksum-pinned EVDI 1.15.1 for modern DisplayLinkManager.
 EVDI is built against the same kernel and signed by the same build key before

@@ -32,7 +32,8 @@ install -m0644 "$root/91-nabu-mainline-omit-early-xhci.conf" \
     "$root/nabu-mainline-late-xhci.service" \
     "$root/90-nabu-mainline.preset" "$root/test-dsi-pll.py" \
     "$root/test-runtime-payload.sh" "$root/test-audio-power.py" \
-    "$root/nabu-displaylink.config" "$top/SOURCES/"
+    "$root/nabu-displaylink.config" "$root/nabu-el2-experimental.config" \
+    "$root/test-el2-dtb.py" "$top/SOURCES/"
 
 (
     cd "$top/SOURCES"
@@ -54,4 +55,14 @@ printf '%s\n' "$stamp" >"$top/SOURCES/nabu-build-stamp"
 install -m0644 "$spec" "$top/SPECS/"
 sed -i "s/^%global nabu_build_stamp .*/%global nabu_build_stamp $stamp/" \
     "$top/SPECS/${spec##*/}"
+case ${NABU_EL2_EXPERIMENTAL:-0} in
+    0) ;;
+    1)
+        # Persist the choice INSIDE the SRPM spec: --with at -bs time alone
+        # would be lost when COPR rebuilds the SRPM in a fresh buildroot.
+        sed -i 's/^%bcond nabu_el2 0$/%bcond nabu_el2 1/' "$top/SPECS/${spec##*/}"
+        grep -Fxq '%bcond nabu_el2 1' "$top/SPECS/${spec##*/}"
+        ;;
+    *) echo 'NABU_EL2_EXPERIMENTAL must be 0 or 1' >&2; exit 2 ;;
+esac
 rpmbuild -bs --define "_topdir $top" "$top/SPECS/${spec##*/}"
