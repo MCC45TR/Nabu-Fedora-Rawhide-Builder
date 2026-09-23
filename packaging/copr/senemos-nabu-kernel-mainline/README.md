@@ -1,6 +1,6 @@
 # SENEMOS Nabu mainline kernel
 
-Release 7.2.7-3 adds optional USB DisplayLink support: upstream `udl.ko` for
+Release 7.2.7-4 adds optional USB DisplayLink support: upstream `udl.ko` for
 older adapters and checksum-pinned EVDI 1.15.1 for modern DisplayLinkManager.
 EVDI is built against the same kernel and signed by the same build key before
 compression; every module must pass the vermagic/signature/depmod payload gate.
@@ -12,6 +12,27 @@ separately licensed AArch64 DisplayLinkManager and a matching libevdi. Those
 proprietary binaries are not included in this kernel's COPR sources. This is
 USB graphics, not USB-C DP Alt-Mode. Dock hotplug, KDE Wayland, suspend/resume
 and USB bandwidth/CPU/power behavior require physical qualification.
+
+The first release-3 candidate was rejected by COPR: EVDI imported RPM's
+userspace GCC `CFLAGS` into the Clang module build. Release 4 clears only that
+input; Kbuild hardening and WERROR remain intact. The source gate deliberately
+poisons CFLAGS to prevent recurrence. Successful candidate build: 11026630,
+in `mcc45tr/nabu-linux:custom:displaylink727r4`, not promoted to production.
+
+After verifying the downloaded RPM's OpenPGP signature and extracting it into
+a scratch directory, run these **build-host tests** (never on-device services):
+
+```sh
+bash test-runtime-payload.sh EXTRACTED_RPM_ROOT 7.2.7-nabu-senemos-mainline
+python3 test-module-signatures.py EXTRACTED_RPM_ROOT 7.2.7-nabu-senemos-mainline
+```
+
+The second test checks every module's AArch64 ELF header and PKCS7 signature
+against the public certificate embedded in that exact kernel Image. It also
+requires a deliberately corrupted temporary payload to fail verification.
+It does not load any module or read/change the running kernel. Module-signing
+metadata alone is not evidence of a valid signature. See the upstream
+[module signing documentation](https://docs.kernel.org/admin-guide/module-signing.html).
 
 This COPR source follows kernel.org's newest `stable` release and publishes it as
 `senemos-nabu-kernel-mainline` with a conventional Fedora release number. The source
