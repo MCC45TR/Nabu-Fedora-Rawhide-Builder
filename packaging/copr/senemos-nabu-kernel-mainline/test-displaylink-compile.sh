@@ -17,8 +17,16 @@ KCONFIG_CONFIG="$output/.config" "$source/scripts/kconfig/merge_config.sh" -m -r
 make -s -C "$source" O="$output" ARCH=arm64 LLVM=1 olddefconfig
 grep -Fx 'CONFIG_DRM_UDL=m' "$output/.config"
 make -s -C "$source" O="$output" ARCH=arm64 LLVM=1 -j8 modules_prepare
-make -C "$source" O="$output" ARCH=arm64 LLVM=1 -j8 \
+# Regression: RPM exports userspace CFLAGS and EVDI adds them to ccflags-y.
+# Poison the environment deliberately: the command-line reset must keep these
+# out while Kbuild retains the target kernel's own hardening flags.
+CFLAGS='-specs=/nonexistent/nabu-userspace-gcc.specs -DNABU_CFLAGS_LEAK_SENTINEL' \
+make -C "$source" O="$output" ARCH=arm64 LLVM=1 CFLAGS= -j8 \
     M="$evdi/module" evdi.o
+if grep -Fq 'NABU_CFLAGS_LEAK_SENTINEL' "$evdi/module/.evdi_platform_drv.o.cmd"; then
+    echo 'FAIL: userspace RPM CFLAGS leaked into EVDI' >&2
+    exit 1
+fi
 make -C "$source" O="$output" ARCH=arm64 LLVM=1 -j8 \
     drivers/gpu/drm/udl/udl.o
 llvm-readobj --file-headers "$evdi/module/evdi.o" \

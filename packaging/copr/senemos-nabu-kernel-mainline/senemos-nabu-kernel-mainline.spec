@@ -6,7 +6,7 @@
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.7
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -256,7 +256,10 @@ make ARCH=arm64 LLVM=1 KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
     qcom/sm8150-xiaomi-nabu-iris-camera.dtb modules
 # Build EVDI against exactly this kernel's configuration and symbol versions.
 # No DKMS, compiler, headers or third-party signing key is needed on the tablet.
-make ARCH=arm64 LLVM=1 %{?_smp_mflags} \
+# EVDI adds environment CFLAGS to ccflags-y. Fedora's userspace GCC specs
+# must not leak into a Clang kernel module; KBUILD_CFLAGS still supplies all
+# architecture and kernel hardening flags, including CONFIG_WERROR.
+make ARCH=arm64 LLVM=1 CFLAGS= %{?_smp_mflags} \
     M="$PWD/evdi-%{evdi_version}/module" modules
 
 %install
@@ -575,6 +578,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Wed Sep 23 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-4
+- Isolate EVDI Kbuild from Fedora userspace GCC CFLAGS without relaxing WERROR.
+- Keep kernel hardening, symbol-version and module-signature policies intact.
+
 * Wed Sep 23 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-3
 - Build checksum-pinned EVDI 1.15.1 with the matching kernel ABI and signing key.
 - Enable the upstream UDL driver for older DisplayLink adapters as a module.
