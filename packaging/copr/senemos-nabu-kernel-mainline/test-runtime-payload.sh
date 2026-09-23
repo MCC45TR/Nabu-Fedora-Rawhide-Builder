@@ -17,6 +17,8 @@ for module in \
     drivers/net/wireless/ath/ath10k/ath10k_core \
     drivers/input/touchscreen/nt36523/nt36523_ts \
     drivers/gpu/drm/panel/panel-novatek-nt36523 \
+    drivers/gpu/drm/udl/udl \
+    drivers/gpu/drm/evdi/evdi \
     drivers/remoteproc/qcom_q6v5_pas; do
     test -s "$modules/kernel/$module.ko.zst"
 done

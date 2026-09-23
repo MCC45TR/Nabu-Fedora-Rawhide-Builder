@@ -2,10 +2,11 @@
 %global __strip /bin/true
 %global nabu_build_stamp 0000000000
 %global uname_r %{version}-nabu-senemos-mainline
+%global evdi_version 1.15.1
 
 Name:           senemos-nabu-kernel-mainline
 Version:        7.2.7
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
 URL:            https://github.com/MCC45TR/nabu-linux-kernel
@@ -20,6 +21,9 @@ Source6:        90-nabu-mainline.preset
 Source7:        test-dsi-pll.py
 Source8:        test-runtime-payload.sh
 Source9:        test-audio-power.py
+Source10:       https://github.com/DisplayLink/evdi/archive/refs/tags/v%{evdi_version}.tar.gz#/evdi-%{evdi_version}.tar.gz
+Source11:       evdi.sha256
+Source12:       nabu-displaylink.config
 Patch0001:      0001-arm64-dts-qcom-add-Xiaomi-Pad-5-Nabu.patch
 Patch0002:      0002-drm-panel-nt36523-add-Xiaomi-Nabu-CSOT-panel.patch
 Patch0003:      0003-senemos-add-Fedora-Rawhide-arm64-build-profile.patch
@@ -219,7 +223,9 @@ grep -Fxq '%{nabu_build_stamp}' %{SOURCE5}
 grep -Fq "linux-%{version}.tar.xz" %{SOURCE1}
 (cd %{_sourcedir} && sha256sum -c %{SOURCE1})
 (cd %{_sourcedir} && sha256sum -c %{SOURCE2})
+(cd %{_sourcedir} && sha256sum -c %{SOURCE11})
 %autosetup -n linux-%{version} -S git_am
+%setup -q -D -T -a 10 -n linux-%{version}
 
 %build
 export KBUILD_BUILD_USER=mcc45tr
@@ -239,7 +245,7 @@ senemos/configs/prune-nabu-config.sh .config
 # release build nor a future pruning update can silently discard these gates.
 KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-security.config \
-    senemos/configs/nabu-rng.config
+    senemos/configs/nabu-rng.config %{SOURCE12}
 make ARCH=arm64 LLVM=1 olddefconfig
 # Refresh auto.conf after merging the Nabu identity fragment. Otherwise the
 # immediately following release gate can retain defconfig's SCM suffix.
@@ -248,6 +254,10 @@ rm -f include/config/kernel.release
 test "$(make -s ARCH=arm64 LLVM=1 kernelrelease)" = '%{uname_r}'
 make ARCH=arm64 LLVM=1 KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
     qcom/sm8150-xiaomi-nabu-iris-camera.dtb modules
+# Build EVDI against exactly this kernel's configuration and symbol versions.
+# No DKMS, compiler, headers or third-party signing key is needed on the tablet.
+make ARCH=arm64 LLVM=1 %{?_smp_mflags} \
+    M="$PWD/evdi-%{evdi_version}/module" modules
 
 %install
 install -Dm0644 arch/arm64/boot/Image \
@@ -257,6 +267,8 @@ install -Dm0644 .config %{buildroot}/boot/config-%{uname_r}
 make ARCH=arm64 LLVM=1 modules_install \
     MODLIB=%{buildroot}%{_prefix}/lib/modules/%{uname_r} DEPMOD=/bin/true
 rm -f %{buildroot}%{_prefix}/lib/modules/%{uname_r}/{build,source}
+install -Dm0644 evdi-%{evdi_version}/module/evdi.ko \
+    %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel/drivers/gpu/drm/evdi/evdi.ko
 install -Dm0644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb \
     %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
 install -Dm0644 arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb \
@@ -284,6 +296,10 @@ printf '%%s\n' '%{nabu_build_stamp}' > \
 HOSTCC=clang python3 %{SOURCE7} drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
 HOSTCC=clang python3 %{SOURCE9} .
 bash %{SOURCE8} %{buildroot} '%{uname_r}'
+# Upstream EVDI does not emit MODULE_VERSION. Its version is pinned by Source11;
+# validate real module metadata, not a nonexistent modinfo version field.
+test "$(modinfo -F name %{buildroot}%{_prefix}/lib/modules/%{uname_r}/kernel/drivers/gpu/drm/evdi/evdi.ko.zst)" = 'evdi'
+grep -Fxq 'CONFIG_DRM_UDL=m' %{buildroot}/boot/config-%{uname_r}
 reject_grep() {
     if grep "$@"; then
         echo "Forbidden pattern matched: grep $*" >&2
@@ -559,6 +575,11 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Wed Sep 23 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-3
+- Build checksum-pinned EVDI 1.15.1 with the matching kernel ABI and signing key.
+- Enable the upstream UDL driver for older DisplayLink adapters as a module.
+- Keep DisplayLink opt-in; do not start a daemon or create virtual displays.
+
 * Tue Sep 22 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-2
 - Repair Nabu speaker DAPM endpoints and frontend shutdown ordering.
 - Preserve four-channel DSP_A framing and test legacy/new DT compatibility.

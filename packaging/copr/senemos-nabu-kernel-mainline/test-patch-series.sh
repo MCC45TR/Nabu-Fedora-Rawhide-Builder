@@ -12,7 +12,7 @@ reject_grep() {
 }
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-for tool in git gcc make pahole python3; do
+for tool in git gcc clang ld.lld llvm-readobj make pahole python3; do
     command -v "$tool" >/dev/null || {
         printf 'ERROR: required patch/config gate tool is missing: %s\n' "$tool" >&2
         exit 1
@@ -225,7 +225,8 @@ KCONFIG_CONFIG="$config_dir/.config" \
     "$work/linux-$version/scripts/kconfig/merge_config.sh" -m -r \
     "$config_dir/.config" \
     "$work/linux-$version/senemos/configs/nabu-security.config" \
-    "$work/linux-$version/senemos/configs/nabu-rng.config"
+    "$work/linux-$version/senemos/configs/nabu-rng.config" \
+    "$root/nabu-displaylink.config"
 make -C "$work/linux-$version" O="$config_dir" ARCH=arm64 HOSTCC=gcc olddefconfig
 make -s -C "$work/linux-$version" O="$config_dir" \
     ARCH=arm64 HOSTCC=gcc syncconfig
@@ -239,6 +240,7 @@ if [[ $kernel_release != "$version-nabu-senemos-mainline" ]]; then
 fi
 
 for setting in \
+	'CONFIG_DRM_UDL=m' \
 	'CONFIG_VIDEO_QCOM_IRIS=m' \
 	'CONFIG_VIDEO_QCOM_CAMSS=m' \
 	'CONFIG_V4L2_FLASH_LED_CLASS=m' \
@@ -650,6 +652,22 @@ test "$resv_line" -lt "$gem_init_line"
 test "$gem_init_line" -lt "$bookkeeping_line"
 module_count=$(grep -c '=m$' "$config_dir/.config")
 test "$module_count" -lt 450
+
+# An upstream kernel update must also compile the pinned external DisplayLink
+# driver before the updater is allowed to publish that new kernel version.
+evdi_version=$(sed -nE 's/^%global evdi_version ([^[:space:]]+).*/\1/p' \
+    "$root/senemos-nabu-kernel-mainline.spec")
+[[ $evdi_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+if [[ -n ${NABU_EVDI_ARCHIVE:-} ]]; then
+    install -m0644 "$NABU_EVDI_ARCHIVE" "$work/evdi-$evdi_version.tar.gz"
+else
+    curl -L --fail --retry 3 --output "$work/evdi-$evdi_version.tar.gz" \
+        "https://github.com/DisplayLink/evdi/archive/refs/tags/v$evdi_version.tar.gz"
+fi
+(cd "$work" && sha256sum -c "$root/evdi.sha256")
+tar -xf "$work/evdi-$evdi_version.tar.gz" -C "$work"
+bash "$root/test-displaylink-compile.sh" "$work/linux-$version" \
+    "$work/displaylink-config" "$work/evdi-$evdi_version"
 
 printf 'PASS: %s checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$patch_count" "$version" "$module_count"

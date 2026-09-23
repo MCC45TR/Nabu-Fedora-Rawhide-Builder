@@ -24,7 +24,8 @@ jobs:
       - name: Install the deterministic patch-gate tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes dwarves gnupg
+          sudo apt-get install --yes dwarves gnupg clang llvm lld \
+            bc bison flex libelf-dev libssl-dev
       - name: Apply the Nabu series to the latest Linux stable release
         id: update
         env:

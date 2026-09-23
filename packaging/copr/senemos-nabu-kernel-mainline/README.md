@@ -1,5 +1,18 @@
 # SENEMOS Nabu mainline kernel
 
+Release 7.2.7-3 adds optional USB DisplayLink support: upstream `udl.ko` for
+older adapters and checksum-pinned EVDI 1.15.1 for modern DisplayLinkManager.
+EVDI is built against the same kernel and signed by the same build key before
+compression; every module must pass the vermagic/signature/depmod payload gate.
+No DKMS or on-tablet compilation is required. No modules-load entry, virtual
+display, compositor override or always-running service is installed.
+
+EVDI alone is NOT a DisplayLink USB driver. Modern docks also need Synaptics'
+separately licensed AArch64 DisplayLinkManager and a matching libevdi. Those
+proprietary binaries are not included in this kernel's COPR sources. This is
+USB graphics, not USB-C DP Alt-Mode. Dock hotplug, KDE Wayland, suspend/resume
+and USB bandwidth/CPU/power behavior require physical qualification.
+
 This COPR source follows kernel.org's newest `stable` release and publishes it as
 `senemos-nabu-kernel-mainline` with a conventional Fedora release number. The source
 contains its own checksum-locked device patch series, distinct ABI and SENEMOS7
