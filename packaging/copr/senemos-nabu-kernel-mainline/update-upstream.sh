@@ -37,19 +37,16 @@ trap cleanup EXIT
 [[ $family =~ ^[0-9]+[.][0-9]+$ ]]
 [[ $current =~ ^${family//./[.]}[.][0-9]+$ ]]
 curl -L --fail --retry 3 --output "$metadata" "$releases_url"
-read -r latest source_url < <(python3 -c '
-import json, sys
-family = tuple(map(int, sys.argv[2].split(".")))
-with open(sys.argv[1], encoding="utf-8") as stream:
-    releases = json.load(stream)["releases"]
-stable = [item for item in releases
-          if item["moniker"] == "stable"
-          and tuple(map(int, item["version"].split(".")[:2])) == family]
-if not stable:
-    raise SystemExit(f"no stable release found for {sys.argv[2]}.x")
-selected = max(stable, key=lambda item: tuple(map(int, item["version"].split("."))))
-print(selected["version"], selected["source"])
-' "$metadata" "$family")
+selected=$(jq -er --arg family "$family" '
+    [.releases[]
+     | select(.moniker == "stable")
+     | select(.version | split(".") | .[0:2] | join(".") == $family)]
+    | if length == 0 then error("no stable release found")
+      else max_by(.version | split(".") | map(tonumber))
+      end
+    | [.version, .source] | @tsv
+' "$metadata")
+IFS=$'\t' read -r latest source_url <<< "$selected"
 [[ $latest =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]]
 [[ $source_url == https://cdn.kernel.org/pub/linux/kernel/v*.x/linux-$latest.tar.xz ]]
 
