@@ -1,6 +1,6 @@
 # SENEMOS Nabu mainline kernel
 
-Release 7.2.7-7 specializes the resolved kernel configuration for SM8150's
+Release 7.2.7-8 specializes the resolved kernel configuration for SM8150's
 eight CPUs and non-NUMA memory topology. It also clears the temporary MSM GPU
 boost request when suspend cancels its expiry worker, and removes an unused
 NT36523 sysfs-group array. The active GPU boost policy, thermal/frequency limits,
@@ -9,10 +9,11 @@ The compiled-DTB/config and extracted-C regression gate is
 `test-kernel-optimization.py`; it runs only on build hosts. These changes are
 not evidence of a measured battery-life, frame-rate or physical resume gain.
 See [OPTIMIZATION-7.2.7.md](OPTIMIZATION-7.2.7.md) for audit and qualification.
-Release 7 also uses GCC for build-host tools so Fedora's GCC-specific RPM
-hardening specs no longer cause Clang warnings; the AArch64 kernel and EVDI
-still compile with Clang. One preexisting whitespace warning in the legacy
-fuel-gauge patch is removed without changing its C token stream.
+Release 7 removed one preexisting whitespace warning in the legacy fuel-gauge
+patch and selected GCC for host tools. COPR still showed Clang seeing two
+GCC-only RPM `-specs` options in a descendant build. Release 8 clears the
+generic userspace CFLAGS input for the main kernel invocation, as the EVDI
+build already does. Kernel KBUILD_CFLAGS and host HOSTCFLAGS remain intact.
 
 An opt-in EL2/KVM variant now uses this same kernel and DT patch series. Its
 isolated build and hardware qualification limits are documented in

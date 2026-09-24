@@ -16,10 +16,10 @@ Name:           senemos-nabu-kernel-mainline
 %endif
 Version:        7.2.7
 %if %{with nabu_el2}
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Isolated KVM-ready Nabu kernel; EL2 firmware handoff still required
 %else
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 %endif
 License:        GPL-2.0-only AND MIT
@@ -293,7 +293,10 @@ make ARCH=arm64 LLVM=1 HOSTCC=gcc olddefconfig
 make -s ARCH=arm64 LLVM=1 HOSTCC=gcc syncconfig
 rm -f include/config/kernel.release
 test "$(make -s ARCH=arm64 LLVM=1 HOSTCC=gcc kernelrelease)" = '%{uname_r}'
-make ARCH=arm64 LLVM=1 HOSTCC=gcc KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
+# Fedora's generic CFLAGS contains GCC-only -specs options. These must not
+# reach Clang in Kbuild's descendant tools. Kernel hardening is in
+# KBUILD_CFLAGS; the host tools use HOSTCFLAGS with HOSTCC=gcc.
+make ARCH=arm64 LLVM=1 HOSTCC=gcc CFLAGS= KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
     qcom/sm8150-xiaomi-nabu-iris-camera.dtb modules
 # Build EVDI against exactly this kernel's configuration and symbol versions.
 # No DKMS, compiler, headers or third-party signing key is needed on the tablet.
@@ -308,7 +311,7 @@ install -Dm0644 arch/arm64/boot/Image \
     %{buildroot}/boot/vmlinuz-%{uname_r}
 install -Dm0644 System.map %{buildroot}/boot/System.map-%{uname_r}
 install -Dm0644 .config %{buildroot}/boot/config-%{uname_r}
-make ARCH=arm64 LLVM=1 HOSTCC=gcc modules_install \
+make ARCH=arm64 LLVM=1 HOSTCC=gcc CFLAGS= modules_install \
     MODLIB=%{buildroot}%{_prefix}/lib/modules/%{uname_r} DEPMOD=/bin/true
 rm -f %{buildroot}%{_prefix}/lib/modules/%{uname_r}/{build,source}
 install -Dm0644 evdi-%{evdi_version}/module/evdi.ko \
@@ -646,6 +649,12 @@ fi
 %{_prefix}/lib/modules/%{uname_r}/kernel/
 
 %changelog
+* Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-8
+- Keep Fedora's GCC-only generic CFLAGS out of Clang descendant tools in the
+  main Kbuild invocation; KBUILD_CFLAGS, HOSTCFLAGS and target hardening stay.
+- Release 7 showed the host-compiler change alone did not clear that warning.
+- Keep the isolated EL2 variant on the same source as release 4.
+
 * Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-7
 - Use the supported host GCC for Fedora RPM host tools while keeping the
   AArch64 kernel and EVDI on Clang; retain host GCC hardening specs.
