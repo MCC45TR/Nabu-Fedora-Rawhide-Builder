@@ -1,0 +1,36 @@
+From 9b3fa7e59de6665a58cf34a34a5fded281444fb1 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Thu, 24 Sep 2026 06:55:06 +0300
+Subject: [PATCH 160/161] drm/msm: clear transient devfreq boost when
+ suspending
+
+Cancelling boost_work prevents its pending callback from clearing the
+temporary DEV_PM_QOS_MIN_FREQUENCY request. Drop that request after
+draining boost work so resume does not inherit a stale frequency floor.
+Do not alter thermal caps or the active boost policy.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/gpu/drm/msm/msm_gpu_devfreq.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/msm_gpu_devfreq.c b/drivers/gpu/drm/msm/msm_gpu_devfreq.c
+index 2e1d5c343..bca21adca 100644
+--- a/drivers/gpu/drm/msm/msm_gpu_devfreq.c
++++ b/drivers/gpu/drm/msm/msm_gpu_devfreq.c
+@@ -257,6 +257,13 @@ void msm_devfreq_suspend(struct msm_gpu *gpu)
+ 
+ 	cancel_idle_work(df);
+ 	cancel_boost_work(df);
++
++	/*
++	 * The cancelled boost worker normally drops this temporary minimum.
++	 * Do not retain its frequency floor across a runtime/system suspend.
++	 * Clear it after cancelling the worker and marking devfreq suspended.
++	 */
++	dev_pm_qos_update_request(&df->boost_freq, 0);
+ }
+ 
+ static void msm_devfreq_boost_work(struct kthread_work *work)
+-- 
+2.55.0

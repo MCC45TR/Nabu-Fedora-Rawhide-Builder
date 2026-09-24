@@ -16,10 +16,10 @@ Name:           senemos-nabu-kernel-mainline
 %endif
 Version:        7.2.7
 %if %{with nabu_el2}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Isolated KVM-ready Nabu kernel; EL2 firmware handoff still required
 %else
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 %endif
 License:        GPL-2.0-only AND MIT
@@ -40,6 +40,7 @@ Source11:       evdi.sha256
 Source12:       nabu-displaylink.config
 Source13:       nabu-el2-experimental.config
 Source14:       test-el2-dtb.py
+Source15:       test-kernel-optimization.py
 Patch0001:      0001-arm64-dts-qcom-add-Xiaomi-Pad-5-Nabu.patch
 Patch0002:      0002-drm-panel-nt36523-add-Xiaomi-Nabu-CSOT-panel.patch
 Patch0003:      0003-senemos-add-Fedora-Rawhide-arm64-build-profile.patch
@@ -196,6 +197,9 @@ Patch0155:      0155-drm-msm-request-legacy-GPU-regulators-as-optional.patch
 Patch0156:      0156-tools-linux-types-match-128-bit-host-ABI.patch
 Patch0157:      0157-drm-msm-dsi-preserve-SM8150-bonded-PLL-lifetime.patch
 Patch0158:      0158-ASoC-qcom-fix-Nabu-speaker-endpoints-and-power-order.patch
+Patch0159:      0159-arm64-nabu-size-CPU-masks-for-SM8150-and-drop-NUMA.patch
+Patch0160:      0160-drm-msm-clear-transient-devfreq-boost-when-suspendin.patch
+Patch0161:      0161-input-nt36523-define-only-the-managed-runtime-attrib.patch
 
 BuildRequires:  bc
 BuildRequires:  binutils
@@ -336,6 +340,7 @@ printf '%%s\n' '%{nabu_build_stamp}' > \
 %check
 HOSTCC=clang python3 %{SOURCE7} drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
 HOSTCC=clang python3 %{SOURCE9} .
+HOSTCC=clang python3 %{SOURCE15} . .config arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb
 bash %{SOURCE8} %{buildroot} '%{uname_r}'
 python3 %{SOURCE14} %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
 # Upstream EVDI does not emit MODULE_VERSION. Its version is pinned by Source11;
@@ -640,6 +645,13 @@ fi
 %{_prefix}/lib/modules/%{uname_r}/kernel/
 
 %changelog
+* Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-6
+- Size CPU masks for eight SM8150 CPUs and remove unused NUMA bookkeeping.
+- Clear the transient MSM GPU frequency floor when suspend cancels its worker.
+- Avoid the unused NT36523 attribute-group array without changing its ABI.
+- Test resolved config, compiled DT topology and actual suspend C behavior.
+- Rebase the isolated EL2 variant to release 2; no firmware handoff changes.
+
 * Wed Sep 23 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-5
 - Share current patch/DisplayLink pipeline with an opt-in isolated EL2 variant.
 - Validate PSCI, GICv3, timer PPIs, CPUs and secure reservations in compiled DTB.

@@ -1,5 +1,15 @@
 # SENEMOS Nabu mainline kernel
 
+Release 7.2.7-6 specializes the resolved kernel configuration for SM8150's
+eight CPUs and non-NUMA memory topology. It also clears the temporary MSM GPU
+boost request when suspend cancels its expiry worker, and removes an unused
+NT36523 sysfs-group array. The active GPU boost policy, thermal/frequency limits,
+UFS runtime-PM safety quirk, 256 MiB CMA and security policy remain unchanged.
+The compiled-DTB/config and extracted-C regression gate is
+`test-kernel-optimization.py`; it runs only on build hosts. These changes are
+not evidence of a measured battery-life, frame-rate or physical resume gain.
+See [OPTIMIZATION-7.2.7.md](OPTIMIZATION-7.2.7.md) for audit and qualification.
+
 An opt-in EL2/KVM variant now uses this same kernel and DT patch series. Its
 isolated build and hardware qualification limits are documented in
 [EL2-EXPERIMENT.md](EL2-EXPERIMENT.md). The default build remains unchanged.

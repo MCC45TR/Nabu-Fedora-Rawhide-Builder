@@ -18,5 +18,7 @@ done
 make -C "$source" O="$output" ARCH=arm64 LLVM=1 -j8 \
     arch/arm64/kvm/ qcom/sm8150-xiaomi-nabu-iris-camera.dtb
 python3 "$root/test-el2-dtb.py" "$output/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb"
+HOSTCC=clang python3 "$root/test-kernel-optimization.py" "$source" "$output/.config" \
+    "$output/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb"
 llvm-readobj --file-headers "$output/arch/arm64/kvm/hyp/nvhe/kvm_nvhe.o" | grep -F 'Arch: aarch64'
 printf 'PASS: upstream KVM host/VHE/nVHE object gate and compiled Nabu DTB; not a firmware or guest test\n'

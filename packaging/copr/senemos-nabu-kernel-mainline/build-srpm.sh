@@ -33,7 +33,7 @@ install -m0644 "$root/91-nabu-mainline-omit-early-xhci.conf" \
     "$root/90-nabu-mainline.preset" "$root/test-dsi-pll.py" \
     "$root/test-runtime-payload.sh" "$root/test-audio-power.py" \
     "$root/nabu-displaylink.config" "$root/nabu-el2-experimental.config" \
-    "$root/test-el2-dtb.py" "$top/SOURCES/"
+    "$root/test-el2-dtb.py" "$root/test-kernel-optimization.py" "$top/SOURCES/"
 
 (
     cd "$top/SOURCES"

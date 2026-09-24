@@ -154,3 +154,6 @@ c6afcd7f14ee01eae6310de79022c2f63691582e27764faa21f2f5ba0ac28558  0155-drm-msm-r
 d06dd872e5fae9ddf542e86ac40aaf2411c4f989a9dc2a70c722d495c22e442e  0156-tools-linux-types-match-128-bit-host-ABI.patch
 a245894435c6d4c7e9fb0e06ef18f3a5dc7fd2956fea214bcd446f06f719dcba  0157-drm-msm-dsi-preserve-SM8150-bonded-PLL-lifetime.patch
 ea011c215300727a16ff5e1a45de1c562062d0982a3679ab9b9ecb7530908d19  0158-ASoC-qcom-fix-Nabu-speaker-endpoints-and-power-order.patch
+614235fd83ed98292d632413f3a56d3ed55056bf8a205cc30635dd370cc31c1c  0159-arm64-nabu-size-CPU-masks-for-SM8150-and-drop-NUMA.patch
+012d958807b9ab7c198e91d49152f966b510ff55a3e41e9113dbec63003f9aa4  0160-drm-msm-clear-transient-devfreq-boost-when-suspendin.patch
+9751ad09e93a26ba1ca8459cf9e5b366a53582ab522e07b34c3a93d9f2313327  0161-input-nt36523-define-only-the-managed-runtime-attrib.patch

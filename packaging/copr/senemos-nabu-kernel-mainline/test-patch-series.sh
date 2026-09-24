@@ -669,5 +669,14 @@ tar -xf "$work/evdi-$evdi_version.tar.gz" -C "$work"
 bash "$root/test-displaylink-compile.sh" "$work/linux-$version" \
     "$work/displaylink-config" "$work/evdi-$evdi_version"
 
+# Compile the changed objects as well as the actual hardware description.
+make -C "$work/linux-$version" O="$work/displaylink-config" ARCH=arm64 LLVM=1 -j8 \
+    drivers/gpu/drm/msm/msm_gpu_devfreq.o \
+    drivers/input/touchscreen/nt36523/nt36xxx.o \
+    qcom/sm8150-xiaomi-nabu-iris-camera.dtb
+HOSTCC=clang python3 "$root/test-kernel-optimization.py" "$work/linux-$version" \
+    "$work/displaylink-config/.config" \
+    "$work/displaylink-config/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb"
+
 printf 'PASS: %s checksum-locked Nabu patches apply to Linux %s; %s modules enabled\n' \
     "$patch_count" "$version" "$module_count"
