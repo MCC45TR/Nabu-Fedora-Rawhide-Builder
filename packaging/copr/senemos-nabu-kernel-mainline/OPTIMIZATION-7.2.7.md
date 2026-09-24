@@ -14,6 +14,9 @@ line of upstream Linux has been audited. The latest available 7.2.y release
 checked on kernel.org is 7.2.7. The base is builder commit `4be07c8`, including
 the 156-patch hardware stack and the optional DisplayLink/EL2 packaging.
 This candidate adds patches 0159–0161 (159 actual patches in the series).
+Release 7 also removes two build-host warnings: a whitespace-only correction
+to legacy patch 0006, and GCC for host tools that receive Fedora GCC specs.
+The kernel and EVDI target compiler remains Clang.
 
 The tablet was last reported powered off after display/driver failures. No
 new device logs, power measurements or physical boot results were available

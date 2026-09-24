@@ -3752,7 +3752,7 @@ index 000000000000..1282d9519ea8
 +
 +/**
 + * @brief qcom_fg_sram_request_access() - Request access to SRAM and wait for it
-+ * 
++ *
 + * @param chip Pointer to chip
 + * @return int 0 on success, negative errno on error
 + */

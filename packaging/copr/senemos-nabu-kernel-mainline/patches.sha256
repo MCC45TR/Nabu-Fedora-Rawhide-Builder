@@ -3,7 +3,7 @@ f03a205f3a58bf744ac82f5fc58a16ae0a27293c5d409dd3b7a57e7371999d18  0002-drm-panel
 11f932f1b5d5d6282e898954c543e35a36a5e2e426f617d093dc5ccbb4778fc2  0003-senemos-add-Fedora-Rawhide-arm64-build-profile.patch
 beb4f222c168fbd4d7da3b884aba67177465700a4787ce836270690252592824  0004-drm-panel-port-Nabu-touch-synchronization-to-Linux-7.patch
 3e8b2cca629df949bbf8e12ed5ecc4fe0f637127bca99317dca686c465af4af9  0005-qcom-nabu-port-platform-services-and-seamless-DFPS-c.patch
-7da75b048307af14048dc2b3eda59e12b9e7f1e23b3def26c0142234c2f6569e  0006-input-power-restore-Nabu-touch-and-fuel-gauge-driver.patch
+69f19dcad89705e856935b8a94c92a7d895b4ced9825cb63ab9961f207658df6  0006-input-power-restore-Nabu-touch-and-fuel-gauge-driver.patch
 36638e4b326e3bc01f1fe4bc25a7043ee825a9049a853f1aa0349bf523ad54a8  0007-drm-nabu-fix-seamless-refresh-and-live-touch-sync-on.patch
 90e4e2e1923f5bb342220a61d0d37c14673eef91c774a14617304918809115dc  0008-input-report-permanent-tablet-mode-on-Xiaomi-Nabu.patch
 271c11e5ee5dbe8bc610acb550f2bb3d123f67b7ad117df12878203d5621fdb6  0009-nabu-carry-90-Hz-touch-policy-and-defer-optional-XHC.patch

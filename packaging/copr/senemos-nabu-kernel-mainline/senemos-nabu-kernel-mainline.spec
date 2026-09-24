@@ -16,10 +16,10 @@ Name:           senemos-nabu-kernel-mainline
 %endif
 Version:        7.2.7
 %if %{with nabu_el2}
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Isolated KVM-ready Nabu kernel; EL2 firmware handoff still required
 %else
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 %endif
 License:        GPL-2.0-only AND MIT
@@ -209,6 +209,7 @@ BuildRequires:  dwarves
 BuildRequires:  elfutils-libelf-devel
 BuildRequires:  findutils
 BuildRequires:  flex
+BuildRequires:  gcc
 BuildRequires:  git-core
 BuildRequires:  kmod
 BuildRequires:  lld
@@ -268,7 +269,7 @@ export KBUILD_BUILD_HOST=copr
 export KBUILD_BUILD_TIMESTAMP='@0'
 export KBUILD_BUILD_VERSION=1
 export LOCALVERSION=
-make ARCH=arm64 LLVM=1 defconfig
+make ARCH=arm64 LLVM=1 HOSTCC=gcc defconfig
 KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-minimal.config
 # This package targets one SM8150 device. Avoid the Fedora general-purpose
@@ -286,20 +287,20 @@ KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
 # a fabricated hypervisor node or PSCI HVC conduit cannot create EL2 access.
 KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r .config %{SOURCE13}
 %endif
-make ARCH=arm64 LLVM=1 olddefconfig
+make ARCH=arm64 LLVM=1 HOSTCC=gcc olddefconfig
 # Refresh auto.conf after merging the Nabu identity fragment. Otherwise the
 # immediately following release gate can retain defconfig's SCM suffix.
-make -s ARCH=arm64 LLVM=1 syncconfig
+make -s ARCH=arm64 LLVM=1 HOSTCC=gcc syncconfig
 rm -f include/config/kernel.release
-test "$(make -s ARCH=arm64 LLVM=1 kernelrelease)" = '%{uname_r}'
-make ARCH=arm64 LLVM=1 KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
+test "$(make -s ARCH=arm64 LLVM=1 HOSTCC=gcc kernelrelease)" = '%{uname_r}'
+make ARCH=arm64 LLVM=1 HOSTCC=gcc KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
     qcom/sm8150-xiaomi-nabu-iris-camera.dtb modules
 # Build EVDI against exactly this kernel's configuration and symbol versions.
 # No DKMS, compiler, headers or third-party signing key is needed on the tablet.
 # EVDI adds environment CFLAGS to ccflags-y. Fedora's userspace GCC specs
 # must not leak into a Clang kernel module; KBUILD_CFLAGS still supplies all
 # architecture and kernel hardening flags, including CONFIG_WERROR.
-make ARCH=arm64 LLVM=1 CFLAGS= %{?_smp_mflags} \
+make ARCH=arm64 LLVM=1 HOSTCC=gcc CFLAGS= %{?_smp_mflags} \
     M="$PWD/evdi-%{evdi_version}/module" modules
 
 %install
@@ -307,7 +308,7 @@ install -Dm0644 arch/arm64/boot/Image \
     %{buildroot}/boot/vmlinuz-%{uname_r}
 install -Dm0644 System.map %{buildroot}/boot/System.map-%{uname_r}
 install -Dm0644 .config %{buildroot}/boot/config-%{uname_r}
-make ARCH=arm64 LLVM=1 modules_install \
+make ARCH=arm64 LLVM=1 HOSTCC=gcc modules_install \
     MODLIB=%{buildroot}%{_prefix}/lib/modules/%{uname_r} DEPMOD=/bin/true
 rm -f %{buildroot}%{_prefix}/lib/modules/%{uname_r}/{build,source}
 install -Dm0644 evdi-%{evdi_version}/module/evdi.ko \
@@ -645,6 +646,12 @@ fi
 %{_prefix}/lib/modules/%{uname_r}/kernel/
 
 %changelog
+* Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-7
+- Use the supported host GCC for Fedora RPM host tools while keeping the
+  AArch64 kernel and EVDI on Clang; retain host GCC hardening specs.
+- Remove legacy qcom_fg patch whitespace that made git-am warn in COPR.
+- Keep the isolated EL2 variant on the same patches as release 3.
+
 * Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-6
 - Size CPU masks for eight SM8150 CPUs and remove unused NUMA bookkeeping.
 - Clear the transient MSM GPU frequency floor when suspend cancels its worker.
