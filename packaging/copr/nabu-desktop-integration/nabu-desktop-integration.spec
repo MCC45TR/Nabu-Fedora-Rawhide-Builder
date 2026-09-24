@@ -1,6 +1,6 @@
 Name:           nabu-desktop-integration
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Unified desktop integration source family for Xiaomi Pad 5
 License:        MIT AND GPL-2.0-or-later AND GPL-3.0-or-later
 URL:            https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder
@@ -15,7 +15,6 @@ BuildRequires:  glib2-devel
 BuildRequires:  gettext
 BuildRequires:  jq
 BuildRequires:  nodejs
-BuildRequires:  python3
 BuildRequires:  unzip
 
 %description
@@ -80,12 +79,11 @@ Touch gestures, text actions, tiling and fullscreen helpers for GNOME Shell.
 
 %package -n senemos-fastfetch-config
 Version:        1.3.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Locale-aware Fastfetch configuration for SENEMOS
 License:        MIT
 Requires:       bash
 Requires:       fastfetch
-Requires:       python3
 Conflicts:      nabu-core-meta < 3.0.0-56
 
 %description -n senemos-fastfetch-config
@@ -111,7 +109,6 @@ for po in nabu/translations/*.po; do
     msgfmt --check --check-format -o \
         "nabu/locale/$lang/LC_MESSAGES/nabu_tablet_control.mo" "$po"
 done
-python3 -m py_compile senemos-fastfetch-config-1.3.0/bin/senemos-fastfetch-value
 
 %install
 install -d %{buildroot}%{_datadir}/gnome-shell/extensions
@@ -138,7 +135,6 @@ install -Dpm0644 %{SOURCE4} %{buildroot}%{_docdir}/gnome-extension-group/README.
 
 fastfetch=senemos-fastfetch-config-1.3.0
 install -Dm0755 "$fastfetch/bin/senemos-fastfetch" %{buildroot}%{_bindir}/senemos-fastfetch
-install -Dm0755 "$fastfetch/bin/senemos-fastfetch-value" %{buildroot}%{_libexecdir}/senemos-fastfetch-value
 install -Dm0644 "$fastfetch/profile.d/senemos-fastfetch.sh" %{buildroot}%{_sysconfdir}/profile.d/senemos-fastfetch.sh
 install -d %{buildroot}%{_sysconfdir}/xdg/fastfetch
 ln -s ../../../usr/share/senemos-fastfetch-config/i18n/en.jsonc \
@@ -195,13 +191,17 @@ test "$(readlink %{buildroot}%{_sysconfdir}/xdg/fastfetch/config.jsonc)" = \
 %license senemos-fastfetch-config-1.3.0/LICENSE
 %doc senemos-fastfetch-config-1.3.0/README.md
 %{_bindir}/senemos-fastfetch
-%{_libexecdir}/senemos-fastfetch-value
 %{_sysconfdir}/profile.d/senemos-fastfetch.sh
 %{_sysconfdir}/xdg/fastfetch/config.jsonc
 %{_mandir}/man1/senemos-fastfetch.1*
 %{_datadir}/senemos-fastfetch-config/
 
 %changelog
+* Wed Sep 23 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-2
+- Drop the unreferenced Python Fastfetch value helper and bytecode from the
+  embedded source archive; the documented locale-aware launcher is unchanged.
+- Remove Python from the Fastfetch runtime and source-family build dependency.
+
 * Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-1
 - Consolidate GNOME extensions and Fastfetch into one COPR source family.
 - Preserve all existing binary RPM names and use stock desktop packages.
