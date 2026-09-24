@@ -82,6 +82,10 @@ safe to casually reorder battery-supply teardown while tuning performance.
   invalid CPU count, NUMA, removed protection and wrong CPU policy are rejected.
 - `test-el2-compile.sh`: optional KVM host/VHE/nVHE compilation and identical
   DT/security checks, without claiming hardware EL2 entry.
+- Compiled-DTB gate now also checks four physical speaker endpoints and codec
+  links, absence of the legacy feedback route, synchronous dual DSI, DSI0 as
+  the only master and the Nabu NT36523 panel. Its 23 negative cases reject
+  broken topology; they do not demonstrate audible sound or panel stability.
 - Full RPM: Image, signed compressed modules, DTB, boot dependency, depmod,
   essential-driver/vermagic validation and negative payload tests.
 - Downloaded RPM signature and module signatures checked separately; AArch64

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build-host DTB test only: validate Nabu's existing EL2 prerequisites.
+"""Build-host DTB test only: validate Nabu's EL2, display and audio topology.
 
 This does not change DT, map physical memory or establish firmware EL2 access.
 The small FDT reader uses the public flattened device tree v17 format, avoiding
@@ -14,6 +14,11 @@ import sys
 def cells(raw):
     assert len(raw) % 4 == 0, "unaligned FDT cells"
     return struct.unpack(">" + "I" * (len(raw) // 4), raw)
+
+
+def strings(raw):
+    assert raw.endswith(b"\0"), "unterminated FDT string list"
+    return tuple(value.decode("ascii") for value in raw[:-1].split(b"\0"))
 
 
 def read_dtb(data):
@@ -95,6 +100,37 @@ def validate(nodes):
     bootargs = nodes.get("/chosen", {}).get("bootargs", b"").decode("ascii")
     assert not any(flag in bootargs for flag in ("kvm-arm.mode=", "iommu.passthrough=1", "arm-smmu.disable_bypass=0")), "unvalidated hypervisor/SMMU override"
 
+    # Check the serialized RPM DTB, not only the source DTS. Four codec
+    # phandles and physical DAPM endpoints are needed by the 4ch DSP_A path.
+    sound = nodes["/sound"]
+    assert sound["compatible"] == b"qcom,sm8150-sndcard\0"
+    speakers = ("BR", "TR", "BL", "TL")
+    assert strings(sound["widgets"]) == tuple(
+        item for speaker in speakers for item in ("Speaker", f"{speaker} Speaker")
+    ), "four physical speaker widgets changed"
+    routes = strings(sound["audio-routing"])
+    assert len(routes) % 2 == 0
+    route_pairs = set(zip(routes[::2], routes[1::2]))
+    assert all((f"{speaker} Speaker", f"{speaker} SPK") in route_pairs
+               for speaker in speakers), "four speaker routes changed"
+    assert not any(sink == "MultiMedia1 Playback" and source.endswith(" SPK")
+                   for sink, source in route_pairs), "legacy feedback route returned"
+    assert "playback-only" in nodes["/sound/mm1-dai-link"]
+    amp_links = cells(nodes["/sound/speaker-dai-link/codec"]["sound-dai"])
+    assert len(amp_links) == 8 and len(set(amp_links[::2])) == 4
+    assert amp_links[1::2] == (0, 0, 0, 0), "four amplifier links changed"
+
+    # Nabu uses two synchronous DSI links, with DSI0 as the sole master.
+    display = "/soc@0/display-subsystem@ae00000"
+    dsi0 = nodes[f"{display}/dsi@ae94000"]
+    dsi1 = nodes[f"{display}/dsi@ae96000"]
+    for dsi in (dsi0, dsi1):
+        assert dsi.get("status", b"okay\0") in (b"okay\0", b"ok\0")
+        assert "qcom,dual-dsi-mode" in dsi and "qcom,sync-dual-dsi" in dsi
+    assert "qcom,master-dsi" in dsi0 and "qcom,master-dsi" not in dsi1
+    panel = nodes[f"{display}/dsi@ae94000/panel@0"]
+    assert "xiaomi,nabu-csot-nt36523" in strings(panel["compatible"])
+
 
 def main():
     if len(sys.argv) != 2:
@@ -116,6 +152,13 @@ def main():
         ("/reserved-memory/memory@86200000", "reg", bytes(16)),
         ("/chosen", "bootargs", b"kvm-arm.mode=protected\0"),
         ("/chosen", "bootargs", b"iommu.passthrough=1\0"),
+        ("/sound", "widgets", b"Speaker\0BR Speaker\0"),
+        ("/sound", "audio-routing", b"BR Speaker\0BR SPK\0"),
+        ("/sound/speaker-dai-link/codec", "sound-dai", bytes(4)),
+        ("/soc@0/display-subsystem@ae00000/dsi@ae96000", "status", b"disabled\0"),
+        ("/soc@0/display-subsystem@ae00000/dsi@ae94000", "qcom,sync-dual-dsi", None),
+        ("/soc@0/display-subsystem@ae00000/dsi@ae96000", "qcom,master-dsi", b""),
+        ("/soc@0/display-subsystem@ae00000/dsi@ae94000/panel@0", "compatible", b"other,panel\0"),
     ]
     for path, prop, value in changes:
         modified = copy.deepcopy(nodes)
@@ -136,7 +179,7 @@ def main():
             pass
         else:
             raise AssertionError("malformed FDT accepted")
-    print("PASS: compiled Nabu DTB: 8 PSCI CPUs, SMC, GICv3, timer PPIs, HYP/TZ no-map; 16 negative cases")
+    print("PASS: compiled Nabu DTB: EL2 prerequisites, 4 speakers, dual DSI; 23 negative cases")
 
 
 if __name__ == "__main__":

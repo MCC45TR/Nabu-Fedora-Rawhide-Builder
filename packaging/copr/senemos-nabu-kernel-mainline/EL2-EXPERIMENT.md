@@ -14,14 +14,22 @@ NABU_EL2_EXPERIMENTAL=1 bash build-srpm.sh /absolute/scratch/rpmbuild
 This persists `%bcond nabu_el2 1` in the generated SRPM so an unconfigured COPR
 worker also builds the experimental variant. The source/default spec remains
 production/KVM-disabled. Current experiment: `senemos-nabu-kernel-el2-experimental`
-7.2.7-1; ABI `7.2.7-nabu-senemos-el2-experimental`. No package scripts, automatic
+7.2.7-5; ABI `7.2.7-nabu-senemos-el2-experimental`. No package scripts, automatic
 UKI generation, boot menu edits, daemon, firmware writes or runtime Python.
 The normal mainline kernel remains a dependency; no `Obsoletes` or normal
-kernel-provider capability is exported by the experiment.
-COPR candidate [11026757](https://copr.fedorainfracloud.org/coprs/build/11026757)
-completed successfully in the isolated
-`mcc45tr/nabu-linux:custom:el2727r1` project. Install resolution also needs a
-source for the verified normal 7.2.7 kernel; this candidate is not promoted.
+kernel-provider capability is exported by the experiment. The current source
+uses `7.2.7-5` with the same 159 hardware patches as mainline `7.2.7-9`.
+Its SRPM was published in the isolated `mcc45tr/nabu-linux:custom:kernelopt727r9`
+side repository as [build 11031583](https://copr.fedorainfracloud.org/coprs/build/11031583);
+the Rawhide AArch64 build succeeded. The downloaded RPM passed the COPR GPG
+signature, digest, 540-module ABI/symbol and 540 Image-key signature gates.
+Its Nabu DTB is byte-identical to the normal `7.2.7-9` DTB. A clean AArch64
+DNF plan co-selects both kernel RPMs, without installing either on the tablet.
+The earlier
+[11026757](https://copr.fedorainfracloud.org/coprs/build/11026757) `7.2.7-1`
+candidate completed in the separate `el2727r1` side repository, but does not
+include the latest display, audio and optimization patches. Neither candidate
+is promoted to the default boot path.
 
 ## Work kept in the kernel/DT layer
 
@@ -43,8 +51,8 @@ source for the verified normal 7.2.7 kernel; this candidate is not promoted.
   actual KVM guest on eight emulated host CPUs. The guest init refuses to run
   unless it detects QEMU's `linux,dummy-virt` Device Tree compatible string.
 
-The published AArch64 RPM passed OpenPGP and 540 module signature checks.
-The QEMU tests used the **Image extracted from that signed RPM**: EL1 rejected
+The earlier `7.2.7-1` AArch64 RPM passed OpenPGP and 540 module signature checks.
+The QEMU tests used the **Image extracted from that signed older RPM**: EL1 rejected
 KVM, while both nVHE and VHE produced the expected guest MMIO exit on all eight
 CPUs. Build the disposable initramfs in an AArch64 build environment with
 `g++`, `file`, `cpio`, and `gzip` using
@@ -52,6 +60,10 @@ CPUs. Build the disposable initramfs in an AArch64 build environment with
 `test-el2-qemu.sh EXTRACTED_IMAGE OUTPUT_DIRECTORY/initramfs.cpio.gz LOG_DIRECTORY`
 on a machine with `qemu-system-aarch64`. This tests upstream ARM64 KVM behavior
 under emulation, not Nabu's firmware transition or peripheral ownership.
+The same QEMU test was repeated against the **Image extracted from the signed
+`7.2.7-5` RPM**. EL1 rejected KVM, while nVHE and VHE executed a KVM guest on
+all eight emulated host CPUs. This remains software-only proof, not proof of
+Nabu firmware EL2 access, peripheral DMA ownership or suspend safety.
 
 No DTS hardware values needed changing based on the evidence obtained so far.
 DT validation is a prerequisite check, **not proof that the firmware exposes
