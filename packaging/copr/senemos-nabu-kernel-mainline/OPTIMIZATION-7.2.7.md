@@ -14,10 +14,11 @@ line of upstream Linux has been audited. The latest available 7.2.y release
 checked on kernel.org is 7.2.7. The base is builder commit `4be07c8`, including
 the 156-patch hardware stack and the optional DisplayLink/EL2 packaging.
 This candidate adds patches 0159–0161 (159 actual patches in the series).
-Release 8 also addresses build warnings: a whitespace-only correction to
-legacy patch 0006, GCC for host tools, and isolation of Fedora's GCC-only
-generic CFLAGS from Clang descendants. The kernel and EVDI target compiler
-remains Clang, with KBUILD_CFLAGS unchanged.
+Release 9 also addresses build warnings: a whitespace-only correction to
+legacy patch 0006, GCC for host tools, and filtering of two Fedora GCC-only
+generic CFLAGS options before Clang descendants. The failed release-8 attempt
+to clear the whole variable was removed; libsubcmd's include flags remain.
+The kernel and EVDI target compiler remains Clang, with KBUILD_CFLAGS unchanged.
 
 The tablet was last reported powered off after display/driver failures. No
 new device logs, power measurements or physical boot results were available

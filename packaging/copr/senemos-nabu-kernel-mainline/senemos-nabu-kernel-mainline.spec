@@ -16,10 +16,10 @@ Name:           senemos-nabu-kernel-mainline
 %endif
 Version:        7.2.7
 %if %{with nabu_el2}
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Isolated KVM-ready Nabu kernel; EL2 firmware handoff still required
 %else
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 %endif
 License:        GPL-2.0-only AND MIT
@@ -269,6 +269,12 @@ export KBUILD_BUILD_HOST=copr
 export KBUILD_BUILD_TIMESTAMP='@0'
 export KBUILD_BUILD_VERSION=1
 export LOCALVERSION=
+# Fedora passes GCC-only specs through the generic userspace CFLAGS variable.
+# Remove just those two options: kernel tools append their own include paths to
+# CFLAGS, so replacing the entire variable breaks resolve_btfids/libsubcmd.
+CFLAGS=${CFLAGS//-specs=\/usr\/lib\/rpm\/redhat\/redhat-hardened-cc1/}
+CFLAGS=${CFLAGS//-specs=\/usr\/lib\/rpm\/redhat\/redhat-annobin-cc1/}
+export CFLAGS
 make ARCH=arm64 LLVM=1 HOSTCC=gcc defconfig
 KCONFIG_CONFIG=.config scripts/kconfig/merge_config.sh -m -r \
     .config senemos/configs/nabu-minimal.config
@@ -293,10 +299,7 @@ make ARCH=arm64 LLVM=1 HOSTCC=gcc olddefconfig
 make -s ARCH=arm64 LLVM=1 HOSTCC=gcc syncconfig
 rm -f include/config/kernel.release
 test "$(make -s ARCH=arm64 LLVM=1 HOSTCC=gcc kernelrelease)" = '%{uname_r}'
-# Fedora's generic CFLAGS contains GCC-only -specs options. These must not
-# reach Clang in Kbuild's descendant tools. Kernel hardening is in
-# KBUILD_CFLAGS; the host tools use HOSTCFLAGS with HOSTCC=gcc.
-make ARCH=arm64 LLVM=1 HOSTCC=gcc CFLAGS= KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
+make ARCH=arm64 LLVM=1 HOSTCC=gcc KALLSYMS_EXTRA_PASS=1 %{?_smp_mflags} Image \
     qcom/sm8150-xiaomi-nabu-iris-camera.dtb modules
 # Build EVDI against exactly this kernel's configuration and symbol versions.
 # No DKMS, compiler, headers or third-party signing key is needed on the tablet.
@@ -311,7 +314,7 @@ install -Dm0644 arch/arm64/boot/Image \
     %{buildroot}/boot/vmlinuz-%{uname_r}
 install -Dm0644 System.map %{buildroot}/boot/System.map-%{uname_r}
 install -Dm0644 .config %{buildroot}/boot/config-%{uname_r}
-make ARCH=arm64 LLVM=1 HOSTCC=gcc CFLAGS= modules_install \
+make ARCH=arm64 LLVM=1 HOSTCC=gcc modules_install \
     MODLIB=%{buildroot}%{_prefix}/lib/modules/%{uname_r} DEPMOD=/bin/true
 rm -f %{buildroot}%{_prefix}/lib/modules/%{uname_r}/{build,source}
 install -Dm0644 evdi-%{evdi_version}/module/evdi.ko \
@@ -649,6 +652,13 @@ fi
 %{_prefix}/lib/modules/%{uname_r}/kernel/
 
 %changelog
+* Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-9
+- Remove only two GCC-only RPM specs from generic CFLAGS before Kbuild.
+- Preserve tools/lib/subcmd include flags; release 8's full CFLAGS override
+  failed in COPR while compiling resolve_btfids.
+- Retain target LLVM hardening, host GCC, and the same kernel patch payload.
+- Keep the isolated EL2 variant on release 5 with identical source patches.
+
 * Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-8
 - Keep Fedora's GCC-only generic CFLAGS out of Clang descendant tools in the
   main Kbuild invocation; KBUILD_CFLAGS, HOSTCFLAGS and target hardening stay.
