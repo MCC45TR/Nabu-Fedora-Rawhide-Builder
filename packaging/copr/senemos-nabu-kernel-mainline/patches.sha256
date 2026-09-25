@@ -158,3 +158,4 @@ ea011c215300727a16ff5e1a45de1c562062d0982a3679ab9b9ecb7530908d19  0158-ASoC-qcom
 012d958807b9ab7c198e91d49152f966b510ff55a3e41e9113dbec63003f9aa4  0160-drm-msm-clear-transient-devfreq-boost-when-suspendin.patch
 9751ad09e93a26ba1ca8459cf9e5b366a53582ab522e07b34c3a93d9f2313327  0161-input-nt36523-define-only-the-managed-runtime-attrib.patch
 52e8779bed73834ab35e7edea3be3f8c948f87a77987e2d8d0ce8bd43d5e8ff2  0162-ASoC-qcom-align-Nabu-four-channel-TDM-slots.patch
+682046f2107a037a61d87bf10f1f50448be1617808446bcc72103db7b3ea55d7  0163-ASoC-cs35l41-align-Nabu-slot-width-and-DSP-A-framing.patch

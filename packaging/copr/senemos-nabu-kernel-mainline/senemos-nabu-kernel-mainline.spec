@@ -16,10 +16,10 @@ Name:           senemos-nabu-kernel-mainline
 %endif
 Version:        7.2.7
 %if %{with nabu_el2}
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Isolated KVM-ready Nabu kernel; EL2 firmware handoff still required
 %else
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 %endif
 License:        GPL-2.0-only AND MIT
@@ -41,6 +41,7 @@ Source12:       nabu-displaylink.config
 Source13:       nabu-el2-experimental.config
 Source14:       test-el2-dtb.py
 Source15:       test-kernel-optimization.py
+Source16:       test-audio-framing.py
 Patch0001:      0001-arm64-dts-qcom-add-Xiaomi-Pad-5-Nabu.patch
 Patch0002:      0002-drm-panel-nt36523-add-Xiaomi-Nabu-CSOT-panel.patch
 Patch0003:      0003-senemos-add-Fedora-Rawhide-arm64-build-profile.patch
@@ -201,6 +202,7 @@ Patch0159:      0159-arm64-nabu-size-CPU-masks-for-SM8150-and-drop-NUMA.patch
 Patch0160:      0160-drm-msm-clear-transient-devfreq-boost-when-suspendin.patch
 Patch0161:      0161-input-nt36523-define-only-the-managed-runtime-attrib.patch
 Patch0162:      0162-ASoC-qcom-align-Nabu-four-channel-TDM-slots.patch
+Patch0163:      0163-ASoC-cs35l41-align-Nabu-slot-width-and-DSP-A-framing.patch
 
 BuildRequires:  bc
 BuildRequires:  binutils
@@ -348,6 +350,7 @@ printf '%%s\n' '%{nabu_build_stamp}' > \
 %check
 HOSTCC=clang python3 %{SOURCE7} drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
 HOSTCC=clang python3 %{SOURCE9} .
+HOSTCC=clang python3 %{SOURCE16} .
 HOSTCC=clang python3 %{SOURCE15} . .config arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris-camera.dtb
 bash %{SOURCE8} %{buildroot} '%{uname_r}'
 python3 %{SOURCE14} %{buildroot}%{_prefix}/lib/modules/%{uname_r}/dtb/qcom/sm8150-xiaomi-nabu.dtb
@@ -653,6 +656,14 @@ fi
 %{_prefix}/lib/modules/%{uname_r}/kernel/
 
 %changelog
+* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-11
+- Configure 32-bit CS35L41 TDM slots independently of 24-bit audio words.
+- Align Nabu DT with active-high short DSP_A sync and one-bit data delay.
+- Propagate codec I/O and TDM clock setup errors; test actual codec functions.
+- Supersede release 10, canceled before publication after finding incomplete
+  codec-width and frame-sync handling. Acoustic qualification remains open.
+- Reserve release 6 for the same source in the separate EL2 variant.
+
 * Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-10
 - Align four Nabu CS35L41 receive slots with active four-channel TDM slots.
 - Program DSP_A on every amplifier DAI and propagate format errors.

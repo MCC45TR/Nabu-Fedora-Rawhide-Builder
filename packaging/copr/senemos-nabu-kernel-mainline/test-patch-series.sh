@@ -59,6 +59,7 @@ git -C "$work/linux-$version" am --reject -q "$root"/patches/*.patch
 python3 "$root/test-dsi-pll.py" \
     "$work/linux-$version/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c"
 python3 "$root/test-audio-power.py" "$work/linux-$version"
+python3 "$root/test-audio-framing.py" "$work/linux-$version"
 # Linux 7.2.7 must release runtime PM even when lowering the OPP fails.
 sed -n '/^int iris_disable_power_domains(/,/^}/p' \
     "$work/linux-$version/drivers/media/platform/qcom/iris/iris_resources.c" \
@@ -672,6 +673,7 @@ bash "$root/test-displaylink-compile.sh" "$work/linux-$version" \
 # Compile the changed objects as well as the actual hardware description.
 make -C "$work/linux-$version" O="$work/displaylink-config" ARCH=arm64 LLVM=1 -j8 \
     sound/soc/qcom/sm8150.o \
+    sound/soc/codecs/cs35l41.o \
     drivers/gpu/drm/msm/msm_gpu_devfreq.o \
     drivers/input/touchscreen/nt36523/nt36xxx.o \
     qcom/sm8150-xiaomi-nabu-iris-camera.dtb

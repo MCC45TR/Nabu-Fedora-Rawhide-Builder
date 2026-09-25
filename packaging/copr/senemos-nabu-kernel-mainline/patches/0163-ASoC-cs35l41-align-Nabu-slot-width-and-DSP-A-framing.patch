@@ -1,0 +1,183 @@
+From 24cab967664e7cf8d95b38097b09e5a8d558cf11 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 25 Sep 2026 07:15:00 +0300
+Subject: [PATCH] ASoC: cs35l41: separate sample width from Nabu TDM slot width
+
+Nabu sends 24-bit samples in 32-bit AFE slots at 12.288 MHz. The codec
+previously used params_width for both slot width and word length, so
+nonzero receive slots sampled incorrect bit positions. Add an optional
+set_tdm_slot width override while preserving the existing default for
+other machine drivers. Retain set_channel_map as the channel-position API.
+
+Configure the override for every Nabu amplifier and pair DSP_A with an
+active-high, one-bit frame sync and one-clock data delay. The previous DT
+long/inverted frame sync came from the stereo I2S transport and did not
+match the codec's DSP_A format.
+
+Propagate codec register and CPU clock-setup failures. This does not raise
+gain, enable unverified protection firmware, or change amplifier power
+limits. Hardware playback qualification is still required.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index 5aedaf63e700fbe8be8ae14e8396803597745325..9b2ce3a68974b8289211527d19a6220529edbbc5 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -920,10 +920,11 @@ &pon_resin {
+ &q6afedai {
+ 	dai@72 {
+ 		reg = <QUATERNARY_TDM_RX_0>;
+-		qcom,tdm-sync-mode = <1>;
++		/* DSP_A: active-high one-bit frame sync, data one BCLK later. */
++		qcom,tdm-sync-mode = <0>;
+ 		qcom,tdm-sync-src = <1>;
+ 		qcom,tdm-data-out = <0>;
+-		qcom,tdm-invert-sync = <1>;
++		qcom,tdm-invert-sync = <0>;
+ 		qcom,tdm-data-delay = <1>;
+ 		qcom,tdm-data-align = <0>;
+ 	};
+diff --git a/sound/soc/codecs/cs35l41.c b/sound/soc/codecs/cs35l41.c
+index 7f41e36f22136449addb5e381ab5be44345d5f84..80d6a13d9356ed40fad68dcb9e64cc3d826df3ab 100644
+--- a/sound/soc/codecs/cs35l41.c
++++ b/sound/soc/codecs/cs35l41.c
+@@ -796,14 +796,37 @@ static const struct cs35l41_global_fs_config cs35l41_fs_rates[] = {
+ 	{ 32000,	0x13 },
+ };
+ 
++static int cs35l41_set_tdm_slot(struct snd_soc_dai *dai,
++			      unsigned int tx_mask, unsigned int rx_mask,
++			      int slots, int slot_width)
++{
++	struct cs35l41_private *cs35l41 = snd_soc_component_get_drvdata(dai->component);
++
++	if (!slots && !slot_width && !tx_mask && !rx_mask) {
++		cs35l41->tdm_width = 0;
++		return 0;
++	}
++
++	if (slots < 1 || slots > 32 ||
++	    (slot_width != 16 && slot_width != 24 && slot_width != 32))
++		return -EINVAL;
++	if ((tx_mask | rx_mask) & ~GENMASK(slots - 1, 0))
++		return -EINVAL;
++
++	/* Channel positions remain configured by .set_channel_map. */
++	cs35l41->tdm_width = slot_width;
++
++	return 0;
++}
++
+ static int cs35l41_pcm_hw_params(struct snd_pcm_substream *substream,
+ 				 struct snd_pcm_hw_params *params,
+ 				 struct snd_soc_dai *dai)
+ {
+ 	struct cs35l41_private *cs35l41 = snd_soc_component_get_drvdata(dai->component);
+ 	unsigned int rate = params_rate(params);
+-	u8 asp_wl;
+-	int i;
++	unsigned int asp_wl, asp_width;
++	int i, ret;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(cs35l41_fs_rates); i++) {
+ 		if (rate == cs35l41_fs_rates[i].rate)
+@@ -816,28 +839,35 @@ static int cs35l41_pcm_hw_params(struct snd_pcm_substream *substream,
+ 	}
+ 
+ 	asp_wl = params_width(params);
++	asp_width = cs35l41->tdm_width ? cs35l41->tdm_width : asp_wl;
++	if (asp_width < asp_wl)
++		return -EINVAL;
+ 
+-	regmap_update_bits(cs35l41->regmap, CS35L41_GLOBAL_CLK_CTRL,
++	ret = regmap_update_bits(cs35l41->regmap, CS35L41_GLOBAL_CLK_CTRL,
+ 			   CS35L41_GLOBAL_FS_MASK,
+ 			   cs35l41_fs_rates[i].fs_cfg << CS35L41_GLOBAL_FS_SHIFT);
++	if (ret < 0)
++		return ret;
+ 
+ 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+-		regmap_update_bits(cs35l41->regmap, CS35L41_SP_FORMAT,
++		ret = regmap_update_bits(cs35l41->regmap, CS35L41_SP_FORMAT,
+ 				   CS35L41_ASP_WIDTH_RX_MASK,
+-				   asp_wl << CS35L41_ASP_WIDTH_RX_SHIFT);
+-		regmap_update_bits(cs35l41->regmap, CS35L41_SP_RX_WL,
++				   asp_width << CS35L41_ASP_WIDTH_RX_SHIFT);
++		if (ret < 0)
++			return ret;
++		return regmap_update_bits(cs35l41->regmap, CS35L41_SP_RX_WL,
+ 				   CS35L41_ASP_RX_WL_MASK,
+ 				   asp_wl << CS35L41_ASP_RX_WL_SHIFT);
+ 	} else {
+-		regmap_update_bits(cs35l41->regmap, CS35L41_SP_FORMAT,
++		ret = regmap_update_bits(cs35l41->regmap, CS35L41_SP_FORMAT,
+ 				   CS35L41_ASP_WIDTH_TX_MASK,
+-				   asp_wl << CS35L41_ASP_WIDTH_TX_SHIFT);
+-		regmap_update_bits(cs35l41->regmap, CS35L41_SP_TX_WL,
++				   asp_width << CS35L41_ASP_WIDTH_TX_SHIFT);
++		if (ret < 0)
++			return ret;
++		return regmap_update_bits(cs35l41->regmap, CS35L41_SP_TX_WL,
+ 				   CS35L41_ASP_TX_WL_MASK,
+ 				   asp_wl << CS35L41_ASP_TX_WL_SHIFT);
+ 	}
+-
+-	return 0;
+ }
+ 
+ static int cs35l41_get_clk_config(int freq)
+@@ -999,6 +1029,7 @@ static void cs35l41_component_remove(struct snd_soc_component *component)
+ 
+ static const struct snd_soc_dai_ops cs35l41_ops = {
+ 	.set_fmt = cs35l41_set_dai_fmt,
++	.set_tdm_slot = cs35l41_set_tdm_slot,
+ 	.hw_params = cs35l41_pcm_hw_params,
+ 	.set_sysclk = cs35l41_dai_set_sysclk,
+ 	.set_channel_map = cs35l41_set_channel_map,
+diff --git a/sound/soc/codecs/cs35l41.h b/sound/soc/codecs/cs35l41.h
+index c85cbc1dd333b7cc926443b23524eddeac7bd3f0..382d958e574a35d5246014e9f2724437c909034d 100644
+--- a/sound/soc/codecs/cs35l41.h
++++ b/sound/soc/codecs/cs35l41.h
+@@ -29,6 +29,7 @@ struct cs35l41_private {
+ 	struct cs35l41_hw_cfg hw_cfg;
+ 	struct device *dev;
+ 	struct regmap *regmap;
++	unsigned int tdm_width;
+ 	struct regulator_bulk_data supplies[CS35L41_NUM_SUPPLIES];
+ 	int irq;
+ 	/* GPIO for /RST */
+diff --git a/sound/soc/qcom/sm8150.c b/sound/soc/qcom/sm8150.c
+index 43277f9b19f9e25218e7ce655d8df91176b72f88..30ce27a882fb288e63e14c8d869cd89f38842369 100644
+--- a/sound/soc/qcom/sm8150.c
++++ b/sound/soc/qcom/sm8150.c
+@@ -188,6 +188,12 @@ static int sm8150_tdm_snd_hw_params(struct snd_pcm_substream *substream,
+ 		}
+ 
+ 		/* setup channel map */
++		ret = snd_soc_dai_set_tdm_slot(codec_dai, 0,
++				BIT(cs35l41_tdm_channel_map[j].rx[0]),
++				8, slot_width);
++		if (ret < 0)
++			return ret;
++
+ 		ret = snd_soc_dai_set_channel_map(codec_dai, 0, NULL,
+ 						  ARRAY_SIZE(cs35l41_tdm_channel_map[j].rx),
+ 						  (unsigned int *)cs35l41_tdm_channel_map[j].rx);
+@@ -319,11 +325,14 @@ static int sm8150_snd_startup(struct snd_pcm_substream *substream)
+ 	switch (cpu_dai->id) {
+ 	case QUATERNARY_TDM_RX_0:
+ 		codec_dai_fmt |= SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_DSP_A;
+-		if (++(data->quat_tdm_clk_count) == 1) {
+-			snd_soc_dai_set_sysclk(cpu_dai,
++		if (!data->quat_tdm_clk_count) {
++			ret = snd_soc_dai_set_sysclk(cpu_dai,
+ 				Q6AFE_LPASS_CLK_ID_QUAD_TDM_IBIT,
+ 				12288000, SNDRV_PCM_STREAM_PLAYBACK);
++			if (ret < 0)
++				return ret;
+ 		}
++		data->quat_tdm_clk_count++;
+ 		/* q6tdm has no .set_fmt; DT supplies AFE framing instead. */
+ 		ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
+ 		if (ret < 0 && ret != -ENOTSUPP)
