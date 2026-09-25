@@ -3,7 +3,7 @@
 
 Name:           nabu-boot-integration
 Version:        2.0.0
-Release:        47.test%{?dist}
+Release:        48.test%{?dist}
 Summary:        Unified UKI infrastructure for Xiaomi Pad 5 (nabu)
 License:        MIT AND BSD-2-Clause
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -331,6 +331,11 @@ fi
 %{_datadir}/plymouth/themes/senemos-nabu/
 
 %changelog
+* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-48.test
+- Select the rEFInd default by its visible manual-entry title rather than
+  the EFI filename, preserving an explicit known-good fallback menu entry.
+- Exercise a user-owned recovery include in the boot-manager regression test.
+
 * Mon Sep 21 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-47.test
 - Refuse mainline UKI generation when essential network, touchscreen, panel
   or remoteproc modules are missing or belong to another kernel ABI.
