@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           nabu-core-base
 Version:        1.1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Kernel-independent operating-system and hardware stack for Nabu
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -14,7 +14,6 @@ Requires:       nabu-boot-manager
 Requires:       nabu-system-integration >= 2.0.0-5.test
 Requires:       hexagonrpc-nabu
 Requires:       libssc-nabu
-Requires:       python3-ssc-nabu
 Requires:       iio-sensor-proxy-nabu
 Requires:       senemos-nabu-plymouth >= 1.0.0-5.test
 Provides:       nabu-core = %{version}-%{release}

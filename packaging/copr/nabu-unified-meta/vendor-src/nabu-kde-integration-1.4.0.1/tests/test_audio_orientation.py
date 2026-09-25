@@ -20,5 +20,13 @@ class NativeAudioOrientationTests(unittest.TestCase):
     def test_binary_is_native_elf(self):
         self.assertEqual(BINARY.read_bytes()[:4], b"\x7fELF")
 
+    def test_stereo_bypasses_filter_and_unrelated_cards_are_ignored(self):
+        env = os.environ.copy()
+        env.pop("NABU_AUDIO_TARGET", None)
+        result = subprocess.run([BINARY, "--self-test-targets"], env=env,
+                                check=True, text=True, capture_output=True)
+        self.assertEqual(result.stdout.strip(),
+                         "stereo=direct legacy=filter unrelated=ignored")
+
 if __name__ == "__main__":
     unittest.main()

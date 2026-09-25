@@ -2,7 +2,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        96%{?dist}
+Release:        97%{?dist}
 %global legacy_meta_max %{version}-%{release}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
@@ -132,6 +132,8 @@ Provides:       nabu-runtime-integration = %{version}-%{release}
 Provides:       nabu-core-config = %{version}-%{release}
 Provides:       nabu-device-config = %{version}-%{release}
 Provides:       nabu-audio-config = %{version}-%{release}
+Conflicts:      kde-plasma-nabu-meta < 3.0.0-111
+Conflicts:      kde-plasma-mobile-nabu-meta < 3.0.0-111
 Provides:       nabu-flashlight-integration = %{version}-%{release}
 Provides:       nabu-flashlight-integration = 1.0.0-10.fc46
 Provides:       nabu-flashlight-integration = 1.0.0-14.fc46
@@ -351,6 +353,12 @@ grep -Fq 'node.hidden = true' %{SOURCE29}
 (cd system-integration && bash tests/test-ssh-host-key-guard.sh)
 (cd system-integration && bash tests/test-update-recovery-policy.sh)
 (cd system-integration && %{python3} tests/test-tuned-profiles.py)
+# Build-time tests may use Python; no Python payload may reach the tablet.
+test -z "$(find %{buildroot} -type f \( -name '*.py' -o -name '*.pyc' \) -print -quit)"
+if grep -rIlE '^#!.*(python|pypy)' %{buildroot} | grep -q .; then
+    echo 'Python runtime helper entered nabu-core-meta' >&2
+    exit 1
+fi
 bash -n system-integration/runtime/senemos-nabu-status
 udevadm verify %{buildroot}%{_udevrulesdir}/99-libinput-calibration-matrix.rules
 udevadm verify %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
@@ -547,6 +555,12 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-97
+- Select stereo I2S from ALSA components while preserving the four-channel
+  fallback UCM profile and conservative direct-ASP gain.
+- Keep the native two-channel speaker sink visible and require matching KDE
+  integration so an obsolete four-channel filter cannot swallow playback.
+
 * Tue Sep 22 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-96
 - Add an explicitly selected Arch reference gain UCM modifier with rollback.
 - Keep default gain conservative and preserve four-channel playback.

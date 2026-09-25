@@ -13,8 +13,17 @@ int main(int argc, char **argv) {
     assert(snd_config_load(root, input) >= 0);
     snd_input_close(input);
     assert(snd_config_search(root, "SectionDevice.Speaker.Value.PlaybackChannels", &node) >= 0);
+    const char *channelVariable = nullptr;
+    assert(snd_config_get_string(node, &channelVariable) >= 0);
+    assert(!strcmp(channelVariable, "${var:SpeakerChannels}"));
     long channels = 0;
+    assert(snd_config_search(root, "Define.SpeakerChannels", &node) >= 0);
     assert(snd_config_get_integer(node, &channels) >= 0 && channels == 4);
+    assert(snd_config_search(root, "If.stereo-transport.True.Define.SpeakerChannels", &node) >= 0);
+    assert(snd_config_get_integer(node, &channels) >= 0 && channels == 2);
+    assert(snd_config_search(root, "If.stereo-transport.Condition.Needle", &node) >= 0);
+    const char *component = nullptr;
+    assert(snd_config_get_string(node, &component) >= 0 && !strcmp(component, "cfg-spk:2"));
     for (const auto &sequence : {std::string("EnableSequence"), std::string("DisableSequence")}) {
         const auto path = "SectionModifier.ArchReferenceGain." + sequence;
         assert(snd_config_search(root, path.c_str(), &node) >= 0);

@@ -19,6 +19,7 @@
 namespace {
 constexpr auto kSink = "nabu_screen_speakers";
 constexpr auto kPlayback = "playback.nabu_screen_speakers";
+constexpr auto kHardware = "alsa_output.platform-sound.HiFi__Speaker__sink";
 const QStringList kPositions{"FL", "FR", "RL", "RR"};
 const QMap<int, QStringList> kRotationMap{
     {1, {"FL", "FR", "RL", "RR"}}, {2, {"RL", "FL", "RR", "FR"}},
@@ -80,15 +81,27 @@ QString discoverTarget(const QJsonArray &objects) {
         const auto p = props(node); const QString name = p.value("node.name").toString();
         if (!configured.isEmpty()) { if (name == configured) return name; continue; }
         if (p.value("media.class").toString() != "Audio/Sink" || p.value("device.api").toString() != "alsa" || !name.startsWith("alsa_output.")) continue;
-        if (p.value("audio.channels").toVariant().toInt() != 4) continue;
+        if (name != kHardware) continue;
+        const int channels = p.value("audio.channels").toVariant().toInt();
+        if (channels != 2 && channels != 4) continue;
         const QString positions = p.value("audio.position").toVariant().toString();
-        bool complete = true; for (const auto &position : kPositions) complete &= positions.contains(position);
+        const QStringList required = channels == 2 ? QStringList{"FL", "FR"} : kPositions;
+        bool complete = true; for (const auto &position : required) complete &= positions.contains(position);
         if (!complete) continue;
         const QString description = (p.value("node.description").toString() + ' ' + p.value("device.profile.description").toString() + ' ' + p.value("node.nick").toString()).toLower();
         candidates.append({description.contains("speaker") ? 1 : 0, name});
     }
     std::sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b) { return a > b; });
     return candidates.isEmpty() ? QString{} : candidates.constFirst().second;
+}
+
+bool stereoTarget(const QJsonArray &objects, const QString &target) {
+    for (const auto &node : nodes(objects)) {
+        const auto p = props(node);
+        if (p.value("node.name").toString() == target)
+            return p.value("audio.channels").toVariant().toInt() == 2;
+    }
+    return false;
 }
 
 int kwinRotation() {
@@ -223,11 +236,31 @@ int selfTest() {
     }
     return seen.size() == 4 ? 0 : 1;
 }
+
+int targetSelfTest() {
+    auto node = [](const char *name, int channels, const char *positions) {
+        return QJsonObject{{"type", "PipeWire:Interface:Node"},
+            {"info", QJsonObject{{"props", QJsonObject{
+                {"node.name", name}, {"media.class", "Audio/Sink"},
+                {"device.api", "alsa"}, {"audio.channels", channels},
+                {"audio.position", positions}}}}}};
+    };
+    const auto usb = node("alsa_output.usb-test", 4, "[ FL FR RL RR ]");
+    if (!discoverTarget(QJsonArray{usb}).isEmpty()) return 1;
+    const QJsonArray stereo{usb, node(kHardware, 2, "[ FL FR ]")};
+    const QJsonArray legacy{usb, node(kHardware, 4, "[ FL FR RL RR ]")};
+    if (discoverTarget(stereo) != kHardware || !stereoTarget(stereo, kHardware)) return 1;
+    if (discoverTarget(legacy) != kHardware || stereoTarget(legacy, kHardware)) return 1;
+    if (!discoverTarget(QJsonArray{node(kHardware, 2, "[ MONO ]")}).isEmpty()) return 1;
+    QTextStream(stdout) << "stereo=direct legacy=filter unrelated=ignored\n";
+    return 0;
+}
 }
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     if (app.arguments().contains("--self-test")) return selfTest();
+    if (app.arguments().contains("--self-test-targets")) return targetSelfTest();
     std::signal(SIGINT, stopHandler); std::signal(SIGTERM, stopHandler);
     const double poll = envDouble("NABU_AUDIO_POLL_SECONDS", 1.0, 0.25);
     const double settle = envDouble("NABU_AUDIO_ROTATION_SETTLE_SECONDS", 1.5, 0.0);
@@ -236,15 +269,29 @@ int main(int argc, char **argv) {
     QElapsedTimer clock; clock.start(); QProcess filter;
     const QString config = qEnvironmentVariable("NABU_AUDIO_FILTER_CONFIG", "/usr/share/senemos-nabu/nabu-speaker-filter-chain.conf");
     while (running.load()) {
+        const qint64 now = clock.elapsed();
+        if (now >= nextRefresh) {
+            const auto objects = pipewireObjects();
+            target = discoverTarget(objects);
+            if (!target.isEmpty() && stereoTarget(objects, target)) {
+                if (filter.state() != QProcess::NotRunning) {
+                    filter.terminate();
+                    if (!filter.waitForFinished(3000)) { filter.kill(); filter.waitForFinished(1000); }
+                }
+                log("stereo I2S backend: use the native ALSA sink; no orientation filter required");
+                return 0;
+            }
+            nextRefresh = now + (target.isEmpty() ? 1000 : qint64(refresh * 1000));
+        }
+        if (target.isEmpty()) { QThread::msleep(unsigned(poll * 1000)); continue; }
         if (filter.state() == QProcess::NotRunning) {
             filter.start("pipewire", {"-c", config});
             try { if (!filter.waitForStarted(5000)) throw std::runtime_error("speaker filter could not start"); const int sink = waitForFilter(filter); selectSink(sink); log(QStringLiteral("persistent sink ready sink-id=%1").arg(sink)); }
             catch (const std::exception &error) { log(error.what()); filter.kill(); filter.waitForFinished(1000); QThread::msleep(2000); continue; }
             active = 0; activeTarget.clear(); nextRefresh = 0;
         }
-        const qint64 now = clock.elapsed(); const int rotation = screenRotation();
+        const int rotation = screenRotation();
         if (kRotationMap.contains(rotation) && rotation != candidate) { candidate = rotation; candidateSince = now; }
-        if (now >= nextRefresh) { target = discoverTarget(pipewireObjects()); nextRefresh = now + qint64(refresh * 1000); }
         const bool ready = kRotationMap.contains(candidate) && (active == 0 || now - candidateSince >= qint64(settle * 1000));
         if (!target.isEmpty() && ready && (target != activeTarget || candidate != active)) {
             try { reconcile(target, candidate); active = candidate; activeTarget = target; }
