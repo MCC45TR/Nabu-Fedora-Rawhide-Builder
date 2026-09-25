@@ -16,10 +16,10 @@ Name:           senemos-nabu-kernel-mainline
 %endif
 Version:        7.2.7
 %if %{with nabu_el2}
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Isolated KVM-ready Nabu kernel; EL2 firmware handoff still required
 %else
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 %endif
 License:        GPL-2.0-only AND MIT
@@ -203,6 +203,7 @@ Patch0160:      0160-drm-msm-clear-transient-devfreq-boost-when-suspendin.patch
 Patch0161:      0161-input-nt36523-define-only-the-managed-runtime-attrib.patch
 Patch0162:      0162-ASoC-qcom-align-Nabu-four-channel-TDM-slots.patch
 Patch0163:      0163-ASoC-cs35l41-align-Nabu-slot-width-and-DSP-A-framing.patch
+Patch0164:      0164-ASoC-qcom-nabu-use-proven-stereo-I2S-speaker-transport.patch
 
 BuildRequires:  bc
 BuildRequires:  binutils
@@ -228,6 +229,7 @@ BuildRequires:  xz
 BuildRequires:  zstd
 Requires:       nabu-kernel-maintenance-api >= 7
 Requires:       nabu-boot-integration >= 2.0.0-47.test
+Requires:       nabu-audio-config >= 3.0.0-97
 %if %{with nabu_el2}
 Requires:       senemos-nabu-kernel-mainline >= %{version}
 Provides:       kernel-nabu-el2-experimental-uname-r
@@ -656,6 +658,13 @@ fi
 %{_prefix}/lib/modules/%{uname_r}/kernel/
 
 %changelog
+* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-12
+- Restore the device-proven two-channel I2S AFE mask and four-amplifier
+  channel map from the Arch Nabu kernel after 7.2.7-11 was physically silent.
+- Preserve four codec format checks, DAPM and clock error handling, direct-ASP
+  conservative gain, and boot fallback. Four-speaker HIL remains required.
+- Share source with the opt-in isolated EL2 variant at release 7.
+
 * Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-11
 - Configure 32-bit CS35L41 TDM slots independently of 24-bit audio words.
 - Align Nabu DT with active-high short DSP_A sync and one-bit data delay.

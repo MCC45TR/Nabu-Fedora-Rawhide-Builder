@@ -1,0 +1,127 @@
+From 34d3a81d1e04c6c4a2fdabdb8812e3c6a6cf0001 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 25 Sep 2026 21:30:00 +0300
+Subject: [PATCH] ASoC: qcom: use Nabu's proven stereo I2S speaker transport
+
+The four-channel DSP_A experiment enumerated and powered all four Nabu
+CS35L41 amplifiers on 7.2.7-11, but physical playback was silent. The
+Nabu Arch kernel instead uses two backend PCM channels, a non-contiguous
+AFE slot mask, and I2S framing to feed all four physical amps.
+
+Match the reference's effective DSP packet, not just its DT text: that
+kernel does not parse invert-sync or data-delay from DT, and both packet
+fields remain zero. Our driver does parse them, so explicitly set zero.
+
+Describe two PCM channels and four amps through ALSA's standard components
+string, so UCM can choose this transport while keeping older kernels usable.
+
+Follow that device-specific transport while retaining the newer kernel's
+error handling and conservative gain/protection policy. Do not force the
+DSP_A-only codec slot-width override: the working I2S path programs its
+codec word length from the 24-bit PCM sample, as before that experiment.
+
+This is a candidate for physical four-speaker and thermal validation; it
+does not by itself establish safe speaker protection or acoustic quality.
+
+Reference: Kumar-Jy/linux-nabu fe755bd sound/soc/qcom/sm8150.c
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts |  5 ++--
+ sound/soc/qcom/sm8150.c                         | 30 ++++++++++--------------
+ 2 files changed, 15 insertions(+), 20 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -920,10 +920,9 @@ &pon_resin {
+ &q6afedai {
+ 	dai@72 {
+ 		reg = <QUATERNARY_TDM_RX_0>;
+-		/* DSP_A: active-high one-bit frame sync, data one BCLK later. */
+-		qcom,tdm-sync-mode = <0>;
++		qcom,tdm-sync-mode = <1>;
+ 		qcom,tdm-sync-src = <1>;
+ 		qcom,tdm-data-out = <0>;
+ 		qcom,tdm-invert-sync = <0>;
+-		qcom,tdm-data-delay = <1>;
++		qcom,tdm-data-delay = <0>;
+ 		qcom,tdm-data-align = <0>;
+diff --git a/sound/soc/qcom/sm8150.c b/sound/soc/qcom/sm8150.c
+--- a/sound/soc/qcom/sm8150.c
++++ b/sound/soc/qcom/sm8150.c
+@@ -39,8 +39,8 @@ static unsigned int tdm_slot_offset[8] = {0, 4, 8, 12, 16, 20, 24, 28};
+ static const struct {
+ 	unsigned int rx[1];
+ } cs35l41_tdm_channel_map[] = {
+-	{.rx = {3}}, /* BR: rear right */
+-	{.rx = {1}}, /* TR: front right */
+-	{.rx = {2}}, /* BL: rear left */
+-	{.rx = {0}}, /* TL: front left */
++	{.rx = {6}}, /* BR */
++	{.rx = {7}}, /* TR */
++	{.rx = {6}}, /* BL */
++	{.rx = {7}}, /* TL */
+ };
+@@ -56,6 +56,6 @@ static int sm8150_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+ 	struct snd_mask *fmt = hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT);
+ 
+ 	rate->min = rate->max = 48000;
+-	channels->min = channels->max = 4;
++	channels->min = channels->max = 2;
+ 	snd_mask_none(fmt);
+ 	snd_mask_set_format(fmt, SNDRV_PCM_FORMAT_S24_LE);
+@@ -128,10 +128,10 @@ static int sm8150_tdm_snd_hw_params(struct snd_pcm_substream *substream,
+ 	}
+ 
+ 	channels = params_channels(params);
+-	/* AFE transmits channels 0-3 in slots 0-3; every amplifier must listen
+-	 * to one of those active slots.  Do not map a codec to an idle slot.
++	/* Nabu's two-channel I2S transport uses AFE slots 2 and 6. Each
++	 * physical amplifier then selects its device-specific ASP slot.
+ 	 */
+-	if (channels != ARRAY_SIZE(cs35l41_tdm_channel_map))
++	if (channels != 2)
+ 		return -EINVAL;
+-	slot_mask = GENMASK(channels - 1, 0);
++	slot_mask = BIT(2) | BIT(6);
+ 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+@@ -178,6 +178,7 @@ static int sm8150_tdm_snd_hw_params(struct snd_pcm_substream *substream,
+ 	}
+ 
+ 	for_each_rtd_codec_dais(rtd, j, codec_dai) {
++		/* Nabu has exactly four CS35L41 devices in DT order. */
+ 		if (j >= ARRAY_SIZE(cs35l41_tdm_channel_map)) {
+ 			dev_err(rtd->dev, "unexpected Nabu amplifier count\n");
+ 			return -EINVAL;
+@@ -206,11 +207,5 @@ static int sm8150_tdm_snd_hw_params(struct snd_pcm_substream *substream,
+ 		}
+ 
+ 		/* setup channel map */
+-		ret = snd_soc_dai_set_tdm_slot(codec_dai, 0,
+-				BIT(cs35l41_tdm_channel_map[j].rx[0]),
+-				8, slot_width);
+-		if (ret < 0)
+-			return ret;
+-
+ 		ret = snd_soc_dai_set_channel_map(codec_dai, 0, NULL,
+ 						  ARRAY_SIZE(cs35l41_tdm_channel_map[j].rx),
+@@ -325,5 +320,5 @@ static int sm8150_snd_startup(struct snd_pcm_substream *substream)
+ 	switch (cpu_dai->id) {
+ 	case QUATERNARY_TDM_RX_0:
+-		codec_dai_fmt |= SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_DSP_A;
++		codec_dai_fmt |= SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_I2S;
+ 		if (!data->quat_tdm_clk_count) {
+ 			ret = snd_soc_dai_set_sysclk(cpu_dai,
+@@ -548,6 +543,10 @@ static int sm8150_platform_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		return ret;
+ 
++	/* ALSA UCM can distinguish this transport from older four-channel BEs. */
++	if (of_machine_is_compatible("xiaomi,nabu"))
++		card->components = "spk:cs35l41 cfg-spk:2 cfg-amp:4";
++
+ 	data->card = card;
+ 	snd_soc_card_set_drvdata(card, data);
+ 
+-- 
+2.51.0

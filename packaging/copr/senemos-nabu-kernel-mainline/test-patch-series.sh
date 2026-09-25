@@ -451,7 +451,7 @@ grep -Fq 'MODULE_DEVICE_TABLE(of, ov13b10_of_match);' \
     "$work/linux-$version/drivers/media/i2c/ov13b10.c"
 grep -A10 -F '&q6afedai {' \
     "$work/linux-$version/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts" \
-    | grep -Fq 'qcom,tdm-data-delay = <1>;'
+    | grep -Fq 'qcom,tdm-data-delay = <0>;'
 grep -Fq 'u8 wm, dma_addr_t addr,' \
     "$work/linux-$version/drivers/media/platform/qcom/camss/camss-vfe.h"
 grep -A4 -F 'case CAMSS_845:' \

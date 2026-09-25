@@ -101,7 +101,7 @@ def validate(nodes):
     assert not any(flag in bootargs for flag in ("kvm-arm.mode=", "iommu.passthrough=1", "arm-smmu.disable_bypass=0")), "unvalidated hypervisor/SMMU override"
 
     # Check the serialized RPM DTB, not only the source DTS. Four codec
-    # phandles and physical DAPM endpoints are needed by the 4ch DSP_A path.
+    # Stereo PCM still needs all four amplifier phandles and DAPM endpoints.
     sound = nodes["/sound"]
     assert sound["compatible"] == b"qcom,sm8150-sndcard\0"
     speakers = ("BR", "TR", "BL", "TL")

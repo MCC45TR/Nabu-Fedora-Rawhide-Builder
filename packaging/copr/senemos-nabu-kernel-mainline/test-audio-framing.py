@@ -13,10 +13,15 @@ header = (tree / "include/sound/cs35l41.h").read_text()
 machine = (tree / "sound/soc/qcom/sm8150.c").read_text()
 dts = (tree / "arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts").read_text()
 port = dts.split("reg = <QUATERNARY_TDM_RX_0>;", 1)[1].split("};", 1)[0]
-for name, value in (("sync-mode", 0), ("sync-src", 1), ("invert-sync", 0),
-                    ("data-delay", 1), ("data-align", 0)):
+# Arch's DT says invert/delay=1, but its driver ignores both properties and
+# sends zeros. Match its effective AFE packet using our explicit properties.
+for name, value in (("sync-mode", 1), ("sync-src", 1), ("invert-sync", 0),
+                    ("data-delay", 0), ("data-align", 0)):
     assert f"qcom,tdm-{name} = <{value}>;" in port
-assert "snd_soc_dai_set_tdm_slot(codec_dai, 0," in machine
+assert "snd_soc_dai_set_tdm_slot(codec_dai, 0," not in machine
+assert "snd_soc_dai_set_tdm_slot(cpu_dai, 0, slot_mask," in machine
+assert "SND_SOC_DAIFMT_I2S" in machine
+assert "slot_mask = BIT(2) | BIT(6);" in machine
 assert ".set_tdm_slot = cs35l41_set_tdm_slot," in codec
 assert "unsigned int tdm_width;" in (tree / "sound/soc/codecs/cs35l41.h").read_text()
 
@@ -119,7 +124,7 @@ int main(void) {
     }
     assert(!cs35l41_set_tdm_slot(&dai, 0, 0, 0, 0));
     assert(priv.tdm_width == 0);
-    puts("PASS: actual CS35L41 24-in-32 setup, legacy/reset, RX/TX, invalid inputs, I2C faults");
+    puts("PASS: actual CS35L41 I2S sample width and optional 24-in-32 override, RX/TX, invalid inputs, I2C faults");
     return 0;
 }
 '''
