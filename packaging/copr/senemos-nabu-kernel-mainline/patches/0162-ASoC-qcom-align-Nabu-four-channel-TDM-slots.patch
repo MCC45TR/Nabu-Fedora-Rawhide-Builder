@@ -1,0 +1,104 @@
+From 893e61a77b5d749921833663c479bcbf61d192b4 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 25 Sep 2026 07:00:00 +0300
+Subject: [PATCH 162/162] ASoC: qcom: align Nabu four-channel TDM slots
+
+The Nabu backend enables the first four 32-bit slots of its eight-slot
+frame, but the CS35L41 codecs were listening on slots 4 and 5.  No PCM
+sample is transmitted in those slots.  Use one distinct active slot for
+each physical amplifier, preserving the four-channel AFE format and the
+DSP_A frame mode.  The channel order follows ALSA FL, FR, RL, RR.
+
+Set the DAI format on every codec in the backend, not only codec 0.  Leave
+the conservative analog gain and protection-DSP controls unchanged until
+hardware playback and thermal behavior are separately verified.
+
+This is a candidate for physical validation, not a claim that the four
+speakers have passed an acoustic test.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ sound/soc/qcom/sm8150.c | 42 +++++++++++++++++++++++++++++++-----------
+ 1 file changed, 31 insertions(+), 11 deletions(-)
+
+diff --git a/sound/soc/qcom/sm8150.c b/sound/soc/qcom/sm8150.c
+index 484d540e88c2..37eac81ee648 100644
+--- a/sound/soc/qcom/sm8150.c
++++ b/sound/soc/qcom/sm8150.c
+@@ -39,8 +39,8 @@ static unsigned int tdm_slot_offset[8] = {0, 4, 8, 12, 16, 20, 24, 28};
+ static const struct {
+ 	unsigned int rx[1];
+ } cs35l41_tdm_channel_map[] = {
+-	{.rx = {5}}, /* BR: right ASP channel */
+-	{.rx = {5}}, /* TR: right ASP channel */
+-	{.rx = {4}}, /* BL: left ASP channel */
+-	{.rx = {4}}, /* TL: left ASP channel */
++	{.rx = {3}}, /* BR: rear right */
++	{.rx = {1}}, /* TR: front right */
++	{.rx = {2}}, /* BL: rear left */
++	{.rx = {0}}, /* TL: front left */
+ };
+@@ -124,9 +124,9 @@ static int sm8150_tdm_snd_hw_params(struct snd_pcm_substream *substream,
+ 	}
+ 
+ 	channels = params_channels(params);
+-	/* Keep the four-channel AFE format accepted by the Nabu ADSP.  Split the
+-	 * amplifiers between ASP slot positions 4 and 5 so the direct-ASP route
+-	 * can identify the two physical speaker pairs without the Android-only
+-	 * protection DSP Channel Swap control.
++	/* AFE transmits channels 0-3 in slots 0-3; every amplifier must listen
++	 * to one of those active slots.  Do not map a codec to an idle slot.
+ 	 */
++	if (channels != ARRAY_SIZE(cs35l41_tdm_channel_map))
++		return -EINVAL;
+ 	slot_mask = GENMASK(channels - 1, 0);
+@@ -177,5 +177,10 @@ static int sm8150_tdm_snd_hw_params(struct snd_pcm_substream *substream,
+ 	}
+ 
+ 	for_each_rtd_codec_dais(rtd, j, codec_dai) {
++		if (j >= ARRAY_SIZE(cs35l41_tdm_channel_map)) {
++			dev_err(rtd->dev, "unexpected Nabu amplifier count\n");
++			return -EINVAL;
++		}
++
+ 		/* call dai driver's set_sysclk() callback */
+ 		ret = snd_soc_dai_set_sysclk(codec_dai, 0,
+@@ -304,6 +304,7 @@ static int sm8150_snd_startup(struct snd_pcm_substream *substream)
+ 	struct sm8150_snd_data *data = snd_soc_card_get_drvdata(card);
+ 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
+-	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
++	struct snd_soc_dai *codec_dai;
++	int i, ret;
+ 
+ 	switch (cpu_dai->id) {
+ 	case QUATERNARY_TDM_RX_0:
+@@ -315,8 +315,15 @@ static int sm8150_snd_startup(struct snd_pcm_substream *substream)
+ 				Q6AFE_LPASS_CLK_ID_QUAD_TDM_IBIT,
+ 				12288000, SNDRV_PCM_STREAM_PLAYBACK);
+ 		}
+-		snd_soc_dai_set_fmt(cpu_dai, fmt);
+-		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
++		/* q6tdm has no .set_fmt; DT supplies AFE framing instead. */
++		ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
++		if (ret < 0 && ret != -ENOTSUPP)
++			goto tdm_error;
++		for_each_rtd_codec_dais(rtd, i, codec_dai) {
++			ret = snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
++			if (ret < 0)
++				goto tdm_error;
++		}
+ 		break;
+ 	case SLIMBUS_0_RX...SLIMBUS_6_TX:
+ 		break;
+@@ -326,4 +326,11 @@ static int sm8150_snd_startup(struct snd_pcm_substream *substream)
+ 		break;
+ 	}
+ 	return 0;
++
++tdm_error:
++	if (--data->quat_tdm_clk_count == 0)
++		snd_soc_dai_set_sysclk(cpu_dai,
++			Q6AFE_LPASS_CLK_ID_QUAD_TDM_IBIT,
++			0, SNDRV_PCM_STREAM_PLAYBACK);
++	return ret;
+ }

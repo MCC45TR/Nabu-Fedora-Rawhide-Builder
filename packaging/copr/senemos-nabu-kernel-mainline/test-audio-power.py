@@ -14,6 +14,13 @@ dts = dts[dts.index('&sound {'):]
 assert 'channels->min = channels->max = 4;' in source
 assert 'SND_SOC_DAIFMT_DSP_A' in source
 assert 'slot_mask = GENMASK(channels - 1, 0);' in source
+slot_map = source.split('} cs35l41_tdm_channel_map[] = {', 1)[1].split('};', 1)[0]
+rx_slots = [int(slot) for slot in re.findall(r'\.rx = \{(\d+)\}', slot_map)]
+assert rx_slots == [3, 1, 2, 0], rx_slots
+assert sorted(rx_slots) == list(range(4))
+assert 'channels != ARRAY_SIZE(cs35l41_tdm_channel_map)' in source
+assert re.search(r'for_each_rtd_codec_dais\(rtd, i, codec_dai\) \{\s*'
+                 r'ret = snd_soc_dai_set_fmt\(codec_dai, codec_dai_fmt\);', source)
 assert re.search(r'of_machine_is_compatible\("xiaomi,nabu"\) && link->dynamic\)\s*link->ignore_pmdown_time = 1;', source)
 assert '"MultiMedia1 Playback", "BR SPK"' not in dts
 for pos in ('BR', 'TR', 'BL', 'TL'):
@@ -96,4 +103,4 @@ with tempfile.TemporaryDirectory(prefix='nabu-audio-test-') as tmp:
     subprocess.run([os.environ.get('HOSTCC', 'cc'), '-std=c11', '-Wall', '-Wextra',
                     '-Werror', str(src), '-o', str(exe)], check=True)
     subprocess.run([str(exe)], check=True)
-print('PASS: Nabu endpoint repair, OOM, idempotence, unrelated routes, 4-channel DSP_A')
+print('PASS: Nabu endpoint repair, OOM, idempotence, unrelated routes, four active TDM slots, DSP_A')

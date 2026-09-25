@@ -19,7 +19,7 @@ Version:        7.2.7
 Release:        5%{?dist}
 Summary:        Isolated KVM-ready Nabu kernel; EL2 firmware handoff still required
 %else
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 %endif
 License:        GPL-2.0-only AND MIT
@@ -200,6 +200,7 @@ Patch0158:      0158-ASoC-qcom-fix-Nabu-speaker-endpoints-and-power-order.patch
 Patch0159:      0159-arm64-nabu-size-CPU-masks-for-SM8150-and-drop-NUMA.patch
 Patch0160:      0160-drm-msm-clear-transient-devfreq-boost-when-suspendin.patch
 Patch0161:      0161-input-nt36523-define-only-the-managed-runtime-attrib.patch
+Patch0162:      0162-ASoC-qcom-align-Nabu-four-channel-TDM-slots.patch
 
 BuildRequires:  bc
 BuildRequires:  binutils
@@ -652,6 +653,11 @@ fi
 %{_prefix}/lib/modules/%{uname_r}/kernel/
 
 %changelog
+* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-10
+- Align four Nabu CS35L41 receive slots with active four-channel TDM slots.
+- Program DSP_A on every amplifier DAI and propagate format errors.
+- Keep conservative gain and protection-DSP policy until acoustic HIL passes.
+
 * Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-9
 - Remove only two GCC-only RPM specs from generic CFLAGS before Kbuild.
 - Preserve tools/lib/subcmd include flags; release 8's full CFLAGS override
