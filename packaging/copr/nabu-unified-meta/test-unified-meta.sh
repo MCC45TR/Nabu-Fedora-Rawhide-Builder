@@ -169,6 +169,8 @@ grep -Fxq 'wifi.wake-on-wlan=12' "$wifi_policy" || fail "Nabu selective Wi-Fi wa
 grep -Fxq 'wifi.cloned-mac-address=permanent' "$wifi_policy" || fail "Nabu permanent Wi-Fi identity policy missing"
 ! grep -Eq '^wifi\.cloned-mac-address=(stable|stable-ssid|random)$' "$wifi_policy" || fail "Nabu Wi-Fi policy still randomizes the associated MAC"
 grep -Fxq 'kernel.panic = 15' "$root/90-nabu-panic-recovery.conf" || fail "kernel panic reboot timeout missing"
+grep -Fxq 'kernel.panic_on_oops = 1' "$root/90-nabu-panic-recovery.conf" || fail "kernel oops panic policy missing"
+grep -Eq '^Requires:[[:space:]]+dnf5-plugins$' "$core" || fail "DNF5 COPR command missing from CORE"
 grep -Fq '%{_sysconfdir}/udev/rules.d/60-block-scheduler.rules' "$root/nabu-core-meta.spec" \
     || fail "generic removable-media scheduler rule is not masked for Nabu UFS"
 grep -Fq 'readlink %{buildroot}%{_sysconfdir}/udev/rules.d/60-block-scheduler.rules' "$root/nabu-core-meta.spec" \

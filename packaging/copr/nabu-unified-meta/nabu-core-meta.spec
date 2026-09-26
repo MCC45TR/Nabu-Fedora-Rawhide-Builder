@@ -2,7 +2,7 @@
 
 Name:           nabu-core-meta
 Version:        3.0.0
-Release:        96%{?dist}
+Release:        99%{?dist}
 %global legacy_meta_max %{version}-%{release}
 Summary:        Complete hardware and kernel policy for Xiaomi Pad 5
 License:        MIT AND GPL-3.0-or-later
@@ -87,7 +87,9 @@ Requires:       bluez
 Requires:       bluez-obexd
 Requires:       coreutils
 Requires:       dnf5
+Requires:       dnf5-plugins
 Requires:       dosfstools
+Requires:       e2fsprogs
 Requires:       dracut
 Requires:       feedbackd
 %if 0%{?fedora} >= 45
@@ -132,6 +134,8 @@ Provides:       nabu-runtime-integration = %{version}-%{release}
 Provides:       nabu-core-config = %{version}-%{release}
 Provides:       nabu-device-config = %{version}-%{release}
 Provides:       nabu-audio-config = %{version}-%{release}
+Conflicts:      kde-plasma-nabu-meta < 3.0.0-111
+Conflicts:      kde-plasma-mobile-nabu-meta < 3.0.0-111
 Provides:       nabu-flashlight-integration = %{version}-%{release}
 Provides:       nabu-flashlight-integration = 1.0.0-10.fc46
 Provides:       nabu-flashlight-integration = 1.0.0-14.fc46
@@ -306,6 +310,7 @@ grep -Fqx 'Persistent=false' %{SOURCE6}
 ! grep -Fq 'OnBootSec=' %{SOURCE6}
 ! test -e %{_sourcedir}/nabu-kernel-maintenance.path
 grep -Fqx 'kernel.panic = 15' %{SOURCE31}
+grep -Fqx 'kernel.panic_on_oops = 1' %{SOURCE31}
 grep -Fqx 'ExecStartPost=/usr/libexec/nabu-kernel-offline-finalize' %{SOURCE20}
 grep -Fqx 'CPUWeight=20' %{SOURCE22}
 grep -Fqx 'IOWeight=20' %{SOURCE22}
@@ -351,6 +356,12 @@ grep -Fq 'node.hidden = true' %{SOURCE29}
 (cd system-integration && bash tests/test-ssh-host-key-guard.sh)
 (cd system-integration && bash tests/test-update-recovery-policy.sh)
 (cd system-integration && %{python3} tests/test-tuned-profiles.py)
+# Build-time tests may use Python; no Python payload may reach the tablet.
+test -z "$(find %{buildroot} -type f \( -name '*.py' -o -name '*.pyc' \) -print -quit)"
+if grep -rIlE '^#!.*(python|pypy)' %{buildroot} | grep -q .; then
+    echo 'Python runtime helper entered nabu-core-meta' >&2
+    exit 1
+fi
 bash -n system-integration/runtime/senemos-nabu-status
 udevadm verify %{buildroot}%{_udevrulesdir}/99-libinput-calibration-matrix.rules
 udevadm verify %{buildroot}%{_udevrulesdir}/99-z-nabu-firmware-systemd.rules
@@ -547,6 +558,19 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
+* Sat Sep 26 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-99
+- Require DNF5 plugins so COPR repository setup works in CORE and KDE.
+- Reboot after a kernel oops; retain the existing 15-second panic timeout.
+
+* Sat Sep 26 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-98
+- Keep e2fsck and related ext4 recovery tools available on Nabu installations.
+
+* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-97
+- Select stereo I2S from ALSA components while preserving the four-channel
+  fallback UCM profile and conservative direct-ASP gain.
+- Keep the native two-channel speaker sink visible and require matching KDE
+  integration so an obsolete four-channel filter cannot swallow playback.
+
 * Tue Sep 22 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-96
 - Add an explicitly selected Arch reference gain UCM modifier with rollback.
 - Keep default gain conservative and preserve four-channel playback.
