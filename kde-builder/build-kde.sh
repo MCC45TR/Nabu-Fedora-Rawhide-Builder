@@ -120,7 +120,7 @@ mountpoint -q "$mount_dir" || core_die 'Could not mount final KDE image'
 core_verify_no_overflow_ownership "$mount_dir" "$reports/final-overflow-ownership.txt"
 rpm --root "$mount_dir" --dbpath /usr/lib/sysimage/rpm -q \
     "$KDE_META_PACKAGE" "$KDE_KERNEL_PACKAGE" nabu-core-meta \
-    plasma-login-manager glibc-all-langpacks >"$meta/final-selection.txt"
+    plasma-login-manager glibc-all-langpacks dnf5-plugins >"$meta/final-selection.txt"
 core_verify_root_locked_shadow "$mount_dir"
 [[ -L "$mount_dir/etc/systemd/system/nabu-esp32-cdc-log.service" && \
    $(readlink "$mount_dir/etc/systemd/system/nabu-esp32-cdc-log.service") == /dev/null ]] || core_die 'Final KDE CDC logger is not masked'

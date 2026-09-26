@@ -1,0 +1,46 @@
+name: Update Material Decoration for Nabu COPR
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nabu-material-decoration-updates
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Pin the latest upstream source and archive checksum
+        id: source
+        run: packaging/copr/material-decoration/update-upstream.sh
+      - name: Commit the new source lock
+        if: steps.source.outputs.updated == 'true'
+        run: |
+          git config user.name "SENEMOS Material Decoration updater"
+          git config user.email "mcc45tr@gmail.com"
+          git add \
+            packaging/copr/material-decoration/material-decoration.spec \
+            packaging/copr/material-decoration/upstream.sha256
+          git commit -m "packaging: update Material Decoration to ${{ steps.source.outputs.version }}"
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - name: Report the COPR source trigger
+        if: steps.source.outputs.updated == 'true'
+        run: |
+          {
+            echo "## Material Decoration"
+            echo
+            echo "Pinned upstream commit ${{ steps.source.outputs.commit }}."
+            echo "The push to main triggers the COPR SCM source package."
+          } >> "$GITHUB_STEP_SUMMARY"
