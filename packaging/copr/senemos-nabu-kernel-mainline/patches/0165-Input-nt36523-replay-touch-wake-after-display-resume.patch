@@ -1,0 +1,88 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 25 Sep 2026 21:21:00 +0300
+Subject: [PATCH] Input: nt36523: replay touch wake after display resume
+
+The PM core holds a wake IRQ pending until device IRQs resume. On Nabu the
+display notifier may reload the touch firmware before the pending IRQ thread
+can acquire the touch lock. In that case bTouchIsAwake is already true and
+the original low-power gesture packet is no longer available, so the normal
+gesture decoder never emits KEY_WAKEUP to the compositor.
+
+Remember whether the IRQ thread started while the touchscreen was in
+system suspend and gesture mode. If display resume won the race, report a
+wake key without attempting a stale SPI read. Keep the normal packet-based
+double-tap decoder for the case where the controller is still in gesture
+mode. No access to suspended SPI hardware is added.
+
+This addresses a possible lost-key race; physical Nabu DT2W validation is
+still required before claiming a working wake gesture.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/input/touchscreen/nt36523/nt36xxx.c | 29 ++++++++++++++++++++++++-----
+ 1 file changed, 24 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/input/touchscreen/nt36523/nt36xxx.c b/drivers/input/touchscreen/nt36523/nt36xxx.c
+index 393c616b5..8b7767b9c 100644
+--- a/drivers/input/touchscreen/nt36523/nt36xxx.c
++++ b/drivers/input/touchscreen/nt36523/nt36xxx.c
+@@ -1025,6 +1025,15 @@ static uint32_t nvt_dump_fw_history(void)
+ }
+ 
+ #define POINT_DATA_LEN 65
++static void nvt_report_wake_key(void)
++{
++	pm_wakeup_event(&ts->client->dev, 5000);
++	input_report_key(ts->input_dev, KEY_WAKEUP, 1);
++	input_sync(ts->input_dev);
++	input_report_key(ts->input_dev, KEY_WAKEUP, 0);
++	input_sync(ts->input_dev);
++}
++
+ /*******************************************************
+ Description:
+ 	Novatek touchscreen work function.
+@@ -1035,6 +1044,9 @@ static uint32_t nvt_dump_fw_history(void)
+ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+ {
+ 	int32_t ret = -1;
++	bool wake_irq = !READ_ONCE(bTouchIsAwake) &&
++			READ_ONCE(ts->db_wakeup) &&
++			READ_ONCE(ts->dev_pm_suspend);
+ 	uint8_t point_data[POINT_DATA_LEN + PEN_DATA_LEN + 1 + DUMMY_BYTES] = {0};
+ 	uint32_t position = 0;
+ 	uint32_t input_x = 0;
+@@ -1072,6 +1084,17 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+ 	mutex_lock(&ts->lock);
+ 	if (READ_ONCE(ts->offline))
+ 		goto XFER_ERROR;
++	/*
++	 * A wake IRQ is held pending until the PM core re-enables device IRQs.
++	 * In the meantime the display notifier can reload firmware and mark the
++	 * touchscreen awake.  In that case the original gesture report is gone;
++	 * still deliver KEY_WAKEUP so the compositor lights the screen.
++	 */
++	if (wake_irq && bTouchIsAwake) {
++		NVT_INFO("touch wake IRQ replayed after display resume\n");
++		nvt_report_wake_key();
++		goto XFER_ERROR;
++	}
+ 
+ 	if (ts->pen_support)
+ 		ret = CTP_SPI_READ(ts->client, point_data, POINT_DATA_LEN + PEN_DATA_LEN + 1);
+@@ -1142,11 +1165,7 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+ 			}
+ 
+ 			NVT_INFO("Gesture: double tap wakeup\n");
+-			pm_wakeup_event(&ts->client->dev, 5000);
+-			input_report_key(ts->input_dev, KEY_WAKEUP, 1);
+-			input_sync(ts->input_dev);
+-			input_report_key(ts->input_dev, KEY_WAKEUP, 0);
+-			input_sync(ts->input_dev);
++			nvt_report_wake_key();
+ 		}
+ 
+ 		goto XFER_ERROR;
+-- 
+2.53.0

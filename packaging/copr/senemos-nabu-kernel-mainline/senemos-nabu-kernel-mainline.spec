@@ -19,7 +19,7 @@ Version:        7.2.7
 Release:        7%{?dist}
 Summary:        Isolated KVM-ready Nabu kernel; EL2 firmware handoff still required
 %else
-Release:        12%{?dist}
+Release:        13%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 %endif
 License:        GPL-2.0-only AND MIT
@@ -204,6 +204,7 @@ Patch0161:      0161-input-nt36523-define-only-the-managed-runtime-attrib.patch
 Patch0162:      0162-ASoC-qcom-align-Nabu-four-channel-TDM-slots.patch
 Patch0163:      0163-ASoC-cs35l41-align-Nabu-slot-width-and-DSP-A-framing.patch
 Patch0164:      0164-ASoC-qcom-nabu-use-proven-stereo-I2S-speaker-transport.patch
+Patch0165:      0165-Input-nt36523-replay-touch-wake-after-display-resume.patch
 
 BuildRequires:  bc
 BuildRequires:  binutils
@@ -658,6 +659,10 @@ fi
 %{_prefix}/lib/modules/%{uname_r}/kernel/
 
 %changelog
+* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-13
+- Preserve the NT36523 wake key when display resume consumes a pending touch wake IRQ.
+- Candidate only until physical DT2W and suspend testing; not promoted to stable images.
+
 * Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 7.2.7-12
 - Restore the device-proven two-channel I2S AFE mask and four-amplifier
   channel map from the Arch Nabu kernel after 7.2.7-11 was physically silent.
