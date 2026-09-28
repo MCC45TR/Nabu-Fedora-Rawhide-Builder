@@ -20,7 +20,7 @@ olması, bu imajın onunla açıldığını göstermez.
 `SHA256SUMS` dosyası sıkıştırılmış imajların bayt bütünlüğünü denetler.
 `zstd -t`, ext4 `e2fsck -fn`, FAT `fsck.vfat -vn`, SELinux etiketleri ve
 imaj içeriği denetimleri yayın kapılarıdır. Ayrıntılı öğrenimler için
-[`PAD5-NABU-EOL-20260928.md`](PAD5-NABU-EOL-20260928.md) okunabilir.
+[teknik devir notu](https://github.com/MCC45TR/Nabu-Fedora-Rawhide-Builder/blob/codex/nabu-pad5-eol-20260928/docs/PAD5-NABU-EOL-20260928.md) okunabilir.
 
 Kişisel Btrfs HIL imajları bu sürüme dahil değildir; kullanıcı verisi ve
 kimlik bilgileri içerir. Donanım firmware'inin kendi lisansı ayrı geçerlidir.
