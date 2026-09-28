@@ -6,6 +6,15 @@ acceptance test. The sources remain useful as a method reference for a future
 device; Nabu DT nodes, firmware, calibration and boot assumptions must not be
 copied to Xiaomi Pad 7 without identifying its actual hardware.
 
+Related public source repositories: [hardware support](https://github.com/MCC45TR/nabu-linux-hardware-support),
+[camera](https://github.com/MCC45TR/nabu-camera),
+[kernel](https://github.com/MCC45TR/nabu-linux-kernel),
+[tablet controls](https://github.com/MCC45TR/nabu-tablet-controls),
+[Iris video](https://github.com/MCC45TR/nabu-iris), and
+[Linux image builder](https://github.com/MCC45TR/nabu-linux-builder).
+The EOL archival branches preserve unmerged boot, runtime, power and package
+family experiments; none is implied to be a production promotion.
+
 ## What worked, and what did not
 
 | Area | Last evidence | Boundary |
