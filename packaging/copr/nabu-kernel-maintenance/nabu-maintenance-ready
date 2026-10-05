@@ -1,0 +1,60 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+kernel_queue=${NABU_KERNEL_QUEUE:-/var/lib/nabu-kernel-maintenance/pending.d}
+refind_pending=${NABU_REFIND_PENDING:-/var/lib/nabu-boot-maintenance/refind-sync.pending}
+proc_root=${NABU_PROC_ROOT:-/proc}
+power_root=${NABU_POWER_SUPPLY_ROOT:-/sys/class/power_supply}
+systemctl_bin=${NABU_SYSTEMCTL:-/usr/bin/systemctl}
+loginctl_bin=${NABU_LOGINCTL:-/usr/bin/loginctl}
+max_load=${NABU_MAINTENANCE_MAX_LOAD:-1.00}
+min_battery=${NABU_MAINTENANCE_MIN_BATTERY:-50}
+
+has_kernel_work=0
+if [[ -d $kernel_queue ]] && find "$kernel_queue" -mindepth 1 -maxdepth 1 -type f -print -quit | grep -q .; then
+    has_kernel_work=1
+fi
+[[ $has_kernel_work == 1 || -e $refind_pending ]] || exit 1
+
+# Offline-update finalization invokes the maintenance payload directly.  The
+# timer path is deliberately conservative and never competes with a package
+# transaction or an active desktop session.
+[[ ${NABU_MAINTENANCE_FORCE:-0} == 1 ]] && exit 0
+
+for unit in dnf5-offline-transaction.service packagekit.service; do
+    "$systemctl_bin" --quiet is-active "$unit" && exit 1
+done
+for comm_file in "$proc_root"/[0-9]*/comm; do
+    [[ -r $comm_file ]] || continue
+    read -r process <"$comm_file" || continue
+    case $process in
+        dnf|dnf5|rpm|packagekitd) exit 1 ;;
+    esac
+done
+
+read -r current_load _ <"$proc_root/loadavg"
+awk -v current="$current_load" -v maximum="$max_load" \
+    'BEGIN { exit !(current <= maximum) }' || exit 1
+
+while read -r session _; do
+    [[ -n $session ]] || continue
+    [[ $("$loginctl_bin" show-session "$session" -p Active --value 2>/dev/null) == yes ]] || continue
+    [[ $("$loginctl_bin" show-session "$session" -p IdleHint --value 2>/dev/null) == yes ]] || exit 1
+done < <("$loginctl_bin" list-sessions --no-legend 2>/dev/null)
+
+external_power=0
+for online in "$power_root"/*/online; do
+    [[ -r $online ]] || continue
+    [[ $(<"$online") == 1 ]] && external_power=1
+done
+if [[ $external_power == 0 ]]; then
+    battery_capacity=100
+    for capacity in "$power_root"/*/capacity; do
+        [[ -r $capacity ]] || continue
+        battery_capacity=$(<"$capacity")
+        break
+    done
+    (( battery_capacity >= min_battery )) || exit 1
+fi
+
+exit 0

@@ -1,0 +1,15 @@
+# Nabu UFS contains many Android raw-image/state partitions which are not
+# Linux mountable volumes.
+# Keep their device nodes and all stable links for flashing/recovery, but do
+# not instantiate hundreds of unused .device aliases in every user manager.
+# Filesystems and partitions carrying an explicit systemd dependency are
+# deliberately excluded by the guards below.
+ACTION=="remove", GOTO="nabu_firmware_systemd_end"
+SUBSYSTEM!="block", GOTO="nabu_firmware_systemd_end"
+ENV{DEVTYPE}!="partition", GOTO="nabu_firmware_systemd_end"
+ENV{ID_PATH}!="platform-1d84000.ufshc-scsi-*", GOTO="nabu_firmware_systemd_end"
+ENV{ID_FS_USAGE}=="?*", GOTO="nabu_firmware_systemd_end"
+ENV{SYSTEMD_WANTS}=="?*", GOTO="nabu_firmware_systemd_end"
+ENV{SYSTEMD_USER_WANTS}=="?*", GOTO="nabu_firmware_systemd_end"
+TAG-="systemd"
+LABEL="nabu_firmware_systemd_end"

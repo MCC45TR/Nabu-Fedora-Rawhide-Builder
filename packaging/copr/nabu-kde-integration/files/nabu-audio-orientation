@@ -21,9 +21,19 @@ ROTATION_MAP = {
 }
 POLL_SECONDS = max(0.25, float(os.environ.get("NABU_AUDIO_POLL_SECONDS", "1")))
 SETTLE_SECONDS = max(0.0, float(os.environ.get("NABU_AUDIO_ROTATION_SETTLE_SECONDS", "1.5")))
-TARGET_REFRESH_SECONDS = max(1.0, float(os.environ.get("NABU_AUDIO_TARGET_REFRESH_SECONDS", "3")))
+TARGET_REFRESH_SECONDS = max(5.0, float(os.environ.get("NABU_AUDIO_TARGET_REFRESH_SECONDS", "60")))
+KSCREEN_FALLBACK_SECONDS = max(1.0, float(os.environ.get("NABU_AUDIO_KSCREEN_FALLBACK_SECONDS", "10")))
+KWIN_TRANSFORMS = {
+    "Normal": 1,
+    "Rotated90": 2,
+    "Rotated180": 4,
+    "Rotated270": 8,
+}
 
 running = True
+cached_kwin_mtime = None
+cached_rotation = None
+next_kscreen_refresh = 0.0
 
 
 def log(message):
@@ -105,7 +115,37 @@ def discover_target(objects):
     return candidates[0][1]
 
 
+def kwin_config_rotation():
+    """Read KWin's persisted transform without starting a Qt process."""
+    global cached_kwin_mtime, cached_rotation
+    path = os.environ.get(
+        "NABU_KWIN_OUTPUT_CONFIG",
+        os.path.expanduser("~/.config/kwinoutputconfig.json"),
+    )
+    try:
+        mtime = os.stat(path).st_mtime_ns
+        if mtime == cached_kwin_mtime:
+            return cached_rotation
+        with open(path, encoding="utf-8") as stream:
+            config = json.load(stream)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    outputs = []
+    for section in config if isinstance(config, list) else []:
+        if section.get("name") == "outputs" and isinstance(section.get("data"), list):
+            outputs.extend(section["data"])
+    internal = [output for output in outputs if output.get("connectorName") == "DSI-1"]
+    selected = (internal or outputs)[0] if (internal or outputs) else None
+    rotation = KWIN_TRANSFORMS.get(selected.get("transform")) if selected else None
+    if rotation in ROTATION_MAP:
+        cached_kwin_mtime = mtime
+        cached_rotation = rotation
+    return rotation
+
+
 def kscreen_rotation():
+    global cached_rotation, next_kscreen_refresh
     rotation_override = os.environ.get("NABU_ROTATION_OVERRIDE", "").strip()
     if rotation_override:
         try:
@@ -119,6 +159,15 @@ def kscreen_rotation():
                 return int(stream.read().strip())
         except (OSError, ValueError):
             return None
+
+    rotation = kwin_config_rotation()
+    if rotation in ROTATION_MAP:
+        return rotation
+
+    now = time.monotonic()
+    if now < next_kscreen_refresh:
+        return cached_rotation
+    next_kscreen_refresh = now + KSCREEN_FALLBACK_SECONDS
     try:
         config = json.loads(command_output(["kscreen-doctor", "--json"], timeout=5))
     except (json.JSONDecodeError, OSError, subprocess.SubprocessError):
@@ -133,7 +182,8 @@ def kscreen_rotation():
     internal = [output for output in outputs if output.get("type") == 7]
     selected = min(internal or outputs, key=lambda output: output.get("priority", 9999))
     try:
-        return int(selected["rotation"])
+        cached_rotation = int(selected["rotation"])
+        return cached_rotation
     except (KeyError, TypeError, ValueError):
         return None
 

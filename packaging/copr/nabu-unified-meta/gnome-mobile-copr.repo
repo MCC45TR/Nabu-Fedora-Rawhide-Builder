@@ -1,0 +1,11 @@
+[copr:copr.fedorainfracloud.org:group_mobility:gnome-mobile]
+name=Copr repo for GNOME Mobile owned by @mobility
+baseurl=https://download.copr.fedorainfracloud.org/results/@mobility/gnome-mobile/fedora-$releasever-$basearch/
+type=rpm-md
+skip_if_unavailable=False
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://download.copr.fedorainfracloud.org/results/@mobility/gnome-mobile/pubkey.gpg
+enabled=1
+enabled_metadata=1
+metadata_expire=1h

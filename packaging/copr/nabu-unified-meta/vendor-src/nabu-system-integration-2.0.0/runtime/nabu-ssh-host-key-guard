@@ -1,0 +1,44 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+etc_dir=${NABU_SSH_ETC_DIR:-/etc/ssh}
+state_dir=${NABU_SSH_STATE_DIR:-/var/lib/senemos-nabu/ssh-host-keys}
+key_types=(rsa ecdsa ed25519)
+
+valid_private_key() {
+    [[ -s $1 ]] && ssh-keygen -y -f "$1" >/dev/null 2>&1
+}
+
+restore_keys() {
+    [[ -d $state_dir ]] || return 0
+    for type in "${key_types[@]}"; do
+        backup="$state_dir/ssh_host_${type}_key"
+        target="$etc_dir/ssh_host_${type}_key"
+        valid_private_key "$backup" || continue
+        install -D -m0600 "$backup" "$target"
+        ssh-keygen -y -f "$backup" >"$target.pub.tmp"
+        chmod 0644 "$target.pub.tmp"
+        mv -f "$target.pub.tmp" "$target.pub"
+    done
+}
+
+save_keys() {
+    install -d -m0700 "$state_dir"
+    for type in "${key_types[@]}"; do
+        source="$etc_dir/ssh_host_${type}_key"
+        backup="$state_dir/ssh_host_${type}_key"
+        valid_private_key "$source" || continue
+        valid_private_key "$backup" && continue
+        install -m0600 "$source" "$backup.tmp"
+        mv -f "$backup.tmp" "$backup"
+        ssh-keygen -y -f "$backup" >"$backup.pub.tmp"
+        chmod 0644 "$backup.pub.tmp"
+        mv -f "$backup.pub.tmp" "$backup.pub"
+    done
+}
+
+case ${1:-} in
+    restore) restore_keys ;;
+    save) save_keys ;;
+    *) printf 'Usage: %s {restore|save}\n' "$0" >&2; exit 2 ;;
+esac

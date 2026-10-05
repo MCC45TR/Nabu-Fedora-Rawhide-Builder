@@ -1,0 +1,40 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+archive="$(readlink -f -- "${1:?usage: sanitize-initramfs ARCHIVE [WORK_ROOT] [LISTING]}")"
+work_root="$(readlink -m -- "${2:-${archive}.unpacked}")"
+listing="$(readlink -m -- "${3:-${archive}.contents}")"
+normalized="${archive}.normalized"
+
+[[ -s "$archive" ]] || { printf 'Initramfs is missing or empty: %s\n' "$archive" >&2; exit 64; }
+install -d -m0700 "$work_root"
+(
+    cd "$work_root"
+    lsinitrd --unpack "$archive"
+    # Initramfs has no unprivileged login boundary.  Setid is unnecessary and
+    # dangerous when a rootless image composer serializes uid 0 as overflow:
+    # a setuid mount binary would drop PID 1's root privilege before /sysroot.
+    find . -xdev -perm /6000 -exec chmod a-s -- {} +
+    find . -print0 | cpio --null --quiet -o -H newc --owner=0:0 | \
+        zstd -T2 -15 -q -o "$normalized"
+)
+[[ -s "$normalized" ]] || { printf 'Normalized initramfs is empty\n' >&2; exit 65; }
+mv -f "$normalized" "$archive"
+lsinitrd "$archive" >"$listing"
+
+for tool in mount umount; do
+    awk -v path="usr/bin/${tool}" \
+        '$NF == path && $1 == "-rwxr-xr-x" && $3 == "root" && $4 == "root" { found=1 }
+         END { exit !found }' "$listing" || {
+        printf 'Unsafe initramfs %s ownership or mode\n' "$tool" >&2
+        exit 66
+    }
+done
+if awk 'length($1) == 10 && $1 ~ /^[-dlcbps]/ &&
+        (substr($1,4,1) ~ /[sS]/ || substr($1,7,1) ~ /[sS]/) { bad=1 }
+        END { exit !bad }' "$listing"; then
+    printf 'Initramfs still contains setuid/setgid paths\n' >&2
+    exit 67
+fi
+
+printf 'initramfs_setid_paths=0\ninitramfs_mount_mode=0755\ninitramfs_umount_mode=0755\n'

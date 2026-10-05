@@ -1,0 +1,21 @@
+[Unit]
+Description=Install the signed GNOME Mobile COPR package set
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/var/lib/nabu-gnome-mobile-sync/pending
+Before=gdm.service graphical.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nabu-gnome-mobile-sync
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=idle
+# DNF owns a full system RPM transaction and must update the current rpmdb,
+# /usr and repository state. Restricting it with ProtectSystem breaks on the
+# rpmdb path used by current Fedora releases.
+ProtectSystem=false
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+#!/usr/bin/bash
+set -o nounset
+
+ff_config_root=/usr/share/senemos-fastfetch-config/i18n
+ff_locale="${FASTFETCH_LOCALE:-${LC_ALL:-${LC_MESSAGES:-${LANGUAGE:-${LANG:-en}}}}}"
+
+ff_locale="${ff_locale%%:*}"
+ff_locale="${ff_locale%%.*}"
+ff_locale="${ff_locale%%@*}"
+ff_locale="${ff_locale//-/_}"
+ff_locale="${ff_locale,,}"
+ff_language="${ff_locale%%_*}"
+
+ff_config="${ff_config_root}/${ff_language}.jsonc"
+if [[ "$ff_language" == "c" || "$ff_language" == "posix" || ! -r "$ff_config" ]]; then
+    ff_config="${ff_config_root}/en.jsonc"
+fi
+
+if [[ ! -r "$ff_config" ]]; then
+    printf 'senemos-fastfetch: locale configuration is not readable: %s\n' "$ff_config" >&2
+    exit 1
+fi
+
+exec /usr/bin/fastfetch --config "$ff_config" "$@"

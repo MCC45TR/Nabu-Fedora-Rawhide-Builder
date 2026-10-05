@@ -1,0 +1,55 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+PATH=/usr/sbin:/usr/bin
+export PATH
+
+usage() {
+    printf 'Usage: nabu desktop migrate plasma-qt6 [--yes]\n'
+}
+
+[[ ${1:-} == plasma-qt6 ]] || { usage >&2; exit 2; }
+assume_yes=0
+[[ ${2:-} == --yes ]] && assume_yes=1
+[[ $# -le 2 ]] || { usage >&2; exit 2; }
+
+readonly -a allowlist=(
+    maliit-framework maliit-framework-qt5 maliit-keyboard
+    plasma-integration-qt5 plasma-breeze-qt5
+    kf5-attica kf5-filesystem kf5-frameworkintegration
+    kf5-frameworkintegration-libs kf5-karchive kf5-kauth
+    kf5-kbookmarks kf5-kcodecs kf5-kcompletion kf5-kconfig-core
+    kf5-kconfig-gui kf5-kconfigwidgets kf5-kcoreaddons kf5-kcrash
+    kf5-kdbusaddons kf5-kdoctools kf5-kglobalaccel
+    kf5-kglobalaccel-libs kf5-kguiaddons kf5-ki18n kf5-kiconthemes
+    kf5-kinit kf5-kio-core kf5-kio-core-libs kf5-kio-doc
+    kf5-kio-file-widgets kf5-kio-gui kf5-kio-ntlm kf5-kio-widgets
+    kf5-kio-widgets-libs kf5-kirigami2 kf5-kitemviews kf5-kjobwidgets
+    kf5-knewstuff kf5-knotifications kf5-kpackage kf5-kservice
+    kf5-ktextwidgets kf5-kwallet kf5-kwallet-libs kf5-kwayland
+    kf5-kwidgetsaddons kf5-kwindowsystem kf5-kxmlgui
+    kf5-qqc2-desktop-style kf5-solid kf5-sonnet kf5-sonnet-core
+    kf5-sonnet-ui kf5-syndication
+)
+
+declare -A allowed=()
+for package in "${allowlist[@]}"; do allowed["$package"]=1; done
+mapfile -t unneeded < <(
+    dnf5 -q repoquery --installed --unneeded --queryformat '%{name}' 2>/dev/null |
+        sort -u
+)
+candidates=()
+for package in "${unneeded[@]}"; do
+    [[ -n ${allowed[$package]+x} ]] && candidates+=("$package")
+done
+
+if [[ ${#candidates[@]} -eq 0 ]]; then
+    printf 'No allowlisted, dependency-owned and unneeded Plasma Qt5 packages were found.\n'
+    exit 0
+fi
+printf 'Eligible unneeded packages:\n'
+printf '  %s\n' "${candidates[@]}"
+if (( ! assume_yes )); then
+    read -r -p 'Remove only these packages? [y/N] ' answer
+    [[ $answer == y || $answer == Y ]] || exit 0
+fi
+exec dnf5 remove "${candidates[@]}"

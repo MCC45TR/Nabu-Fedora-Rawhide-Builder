@@ -1,0 +1,37 @@
+.TH NABU-REFIND 8 "August 2026" "SENEMOS" "System Administration"
+.SH NAME
+nabu-refind \- manage the packaged Nabu rEFInd application on the ESP
+.SH SYNOPSIS
+.B nabu-refind
+.RI { install | update | status | version }
+.SH DESCRIPTION
+.B nabu-refind
+installs or inspects the rEFInd application supplied by
+.BR nabu-boot-refind .
+The install and update commands copy the pinned AArch64 EFI application,
+Nabu 2x dark theme, GopRotate driver, and generated configuration to the
+mounted EFI System Partition. Android and the explicit known-good SENEMOS
+fallback are preserved and verified.
+.SH COMMANDS
+.TP
+.B install
+Perform the guarded initial synchronization to the ESP.
+.TP
+.B update
+Synchronize the installed package payload to the ESP.
+.TP
+.B status
+Report the packaged version and compare required ESP artifacts.
+.TP
+.B version
+Print the packaged upstream rEFInd version.
+.SH FILES
+.TP
+.I /boot/efi/EFI/BOOT/BOOTAA64.EFI
+Firmware removable-media rEFInd application.
+.TP
+.I /boot/efi/EFI/BOOT/refind.conf
+Generated Nabu rEFInd configuration.
+.TP
+.I /var/lib/nabu-boot-maintenance/refind-sync.pending
+Deferred synchronization request created by RPM updates.

@@ -1,0 +1,38 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+timezone=${NABU_META_VERSION_TIMEZONE:-Europe/Istanbul}
+state_root=${XDG_STATE_HOME:-${HOME}/.local/state}
+state_file=${NABU_META_VERSION_STATE:-${state_root}/senemos-nabu/last-meta-version}
+now=${NABU_META_VERSION_NOW:-now}
+
+install -d -m0700 "$(dirname -- "$state_file")"
+exec 9>"${state_file}.lock"
+flock 9
+
+candidate=$(TZ="$timezone" date --date="$now" +%y%m%d%H%M)
+[[ $candidate =~ ^[0-9]{10}$ ]] || {
+    printf 'Invalid generated meta version: %s\n' "$candidate" >&2
+    exit 1
+}
+
+if [[ -s $state_file ]]; then
+    read -r previous <"$state_file"
+    [[ $previous =~ ^[0-9]{10}$ ]] || {
+        printf 'Invalid previous meta version in %s: %s\n' \
+            "$state_file" "$previous" >&2
+        exit 1
+    }
+    if [[ $candidate < $previous || $candidate == "$previous" ]]; then
+        previous_date="20${previous:0:2}-${previous:2:2}-${previous:4:2} ${previous:6:2}:${previous:8:2}:00"
+        previous_epoch=$(TZ="$timezone" date --date="$previous_date" +%s)
+        candidate=$(TZ="$timezone" date --date="@$((previous_epoch + 60))" +%y%m%d%H%M)
+    fi
+fi
+
+temporary="${state_file}.tmp.$$"
+trap 'rm -f -- "$temporary"' EXIT
+printf '%s\n' "$candidate" >"$temporary"
+chmod 0600 "$temporary"
+mv -f -- "$temporary" "$state_file"
+printf '%s\n' "$candidate"

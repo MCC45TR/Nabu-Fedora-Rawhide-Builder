@@ -1,0 +1,31 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+command="${1:-}"
+kver="${2:-}"
+[[ "$kver" == *nabu* ]] || exit 0
+
+case "$command" in
+    add)
+        owner=$(rpm -qf --qf '%{NAME}\n' "/boot/vmlinuz-$kver" 2>/dev/null | head -n1 || :)
+        case "$owner" in
+            senemos-nabu-kernel-alpha) family=alpha ;;
+            senemos-nabu-kernel) family=stable ;;
+            senemos-nabu-kernel-mainline-alpha) family=mainline ;;
+            senemos-nabu-kernel-mainline-unstable) family=mainline-unstable ;;
+            senemos-nabu-kernel-lts) family=lts ;;
+            *) exit 0 ;;
+        esac
+        install -d -m0755 /var/lib/nabu-kernel-maintenance/pending.d
+        temporary=$(mktemp /var/lib/nabu-kernel-maintenance/pending.d/.kernel-install.XXXXXX)
+        printf '%s\n' "$kver" >"$temporary"
+        chmod 0644 "$temporary"
+        mv -f "$temporary" "/var/lib/nabu-kernel-maintenance/pending.d/$family"
+        ;;
+    remove)
+        if findmnt --mountpoint /boot/efi >/dev/null 2>&1; then
+            rm -f "/boot/efi/EFI/fedora/fedora-${kver}.efi"
+            rm -f "/boot/efi/loader/entries/senemos-${kver}.conf"
+        fi
+        ;;
+esac

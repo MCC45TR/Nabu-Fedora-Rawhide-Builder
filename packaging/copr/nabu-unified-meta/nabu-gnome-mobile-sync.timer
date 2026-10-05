@@ -1,0 +1,12 @@
+[Unit]
+Description=Retry deferred GNOME Mobile package synchronization
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=6h
+RandomizedDelaySec=30s
+Persistent=true
+Unit=nabu-gnome-mobile-sync.service
+
+[Install]
+WantedBy=timers.target

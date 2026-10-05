@@ -1,0 +1,8 @@
+# The internal 3206:3ffc USB function otherwise remains runtime-active and is
+# not a useful wake source on Nabu.
+ACTION=="add|bind|change", SUBSYSTEM=="usb", ATTR{idVendor}=="3206", ATTR{idProduct}=="3ffc", TEST=="power/control", ATTR{power/control}="auto", TEST=="power/wakeup", ATTR{power/wakeup}="disabled"
+
+# WCN3991 RX on GPIO46 asserts a falling edge while the UART is suspended.
+# With wake enabled this produces IRQ 178 immediately after entering s2idle.
+# Bluetooth remains operational; paired peripherals simply cannot wake Nabu.
+ACTION=="add|bind|change", SUBSYSTEM=="platform", KERNEL=="c8c000.serial", TEST=="power/wakeup", ATTR{power/wakeup}="disabled"

@@ -1,0 +1,13 @@
+[Unit]
+Description=Apply explicitly selected Nabu brightness curve before KWin
+PartOf=graphical-session.target
+Before=plasma-kwin_wayland.service
+ConditionPathExists=%h/.config/senemos-nabu/brightness-profile.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/senemos-nabu-brightness-profile --apply-pending
+TimeoutStartSec=10
+
+[Install]
+WantedBy=plasma-workspace.target

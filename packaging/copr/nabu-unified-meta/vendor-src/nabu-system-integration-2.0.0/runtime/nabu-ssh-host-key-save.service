@@ -1,0 +1,11 @@
+[Unit]
+Description=Seed persistent Nabu SSH host-key backup
+After=sshd-keygen.target nabu-ssh-host-key-restore.service
+Before=sshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/senemos-nabu/nabu-ssh-host-key-guard save
+
+[Install]
+WantedBy=multi-user.target

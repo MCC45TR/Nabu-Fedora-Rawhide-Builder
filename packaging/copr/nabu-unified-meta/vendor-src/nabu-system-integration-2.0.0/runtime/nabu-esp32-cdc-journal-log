@@ -1,0 +1,15 @@
+#!/usr/bin/bash
+set -u
+
+device=${NABU_ESP32_CDC_DEVICE:-/dev/ttyACM0}
+while :; do
+    while [[ ! -c $device ]]; do
+        /usr/bin/sleep 0.5
+    done
+    if ! printf '[NABU-CDC] real-root journal stream connected\n' >"$device"; then
+        /usr/bin/sleep 0.5
+        continue
+    fi
+    /usr/bin/journalctl --boot --follow --output=short-monotonic >"$device" 2>&1 || :
+    /usr/bin/sleep 0.5
+done

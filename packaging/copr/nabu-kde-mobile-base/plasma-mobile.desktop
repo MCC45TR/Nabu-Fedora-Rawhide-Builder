@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2019 Aleix Pol <apol@kde.org>
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+[Desktop Entry]
+Exec=/usr/libexec/plasma-dbus-run-session-if-needed /usr/bin/startplasmamobile
+TryExec=/usr/bin/startplasmamobile
+Type=Application
+DesktopNames=KDE
+Name=Plasma Mobile
+Name[tr]=Plasma Cep
+Comment=Plasma Mobile by KDE
+Comment[tr]=KDE tarafından yapılan Plasma Cep
+X-KDE-PluginInfo-Version=6.7.4

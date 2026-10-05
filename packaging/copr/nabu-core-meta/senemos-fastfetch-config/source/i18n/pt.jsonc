@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "Sistema operativo",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "Tempo de atividade",
+            "format": "{?days}{days} d {?}{hours} h {minutes} min"
+        },
+        {
+            "type": "command",
+            "key": "Data de instalação",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "Kernel"
+        },
+        {
+            "type": "loadavg",
+            "key": "Carga média"
+        },
+        {
+            "type": "wm",
+            "key": "Gestor de janelas"
+        },
+        {
+            "type": "DE",
+            "key": "Ambiente de trabalho"
+        },
+        {
+            "type": "shell",
+            "key": "Shell"
+        },
+        {
+            "type": "processes",
+            "key": "Processos"
+        },
+        {
+            "type": "terminal",
+            "key": "Terminal",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "Pacotes instalados"
+        },
+        {
+            "type": "cpu",
+            "key": "Processador",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "Gráficos {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "Memória"
+        },
+        {
+            "type": "disk",
+            "key": "Armazenamento {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "Endereço de rede",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}

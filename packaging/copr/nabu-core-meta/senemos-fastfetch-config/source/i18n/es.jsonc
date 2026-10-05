@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "Sistema operativo",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "Tiempo de actividad",
+            "format": "{?days}{days} d {?}{hours} h {minutes} min"
+        },
+        {
+            "type": "command",
+            "key": "Fecha de instalación",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "Núcleo"
+        },
+        {
+            "type": "loadavg",
+            "key": "Carga media"
+        },
+        {
+            "type": "wm",
+            "key": "Gestor de ventanas"
+        },
+        {
+            "type": "DE",
+            "key": "Entorno de escritorio"
+        },
+        {
+            "type": "shell",
+            "key": "Intérprete de órdenes"
+        },
+        {
+            "type": "processes",
+            "key": "Procesos"
+        },
+        {
+            "type": "terminal",
+            "key": "Terminal",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "Paquetes instalados"
+        },
+        {
+            "type": "cpu",
+            "key": "Procesador",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "Gráficos {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "Memoria"
+        },
+        {
+            "type": "disk",
+            "key": "Almacenamiento {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "Dirección de red",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}

@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "অপারেটিং সিস্টেম",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "চালু থাকার সময়",
+            "format": "{?days}{days} দিন {?}{hours} ঘণ্টা {minutes} মিনিট"
+        },
+        {
+            "type": "command",
+            "key": "ইনস্টলেশনের তারিখ",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "কার্নেল"
+        },
+        {
+            "type": "loadavg",
+            "key": "গড় লোড"
+        },
+        {
+            "type": "wm",
+            "key": "উইন্ডো ম্যানেজার"
+        },
+        {
+            "type": "DE",
+            "key": "ডেস্কটপ পরিবেশ"
+        },
+        {
+            "type": "shell",
+            "key": "শেল"
+        },
+        {
+            "type": "processes",
+            "key": "প্রক্রিয়াসমূহ"
+        },
+        {
+            "type": "terminal",
+            "key": "টার্মিনাল",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "ইনস্টল করা প্যাকেজ"
+        },
+        {
+            "type": "cpu",
+            "key": "প্রসেসর",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "গ্রাফিক্স {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "মেমরি"
+        },
+        {
+            "type": "disk",
+            "key": "স্টোরেজ {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "নেটওয়ার্ক ঠিকানা",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}

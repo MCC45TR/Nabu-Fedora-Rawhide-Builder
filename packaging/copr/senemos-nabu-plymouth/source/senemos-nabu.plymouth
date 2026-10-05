@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=SENEMOS Nabu
+Description=Pixel-stable adaptive boot and update theme for Xiaomi Pad 5
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/senemos-nabu
+ScriptFile=/usr/share/plymouth/themes/senemos-nabu/senemos-nabu.script

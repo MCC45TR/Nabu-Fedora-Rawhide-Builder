@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "Système d’exploitation",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "Durée de fonctionnement",
+            "format": "{?days}{days} j {?}{hours} h {minutes} min"
+        },
+        {
+            "type": "command",
+            "key": "Date d’installation",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "Noyau"
+        },
+        {
+            "type": "loadavg",
+            "key": "Charge moyenne"
+        },
+        {
+            "type": "wm",
+            "key": "Gestionnaire de fenêtres"
+        },
+        {
+            "type": "DE",
+            "key": "Environnement de bureau"
+        },
+        {
+            "type": "shell",
+            "key": "Interpréteur de commandes"
+        },
+        {
+            "type": "processes",
+            "key": "Processus"
+        },
+        {
+            "type": "terminal",
+            "key": "Terminal",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "Paquets installés"
+        },
+        {
+            "type": "cpu",
+            "key": "Processeur",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "Graphiques {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "Mémoire"
+        },
+        {
+            "type": "disk",
+            "key": "Stockage {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "Adresse réseau",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}

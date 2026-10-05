@@ -1,0 +1,80 @@
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "modules": [
+        {
+            "type": "os",
+            "key": "Operating System",
+            "format": "{name} {version}"
+        },
+        {
+            "type": "uptime",
+            "key": "Uptime",
+            "format": "{?days}{days} d {?}{hours} h {minutes} min"
+        },
+        {
+            "type": "command",
+            "key": "Installation Date",
+            "text": "birth_install=$(stat -c %W / 2>/dev/null); if [ -z \"$birth_install\" ] || [ \"$birth_install\" -le 0 ]; then echo '—'; else date -d \"@$birth_install\" +%F; fi"
+        },
+        {
+            "type": "kernel",
+            "key": "Kernel"
+        },
+        {
+            "type": "loadavg",
+            "key": "Load Average"
+        },
+        {
+            "type": "wm",
+            "key": "Window Manager"
+        },
+        {
+            "type": "DE",
+            "key": "Desktop Environment"
+        },
+        {
+            "type": "shell",
+            "key": "Shell"
+        },
+        {
+            "type": "processes",
+            "key": "Processes"
+        },
+        {
+            "type": "terminal",
+            "key": "Terminal",
+            "format": "{pretty-name} {version} {#37}█{#97}█ {#36}█{#96}█ {#35}█{#95}█ {#34}█{#94}█ {#33}█{#93}█ {#32}█{#92}█ {#31}█{#91}█ {#30}█{#90}█"
+        },
+        {
+            "type": "packages",
+            "key": "Installed Packages"
+        },
+        {
+            "type": "cpu",
+            "key": "Processor",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "gpu",
+            "key": "Graphics {index}",
+            "temp": true,
+            "format": "{name} {temperature}"
+        },
+        {
+            "type": "memory",
+            "key": "Memory"
+        },
+        {
+            "type": "disk",
+            "key": "Storage {name}",
+            "format": "{size-used} / {size-total} ({size-percentage})"
+        },
+        {
+            "type": "localip",
+            "key": "Network Address",
+            "showIpv6": true,
+            "showPrefixLen": false
+        }
+    ]
+}

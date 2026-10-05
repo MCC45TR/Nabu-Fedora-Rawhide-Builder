@@ -1,0 +1,31 @@
+#!/usr/bin/bash
+set -euo pipefail
+
+mac=${1^^}
+if [[ ! $mac =~ ^([0-9A-F]{2}:){5}[0-9A-F]{2}$ ]] ||
+   [[ $mac == "00:00:00:00:00:00" ]]; then
+    echo "Refusing invalid stylus Bluetooth address: $mac" >&2
+    exit 2
+fi
+
+for attempt in {1..15}; do
+    if bluetoothctl show 2>/dev/null | grep -q 'Powered: yes'; then
+        break
+    fi
+    sleep 1
+done
+
+if ! bluetoothctl show 2>/dev/null | grep -q 'Powered: yes'; then
+    echo "Bluetooth adapter did not become ready." >&2
+    exit 1
+fi
+
+if ! bluetoothctl info "$mac" 2>/dev/null | grep -q 'Paired: yes'; then
+    bluetoothctl --timeout 12 scan on || true
+    bluetoothctl --timeout 30 pair "$mac"
+    bluetoothctl scan off || true
+fi
+
+bluetoothctl trust "$mac"
+bluetoothctl connect "$mac" ||
+    echo "Stylus is paired and trusted; connection will be retried by BlueZ." >&2

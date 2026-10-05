@@ -2569,10 +2569,100 @@ ensure_backend_available() {
     fi
 }
 
+ext4_path_exists() {
+    local image="$1" path="$2"
+    # debugfs reports a missing pathname in text while still returning zero.
+    debugfs -R "stat $path" "$image" 2>/dev/null | grep -q '^Inode:'
+}
+
+ext4_ensure_parent_directories() {
+    local image="$1" path="$2" parent current="" part
+    parent="${path%/*}"
+    [[ "$parent" == "$path" || "$parent" == "/" || -z "$parent" ]] && return 0
+    IFS='/' read -r -a parts <<<"${parent#/}"
+    for part in "${parts[@]}"; do
+        [[ -n "$part" ]] || continue
+        current+="/$part"
+        if ! ext4_path_exists "$image" "$current"; then
+            debugfs -w -R "mkdir $current" "$image" >>"$LOG_DIR/filesystem.log" 2>&1 || return "$EXIT_FILESYSTEM"
+        fi
+    done
+}
+
+restore_regular_file_in_ext4() {
+    local root="$1" image="$2" source="$3" target mode uid gid
+    target="${source#"$root"}"
+    ext4_path_exists "$image" "$target" && return 0
+    ext4_ensure_parent_directories "$image" "$target" || return "$EXIT_FILESYSTEM"
+    mode="$(stat -c '%a' "$source")"
+    uid="$(stat -c '%u' "$source")"
+    gid="$(stat -c '%g' "$source")"
+    [[ "$mode" =~ ^[0-7]{3,4}$ && "$uid" =~ ^[0-9]+$ && "$gid" =~ ^[0-9]+$ ]] || return "$EXIT_FILESYSTEM"
+    debugfs -w -R "write $source $target" "$image" >>"$LOG_DIR/filesystem.log" 2>&1 || return "$EXIT_FILESYSTEM"
+    debugfs -w -R "set_inode_field $target mode 0100$mode" "$image" >>"$LOG_DIR/filesystem.log" 2>&1 || return "$EXIT_FILESYSTEM"
+    debugfs -w -R "set_inode_field $target uid $uid" "$image" >>"$LOG_DIR/filesystem.log" 2>&1 || return "$EXIT_FILESYSTEM"
+    debugfs -w -R "set_inode_field $target gid $gid" "$image" >>"$LOG_DIR/filesystem.log" 2>&1 || return "$EXIT_FILESYSTEM"
+}
+
+write_regular_rpm_payload_manifest() {
+    local root="$1" manifest="$2"
+    rpm --root "$root" -qal | sort -u | while IFS= read -r path; do
+        [[ -f "$root$path" && ! -L "$root$path" ]] || continue
+        printf '%s\n' "$path"
+    done >"$manifest"
+    [[ -s "$manifest" ]] || {
+        log ERROR "No regular RPM payload path was found for $root"
+        return "$EXIT_RPM_MISSING"
+    }
+}
+
+scan_missing_regular_rpm_payload_in_ext4() {
+    local root="$1" image="$2" missing_manifest="$3" payload_manifest
+    payload_manifest="$(mktemp "$METADATA_DIR/ext4-rpm-payload-paths.XXXXXX")" || return "$EXIT_FILESYSTEM"
+    if ! write_regular_rpm_payload_manifest "$root" "$payload_manifest" ||
+       ! while IFS= read -r path; do
+            [[ -n "$path" ]] && printf 'stat %s\n' "$path"
+        done <"$payload_manifest" | debugfs -f - "$image" 2>&1 | awk '
+            /^debugfs: stat / { current=$3; next }
+            /: File not found by ext2_lookup/ { if (current != "") print current; current="" }
+        ' >"$missing_manifest"; then
+        rm -f -- "$payload_manifest"
+        log ERROR "Could not scan final ext4 RPM payload."
+        return "$EXIT_FILESYSTEM"
+    fi
+    rm -f -- "$payload_manifest"
+}
+
+restore_all_missing_regular_rpm_payload_in_ext4() {
+    local root="$1" image="$2" manifest="$METADATA_DIR/ext4-rpm-payload-missing-before-restore.txt"
+    local path restored=0
+    scan_missing_regular_rpm_payload_in_ext4 "$root" "$image" "$manifest" || return "$EXIT_FILESYSTEM"
+    while IFS= read -r path; do
+        [[ -n "$path" && -f "$root$path" && ! -L "$root$path" ]] || continue
+        restore_regular_file_in_ext4 "$root" "$image" "$root$path" || return "$EXIT_FILESYSTEM"
+        restored=$((restored + 1))
+    done <"$manifest"
+    log INFO "Restored $restored missing regular file(s) owned by installed RPMs into the ext4 image."
+}
+
+verify_all_regular_rpm_payload_in_ext4() {
+    local root="$1" image="$2" manifest="$METADATA_DIR/ext4-rpm-payload-missing-after-restore.txt"
+    scan_missing_regular_rpm_payload_in_ext4 "$root" "$image" "$manifest" || return "$EXIT_FILESYSTEM"
+    if [[ -s "$manifest" ]]; then
+        log ERROR "Final ext4 image still lacks regular files owned by installed RPMs; see $manifest"
+        return "$EXIT_FILESYSTEM"
+    fi
+}
+
 create_ext4_image_from_root() {
     local root="$1" image="$2" size="$3"
     truncate -s "$size" "$image"
     mkfs.ext4 -F -L fedora_nabu -O metadata_csum,64bit -d "$root" "$image" >>"$LOG_DIR/filesystem.log" 2>&1
+    # mke2fs -d can occasionally omit regular files on the rootless compose
+    # path.  Restore and verify every installed RPM payload, including Fedora
+    # locale and Qt translation catalogs; no language is pruned here.
+    restore_all_missing_regular_rpm_payload_in_ext4 "$root" "$image"
+    verify_all_regular_rpm_payload_in_ext4 "$root" "$image"
     e2fsck -f -y "$image" >>"$LOG_DIR/filesystem.log" 2>&1
     resize2fs -M "$image" >>"$LOG_DIR/filesystem.log" 2>&1
     local block_count block_size margin_bytes final_bytes

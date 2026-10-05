@@ -1,0 +1,4 @@
+# Nabu firmware exposes an EFI RTC that cannot read time and whose wakeup
+# source stays permanently active. Keep the functional PM8150 RTC available
+# for alarms and prevent only rtc-efi from aborting every s2idle attempt.
+SUBSYSTEM=="rtc", DRIVERS=="rtc-efi", ATTR{device/power/wakeup}="disabled"

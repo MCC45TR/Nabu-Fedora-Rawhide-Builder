@@ -80,6 +80,7 @@ grep -Fx 'enable nabu-kde-auto-brightness-guard.service' "$project_dir/files/90-
 jq -e 'length == 0' "$project_dir/files/kwinoutputconfig.json" >/dev/null
 python3 -m py_compile \
     "$project_dir/files/nabu-audio-orientation"
+python3 -m unittest -v "$project_dir/tests/test_audio_orientation.py"
 python3 -m py_compile "$project_dir/files/senemos-nabu-display-profile"
 python3 -m py_compile "$project_dir/files/nabu-kde-auto-brightness-guard"
 python3 "$project_dir/tests/test-auto-brightness-guard.py"

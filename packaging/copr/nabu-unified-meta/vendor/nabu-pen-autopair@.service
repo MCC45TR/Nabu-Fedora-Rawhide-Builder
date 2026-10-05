@@ -1,0 +1,13 @@
+[Unit]
+Description=Pair Xiaomi stylus %I reported by IDTP9418
+Wants=bluetooth.service
+After=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nabu-pen-autopair %I
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX

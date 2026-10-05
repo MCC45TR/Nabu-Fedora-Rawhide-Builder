@@ -1,0 +1,12 @@
+[Unit]
+Description=Mount Xiaomi Nabu sensor calibration data read-only
+Before=hexagonrpcd-sdsp.service iio-sensor-proxy.service
+
+[Mount]
+What=/dev/disk/by-partlabel/persist
+Where=/mnt/vendor/persist
+Type=ext4
+Options=ro,noload,nosuid,nodev,noexec
+
+[Install]
+WantedBy=local-fs.target

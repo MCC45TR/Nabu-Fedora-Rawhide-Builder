@@ -1,0 +1,13 @@
+[Unit]
+Description=Restore persistent Nabu SSH host keys before key generation
+DefaultDependencies=no
+After=local-fs.target
+Before=sshd-keygen.target sshd.service
+ConditionPathIsDirectory=/etc/ssh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/senemos-nabu/nabu-ssh-host-key-guard restore
+
+[Install]
+WantedBy=sshd-keygen.target

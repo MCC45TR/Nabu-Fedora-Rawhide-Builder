@@ -1,0 +1,13 @@
+[Unit]
+Description=Retry deferred Nabu boot maintenance outside the startup path
+
+[Timer]
+OnActiveSec=30min
+OnUnitInactiveSec=6h
+RandomizedDelaySec=10min
+AccuracySec=1min
+Persistent=false
+Unit=nabu-kernel-maintenance.service
+
+[Install]
+WantedBy=timers.target
