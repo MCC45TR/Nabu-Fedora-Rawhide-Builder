@@ -2,7 +2,7 @@
 %global nabu_meta_version %(cat %{_sourcedir}/nabu-meta-version)
 Name:           nabu-core-alpha-meta
 Version:        %{nabu_meta_version}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Alpha Nabu CORE branch
 License:        MIT
 URL:            https://copr.fedorainfracloud.org/coprs/mcc45tr/nabu-linux/
@@ -10,7 +10,6 @@ Source0:        nabu-meta-version
 BuildArch:      noarch
 Requires:       nabu-core-abi = 1
 Requires:       senemos-nabu-kernel-alpha
-Requires:       nabu-uefi-smbios-alpha >= 0.1.1-1
 Provides:       nabu-core-branch = 2
 Provides:       nabu-core-meta = %{version}-%{release}
 Conflicts:      nabu-core-stable-meta
@@ -26,6 +25,10 @@ evidence and still requires physical device acceptance.
 %files
 
 %changelog
+* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - %{nabu_meta_version}-2
+- Retire the staged SMBIOS UEFI experiment from the alpha CORE manifest.
+- Keep firmware flashing outside the supported package workflow.
+
 * Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - %{nabu_meta_version}-1
 - Adopt the shared Istanbul YYMMDDHHMM meta-package version.
 
