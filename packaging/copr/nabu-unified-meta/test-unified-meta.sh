@@ -113,6 +113,8 @@ for spec in "$root"/*-nabu-meta.spec; do
 done
 
 for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-meta.spec"; do
+    grep -Fq 'pkgconfig(Qt6Widgets)' "$kde_spec" || fail "native color selector build dependency missing in $kde_spec"
+    grep -Fq 'senemos-nabu-color-settings.cpp' "$kde_spec" || fail "native color selector missing in $kde_spec"
     grep -Fq 'Requires:       kdeplasma-addons' "$kde_spec" || fail "missing Kameleon provider in $kde_spec"
     grep -Fq 'Requires:       firewalld' "$kde_spec" || fail "missing firewalld runtime in $kde_spec"
     grep -Fq 'Requires:       udisks2' "$kde_spec" || fail "missing UDisks2 storage service in $kde_spec"
@@ -128,6 +130,14 @@ for kde_spec in "$root/kde-plasma-nabu-meta.spec" "$root/kde-plasma-mobile-nabu-
         || fail "legacy ICC cleanup does not verify its exact vendor target in $kde_spec"
 done
 family_spec="$root/../nabu-desktop-metas/nabu-desktop-metas.spec"
+native_generator="$root/../nabu-desktop-metas/generate-family-spec.cpp"
+[[ ! -e "$root/../nabu-desktop-metas/generate-family-spec.py" ]] \
+    || fail "Python desktop-family generator remains"
+native_generator_binary=$(mktemp)
+trap 'rm -f -- "$native_generator_binary"' EXIT
+g++ -std=c++20 -Wall -Wextra -Werror -O2 "$native_generator" -o "$native_generator_binary"
+"$native_generator_binary" --check "$root/../nabu-desktop-metas" \
+    || fail "native desktop-family generator does not reproduce the reviewed spec"
 test "$(grep -Fc 'legacy_icc_link=%{_sysconfdir}/systemd/user/graphical-session.target.wants/nabu-color-profile-auto.service' "$family_spec")" -eq 2 \
     || fail "desktop family does not carry both KDE legacy ICC cleanup paths"
 grep -Fxq 'POWERDEVIL_NO_DDCUTIL=1' "$root/90-nabu-powerdevil.conf" || fail "PowerDevil DDC probe is not disabled for Nabu DSI"

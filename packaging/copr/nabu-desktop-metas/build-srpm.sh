@@ -18,9 +18,9 @@ tar -czf "$kde_archive" \
     --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
     -C "$unified/vendor-src" "$kde_name"
 
-# nabu-desktop-metas.spec is generated and reviewed in the source tree.  Keep
-# the generator as a maintainer tool, but do not require Python in COPR's
-# deliberately minimal SRPM preparation chroot.
+# nabu-desktop-metas.spec is generated and reviewed in the source tree. The
+# native C++ generator is a maintainer tool; COPR builds the checked-in spec
+# without a generator or Python interpreter in its SRPM preparation chroot.
 
 install -m0644 \
     "$unified/vendor/nabu-kde-l10n-1.1.0.tar.gz" \
