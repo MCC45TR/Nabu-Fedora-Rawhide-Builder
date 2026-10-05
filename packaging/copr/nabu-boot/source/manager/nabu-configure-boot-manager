@@ -276,7 +276,10 @@ case "$selected" in
             echo 'rotation 3'
             printf 'include themes/%s/theme.conf\n' "$refind_theme_id"
             [[ ! -r $refind_root/refind-local.conf ]] || echo 'include refind-local.conf'
-            printf 'default_selection "%s"\n' "$default_uki"
+            # rEFInd selects manual entries by their displayed title, not by
+            # the loader filename.  A filename here silently falls back to
+            # the first entry (which may be a known-good recovery include).
+            printf 'default_selection "%s"\n' "$default_title"
             for family in "${ordered_families[@]}"; do
                 name=${family_uki[$family]}
                 printf 'menuentry "%s" {\n' "$(title_for_uki "$name")"

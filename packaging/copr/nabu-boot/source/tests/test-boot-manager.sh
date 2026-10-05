@@ -69,6 +69,10 @@ printf 'font\n' >"$refind_payload/refind-theme-regular/fonts/source-code-pro-ext
 printf 'icon\n' >"$refind_payload/refind-theme-regular/icons/256-96/os_fedora.png"
 ln "$refind_payload/refind-theme-regular/icons/256-96/os_fedora.png" \
    "$refind_payload/refind-theme-regular/icons/256-96/os_android.png"
+install -d "$esp/EFI/BOOT"
+printf 'menuentry "Fedora Rawhide (known-good fallback)" {\n    loader /EFI/fedora/MyCustomKernel.efi\n}\n' \
+    >"$esp/EFI/BOOT/refind-local.conf"
+local_conf_before=$(sha256sum "$esp/EFI/BOOT/refind-local.conf" | cut -d' ' -f1)
 
 PATH="$fakebin:$PATH" NABU_BOOT_ROOT="$payload" NABU_BOOT_LOCK_FILE="$root/manager.lock" bash manager/nabu-configure-boot-manager refind --esp "$esp" --sync-only --uki SENEMOS6-2608291500.efi
 cmp "$refind_payload/refind_aa64.efi" "$esp/EFI/BOOT/BOOTAA64.EFI"
@@ -81,7 +85,8 @@ grep -Fxq 'rotation 3' "$esp/EFI/BOOT/refind.conf"
 grep -Fq 'include themes/refind-theme-regular-nabu-2x-v1/theme.conf' "$esp/EFI/BOOT/refind.conf"
 grep -Fxq 'icons_dir themes/refind-theme-regular-nabu-2x-v1/icons/256-96' "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/theme.conf"
 grep -Fxq 'font themes/refind-theme-regular-nabu-2x-v1/fonts/source-code-pro-extralight-28.png' "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/theme.conf"
-grep -Fxq 'default_selection "SENEMOS6-2608291500.efi"' "$esp/EFI/BOOT/refind.conf"
+grep -Fxq 'include refind-local.conf' "$esp/EFI/BOOT/refind.conf"
+grep -Fxq 'default_selection "Fedora Rawhide (SENEMOS6 2608291500)"' "$esp/EFI/BOOT/refind.conf"
 grep -Fxq 'menuentry "Fedora Rawhide (SENEMOS6 2608291500)" {' "$esp/EFI/BOOT/refind.conf"
 grep -Fxq 'menuentry "Fedora Rawhide (SENEMOS7 7.2.3)" {' "$esp/EFI/BOOT/refind.conf"
 grep -Fxq 'menuentry "Fedora Rawhide (SENEMOS7U 2608291600)" {' "$esp/EFI/BOOT/refind.conf"
@@ -93,6 +98,7 @@ fedora_inode=$(stat -c %i "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/
 android_inode=$(stat -c %i "$esp/EFI/BOOT/themes/refind-theme-regular-nabu-2x-v1/icons/256-96/os_android.png")
 test "$fedora_inode" != "$android_inode"
 test "$(sha256sum "$esp/EFI/android/Reboot2Android.efi" | cut -d' ' -f1)" = "$android_before"
+test "$(sha256sum "$esp/EFI/BOOT/refind-local.conf" | cut -d' ' -f1)" = "$local_conf_before"
 test ! -e "$esp/loader/entries/senemos.conf"
 test -z "$(find "$esp/loader/entries" -maxdepth 1 -type f -name 'senemos-SENEMOS*.conf' -print -quit)"
 test ! -e "$esp/EFI/fedora/SENEMOS6-2608280000.efi"
