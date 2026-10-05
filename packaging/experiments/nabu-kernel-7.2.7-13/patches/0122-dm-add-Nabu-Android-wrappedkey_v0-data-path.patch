@@ -1,0 +1,244 @@
+From efb84f7dae9921dac3c742fcbeff52510e77f5e3 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 01:13:55 +0300
+Subject: [PATCH] dm: add Nabu Android wrappedkey_v0 data path
+
+---
+ drivers/md/Kconfig                  |  13 +++
+ drivers/md/dm-inlinecrypt.c         | 128 +++++++++++++++++++++++++++-
+ senemos/configs/nabu-minimal.config |  21 +++++
+ 3 files changed, 161 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/md/Kconfig b/drivers/md/Kconfig
+index df27c7d06..4a12fc57c 100644
+--- a/drivers/md/Kconfig
++++ b/drivers/md/Kconfig
+@@ -326,6 +326,19 @@ config DM_INLINECRYPT
+ 	  take advantage of inline encryption hardware such as that commonly
+ 	  built into UFS host controllers.
+ 
++config DM_DEFAULT_KEY
++	bool "Android-compatible default-key target support"
++	depends on DM_INLINECRYPT=y
++	help
++	  Register the Android default-key target alongside dm-inlinecrypt.  The
++	  compatibility target accepts the options-format-v2 wrappedkey_v0 syntax,
++	  applies metadata encryption to otherwise unencrypted bios, and passes
++	  fscrypt bios through to the underlying inline-encryption device.
++
++	  Hardware-wrapped keys are never converted to raw keys or handled by the
++	  software fallback.  The target fails closed unless the storage queue
++	  advertises hardware-wrapped-key support.
++
+ config DM_SNAPSHOT
+        tristate "Snapshot target"
+        depends on BLK_DEV_DM
+diff --git a/drivers/md/dm-inlinecrypt.c b/drivers/md/dm-inlinecrypt.c
+index 41293c18d..9ec70ca41 100644
+--- a/drivers/md/dm-inlinecrypt.c
++++ b/drivers/md/dm-inlinecrypt.c
+@@ -34,6 +34,7 @@ static const struct dm_inlinecrypt_cipher {
+  * @sector_size: crypto sector size in bytes (usually 4096)
+  * @sector_bits: log2(sector_size)
+  * @key_type: type of the key -- either raw or hardware-wrapped
++ * @legacy_wrappedkey_v0: use Android's wrappedkey_v0 table syntax
+  * @key: the encryption key to use
+  * @max_dun: the maximum DUN that may be used (computed from other params)
+  */
+@@ -46,6 +47,7 @@ struct inlinecrypt_ctx {
+ 	unsigned int sector_size;
+ 	unsigned int sector_bits;
+ 	enum blk_crypto_key_type key_type;
++	bool legacy_wrappedkey_v0;
+ 	struct blk_crypto_key key;
+ 	u64 max_dun;
+ };
+@@ -273,6 +275,14 @@ static int inlinecrypt_ctr_optional(struct dm_target *ti,
+ 				ti->error = "Invalid block key type";
+ 				return -EINVAL;
+ 			}
++		} else if (!strcmp(opt_string, "wrappedkey_v0")) {
++			if (!IS_ENABLED(CONFIG_DM_DEFAULT_KEY) ||
++			    strcmp(ti->type->name, "default-key")) {
++				ti->error = "wrappedkey_v0 is only valid for default-key";
++				return -EINVAL;
++			}
++			ctx->key_type = BLK_CRYPTO_KEY_TYPE_HW_WRAPPED;
++			ctx->legacy_wrappedkey_v0 = true;
+ 		} else if (!strcmp(opt_string, "allow_discards")) {
+ 			ti->num_discard_bios = 1;
+ 		} else if (sscanf(opt_string, "sector_size:%u%c",
+@@ -502,6 +512,43 @@ static int inlinecrypt_map(struct dm_target *ti, struct bio *bio)
+ 	return DM_MAPIO_SUBMITTED;
+ }
+ 
++/*
++ * Android metadata encryption is layered below fscrypt.  Apply the default
++ * metadata key only when fscrypt has not already attached a per-file crypto
++ * context.  Existing contexts are passed unchanged to the UFS inline crypto
++ * engine; silently replacing or unwrapping them would corrupt data.
++ */
++static int default_key_map(struct dm_target *ti, struct bio *bio)
++{
++	const struct inlinecrypt_ctx *ctx = ti->private;
++	sector_t sector_in_target;
++	u64 dun[BLK_CRYPTO_DUN_ARRAY_SIZE] = {};
++
++	bio_set_dev(bio, ctx->dev->bdev);
++
++	if (bio_sectors(bio) == 0)
++		return DM_MAPIO_REMAPPED;
++
++	sector_in_target = dm_target_offset(ti, bio->bi_iter.bi_sector);
++	bio->bi_iter.bi_sector = ctx->start + sector_in_target;
++
++	if (!bio_has_data(bio) || bio_has_crypt_ctx(bio))
++		return DM_MAPIO_REMAPPED;
++
++	dun[0] = ctx->iv_offset + sector_in_target;
++	if (dun[0] & ((ctx->sector_size >> SECTOR_SHIFT) - 1))
++		return DM_MAPIO_KILL;
++	dun[0] >>= ctx->sector_bits - SECTOR_SHIFT;
++
++	if (WARN_ON_ONCE(dun[0] > ctx->max_dun))
++		return DM_MAPIO_KILL;
++
++	bio_crypt_set_ctx(bio, &ctx->key, dun, GFP_NOIO);
++	if (__blk_crypto_submit_bio(bio))
++		return DM_MAPIO_REMAPPED;
++	return DM_MAPIO_SUBMITTED;
++}
++
+ static void inlinecrypt_status(struct dm_target *ti, status_type_t type,
+ 			       unsigned int status_flags, char *result,
+ 			       unsigned int maxlen)
+@@ -542,6 +589,42 @@ static void inlinecrypt_status(struct dm_target *ti, status_type_t type,
+ 	}
+ }
+ 
++static void default_key_status(struct dm_target *ti, status_type_t type,
++			       unsigned int status_flags, char *result,
++			       unsigned int maxlen)
++{
++	const struct inlinecrypt_ctx *ctx = ti->private;
++	unsigned int sz = 0;
++	int num_feature_args = 0;
++
++	switch (type) {
++	case STATUSTYPE_INFO:
++	case STATUSTYPE_IMA:
++		result[0] = '\0';
++		break;
++	case STATUSTYPE_TABLE:
++		/* Never disclose Android metadata key material through dm status. */
++		DMEMIT("%s - %llu %s %llu", ctx->cipher_string,
++		       ctx->iv_offset, ctx->dev->name, ctx->start);
++		num_feature_args += !!ti->num_discard_bios;
++		if (ctx->sector_size != SECTOR_SIZE)
++			num_feature_args += 2;
++		num_feature_args += ctx->legacy_wrappedkey_v0;
++		if (num_feature_args) {
++			DMEMIT(" %d", num_feature_args);
++			if (ti->num_discard_bios)
++				DMEMIT(" allow_discards");
++			if (ctx->sector_size != SECTOR_SIZE) {
++				DMEMIT(" sector_size:%u", ctx->sector_size);
++				DMEMIT(" iv_large_sectors");
++			}
++			if (ctx->legacy_wrappedkey_v0)
++				DMEMIT(" wrappedkey_v0");
++		}
++		break;
++	}
++}
++
+ static int inlinecrypt_prepare_ioctl(struct dm_target *ti,
+ 				     struct block_device **bdev, unsigned int cmd,
+ 				     unsigned long arg, bool *forward)
+@@ -612,7 +695,50 @@ static struct target_type inlinecrypt_target = {
+ 	.io_hints		= inlinecrypt_io_hints,
+ };
+ 
+-module_dm(inlinecrypt);
++#if IS_ENABLED(CONFIG_DM_DEFAULT_KEY)
++static struct target_type default_key_target = {
++	.name			= "default-key",
++	.version		= {2, 1, 0},
++	.features		= DM_TARGET_ZONED_HM | DM_TARGET_PASSES_CRYPTO,
++	.module			= THIS_MODULE,
++	.ctr			= inlinecrypt_ctr,
++	.dtr			= inlinecrypt_dtr,
++	.map			= default_key_map,
++	.status			= default_key_status,
++	.prepare_ioctl		= inlinecrypt_prepare_ioctl,
++	.iterate_devices	= inlinecrypt_iterate_devices,
++	.report_zones		= inlinecrypt_report_zones,
++	.io_hints		= inlinecrypt_io_hints,
++};
++#endif
++
++static int __init dm_inlinecrypt_init(void)
++{
++	int err;
++
++	err = dm_register_target(&inlinecrypt_target);
++	if (err)
++		return err;
++
++#if IS_ENABLED(CONFIG_DM_DEFAULT_KEY)
++	err = dm_register_target(&default_key_target);
++	if (err) {
++		dm_unregister_target(&inlinecrypt_target);
++		return err;
++	}
++#endif
++	return 0;
++}
++module_init(dm_inlinecrypt_init);
++
++static void __exit dm_inlinecrypt_exit(void)
++{
++#if IS_ENABLED(CONFIG_DM_DEFAULT_KEY)
++	dm_unregister_target(&default_key_target);
++#endif
++	dm_unregister_target(&inlinecrypt_target);
++}
++module_exit(dm_inlinecrypt_exit);
+ 
+ MODULE_AUTHOR("Eric Biggers <ebiggers@google.com>");
+ MODULE_AUTHOR("Linlin Zhang <linlin.zhang@oss.qualcomm.com>");
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 17e30e136..b120fbf9f 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -27,6 +27,27 @@ CONFIG_PHY_QCOM_QMP=y
+ CONFIG_PHY_QCOM_QMP_UFS=y
+ CONFIG_SCSI_UFS_BSG=y
+ CONFIG_SCSI_UFS_CRYPTO=y
++CONFIG_QCOM_INLINE_CRYPTO_ENGINE=y
++
++# Android userdata compatibility. Keep the filesystem modular, while the
++# fscrypt, device-mapper and inline-crypto data plane is available early.
++CONFIG_BLK_INLINE_ENCRYPTION=y
++CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK=y
++CONFIG_BLK_DEV_DM=y
++CONFIG_DM_CRYPT=m
++CONFIG_DM_INLINECRYPT=y
++CONFIG_DM_DEFAULT_KEY=y
++CONFIG_FS_ENCRYPTION=y
++CONFIG_FS_ENCRYPTION_ALGS=y
++CONFIG_FS_ENCRYPTION_INLINE_CRYPT=y
++CONFIG_F2FS_FS=m
++CONFIG_F2FS_FS_XATTR=y
++CONFIG_F2FS_FS_POSIX_ACL=y
++CONFIG_F2FS_FS_SECURITY=y
++CONFIG_QUOTA=y
++CONFIG_QUOTA_NETLINK_INTERFACE=y
++CONFIG_QFMT_V2=y
++CONFIG_UNICODE=y
+ 
+ # Match the validated 6.17 display ownership and scheduling policy. Keeping MSM
+ # built in avoids the simpledrm-to-msm handoff seen before the A640 faults.
+-- 
+2.55.0
+

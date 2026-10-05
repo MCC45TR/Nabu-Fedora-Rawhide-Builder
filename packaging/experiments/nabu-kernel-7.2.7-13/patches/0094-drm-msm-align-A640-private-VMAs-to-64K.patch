@@ -1,0 +1,115 @@
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 4 Sep 2026 22:36:00 +0300
+Subject: [PATCH] drm/msm: align A640 private VMAs to 64K
+
+Nabu A640 devcoredumps show repeatable CCU translation faults during a
+GMEM-to-system-memory resolve.  In the captured submit, the UBWC flag buffer
+starts at 0x106193000 while the CCU faults on the 64K-aligned
+0x106190000 address immediately below it.  The fourth-level PTE is absent.
+
+Use 64K virtual-address alignment for objects allocated in kernel-managed
+A640 private address spaces.  This changes only VA placement and does not
+inflate or remap the GEM object's physical backing.  Keep PAGE_SIZE alignment
+for other GPUs and all other MSM VMs.
+
+This is deliberately restricted to exact A640 hardware while the generic
+hardware over-fetch requirement is investigated upstream.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gpu.c | 10 ++++++++--
+ drivers/gpu/drm/msm/msm_gem.h         |  4 ++++
+ drivers/gpu/drm/msm/msm_gem_vma.c     | 14 +++++++++++++-
+ 3 files changed, 25 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+index 8b3bb2fd433b..e203a91774dc 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+@@ -2367,6 +2367,8 @@ a6xx_create_vm(struct msm_gpu *gpu, struct platform_device *pdev)
+ static struct drm_gpuvm *
+ a6xx_create_private_vm(struct msm_gpu *gpu, bool kernel_managed)
+ {
++	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
++	struct drm_gpuvm *vm;
+ 	struct msm_mmu *mmu;
+ 
+ 	mmu = msm_iommu_pagetable_create(to_msm_vm(gpu->vm)->mmu, kernel_managed);
+@@ -2374,8 +2376,12 @@ a6xx_create_private_vm(struct msm_gpu *gpu, bool kernel_managed)
+ 	if (IS_ERR(mmu))
+ 		return ERR_CAST(mmu);
+ 
+-	return msm_gem_vm_create(gpu->dev, mmu, "gpu", ADRENO_VM_START,
+-				 adreno_private_vm_size(gpu), kernel_managed);
++	vm = msm_gem_vm_create(gpu->dev, mmu, "gpu", ADRENO_VM_START,
++			       adreno_private_vm_size(gpu), kernel_managed);
++	if (!IS_ERR(vm) && kernel_managed && adreno_is_a640(adreno_gpu))
++		msm_gem_vm_set_va_alignment(vm, SZ_64K);
++
++	return vm;
+ }
+ 
+ static uint32_t a6xx_get_rptr(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
+diff --git a/drivers/gpu/drm/msm/msm_gem.h b/drivers/gpu/drm/msm/msm_gem.h
+index 762e546d25ef..3cd9ca8c7607 100644
+--- a/drivers/gpu/drm/msm/msm_gem.h
++++ b/drivers/gpu/drm/msm/msm_gem.h
+@@ -134,6 +134,9 @@ struct msm_gem_vm {
+ 	/** @managed: is this a kernel managed VM? */
+ 	bool managed;
+ 
++	/** @va_alignment: minimum alignment for kernel managed VA allocations */
++	u64 va_alignment;
++
+ 	/**
+ 	 * @unusable: True if the VM has turned unusable because something
+ 	 * bad happened during an asynchronous request.
+@@ -156,6 +159,7 @@ struct msm_gem_vm {
+ struct drm_gpuvm *
+ msm_gem_vm_create(struct drm_device *drm, struct msm_mmu *mmu, const char *name,
+ 		  u64 va_start, u64 va_size, bool managed);
++void msm_gem_vm_set_va_alignment(struct drm_gpuvm *gpuvm, u64 alignment);
+ 
+ void msm_gem_vm_close(struct drm_gpuvm *gpuvm);
+ void msm_gem_vm_unusable(struct drm_gpuvm *gpuvm);
+diff --git a/drivers/gpu/drm/msm/msm_gem_vma.c b/drivers/gpu/drm/msm/msm_gem_vma.c
+index c4cfe036066b..eb1652227a24 100644
+--- a/drivers/gpu/drm/msm/msm_gem_vma.c
++++ b/drivers/gpu/drm/msm/msm_gem_vma.c
+@@ -389,7 +389,7 @@ msm_gem_vma_new(struct drm_gpuvm *gpuvm, struct drm_gem_object *obj,
+ 		BUG_ON(offset != 0);
+ 		BUG_ON(!obj);  /* NULL mappings not valid for kernel managed VM */
+ 		ret = drm_mm_insert_node_in_range(&vm->mm, &vma->node,
+-						obj->size, PAGE_SIZE, 0,
++						obj->size, vm->va_alignment, 0,
+ 						range_start, range_end, 0);
+ 
+ 		if (ret)
+@@ -862,6 +862,7 @@ msm_gem_vm_create(struct drm_device *drm, struct msm_mmu *mmu, const char *name,
+ 	vm->mmu = mmu;
+ 	mutex_init(&vm->mmu_lock);
+ 	vm->managed = managed;
++	vm->va_alignment = PAGE_SIZE;
+ 
+ 	drm_mm_init(&vm->mm, va_start, va_size);
+ 
+@@ -892,6 +893,17 @@ msm_gem_vm_create(struct drm_device *drm, struct msm_mmu *mmu, const char *name,
+ 	return ERR_PTR(ret);
+ }
+ 
++void msm_gem_vm_set_va_alignment(struct drm_gpuvm *gpuvm, u64 alignment)
++{
++	struct msm_gem_vm *vm = to_msm_vm(gpuvm);
++
++	if (WARN_ON(!vm->managed || alignment < PAGE_SIZE ||
++		    !is_power_of_2(alignment)))
++		return;
++
++	vm->va_alignment = alignment;
++}
++
+ /**
+  * msm_gem_vm_close() - Close a VM
+  * @gpuvm: The VM to close
+-- 
+2.51.0

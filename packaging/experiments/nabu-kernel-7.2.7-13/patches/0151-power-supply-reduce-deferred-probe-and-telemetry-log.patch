@@ -1,0 +1,238 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Tue, 15 Sep 2026 19:39:01 +0300
+Subject: [PATCH 151/151] power: supply: reduce deferred-probe and telemetry
+ log noise
+
+Nabu's charger dependencies are intentionally probed in stages. The
+current drivers print the detected LN8000 and SMB5 identity before each
+deferral, so one successful boot records the same identity around twenty
+times.
+
+LN8000 also writes complete register maps for ordinary state changes and
+prints raw ADC telemetry once per second while direct charging is active.
+Those diagnostics are valuable when explicitly enabled, but they create
+continuous formatting and journal work during normal charging.
+
+Move raw setup, register and telemetry details to dynamic debug. Keep
+protection events, forced safe transitions and all error paths visible,
+and report each charger identity once only after successful registration.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/power/supply/ln8000_charger.c | 47 +++++++++++++--------------
+ drivers/power/supply/qcom_smbx.c      |  5 ++-
+ 2 files changed, 24 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/power/supply/ln8000_charger.c b/drivers/power/supply/ln8000_charger.c
+index 0a2919c0c..7346dec8a 100644
+--- a/drivers/power/supply/ln8000_charger.c
++++ b/drivers/power/supply/ln8000_charger.c
+@@ -339,22 +339,19 @@ static int psy_chg_set_charging_enable(struct ln8000_info *info, int val);
+ 		       ##__VA_ARGS__);                             \
+ 	} while (0);
+ 
+-#define ln_dbg(fmt, ...)                                            \
+-	do {                                                        \
+-		printk(KERN_DEBUG "ln8000@pri: %s: " fmt, __func__, \
+-		       ##__VA_ARGS__);                              \
+-	} while (0);
++#define ln_diag(fmt, ...) \
++	pr_debug("ln8000@pri: %s: " fmt, __func__, ##__VA_ARGS__)
+ 
+ #define LN8000_REG_PRINT(reg_addr, val)                                     \
+ 	do {                                                                \
+-		ln_info("  --> [%-20s]   0x%02X   :   0x%02X\n", #reg_addr, \
++		ln_diag("  --> [%-20s]   0x%02X   :   0x%02X\n", #reg_addr, \
+ 			LN8000_REG_##reg_addr, (val) & 0xFF);               \
+ 	} while (0);
+ 
+ #define LN8000_BIT_CHECK(val, idx, desc)          \
+ 	do {                                      \
+ 		if ((val) & BIT(idx))             \
+-			ln_info("-> %s\n", desc); \
++			ln_diag("-> %s\n", desc); \
+ 	} while (0)
+ #define LN8000_USE_GPIO(pdata) \
+ 	((pdata != NULL) && (!IS_ERR_OR_NULL(pdata->irq_gpio)))
+@@ -477,7 +474,7 @@ static int ln8000_set_iin_limit(struct ln8000_info *info, unsigned int cfg)
+ {
+ 	u8 val = cfg / LN8000_IIN_CFG_LSB;
+ 
+-	ln_info("iin_limit=%dmV(iin_ctrl=0x%x)\n", cfg / 1000, val);
++	ln_diag("iin_limit=%dmV(iin_ctrl=0x%x)\n", cfg / 1000, val);
+ 
+ 	return ln8000_update_reg(info, LN8000_REG_IIN_CTRL, 0x7F, val);
+ }
+@@ -785,7 +782,7 @@ static void ln8000_print_regmap(struct ln8000_info *info)
+ 		sprintf(temp_buf + strlen(temp_buf), "0x%02X[0x%02X],",
+ 			LN8000_REG_INT1_MSK + i, regs[i]);
+ 		if (((i + 1) % 10 == 0) || ((i + 1) == print_reg_num)) {
+-			ln_info("%s\n", temp_buf);
++			ln_diag("%s\n", temp_buf);
+ 			memset(temp_buf, 0x0, sizeof(temp_buf));
+ 		}
+ 	}
+@@ -876,7 +873,7 @@ static int ln8000_update_opmode(struct ln8000_info *info)
+ 			ln_info("forced trigger standby_en\n");
+ 			info->chg_en = 0;
+ 		}
+-		ln_info("op_mode has been changed [%d]->[%d] (sys_st=0x%x)\n",
++		ln_diag("op_mode has been changed [%d]->[%d] (sys_st=0x%x)\n",
+ 			info->op_mode, op_mode, val);
+ 		info->op_mode = op_mode;
+ 	}
+@@ -908,7 +905,7 @@ static int ln8000_change_opmode(struct ln8000_info *info,
+ 	ret = ln8000_update_reg(info, LN8000_REG_SYS_CTRL, msk, val);
+ 	if (ret)
+ 		return ret;
+-	ln_info("changed opmode [%d] -> [%d]\n", info->op_mode, target_mode);
++	ln_diag("changed opmode [%d] -> [%d]\n", info->op_mode, target_mode);
+ 	info->op_mode = target_mode;
+ 
+ 	return 0;
+@@ -930,7 +927,7 @@ static int ln8000_init_device(struct ln8000_info *info)
+ 
+ 	/* The hardware OVP threshold is 102% of the float voltage. */
+ 	vbat_float = rounddown(info->pdata->bat_ovp_th * 100 / 102, 1000);
+-	ln_info("bat_ovp_th=%d, vbat_float=%d\n", info->pdata->bat_ovp_th,
++	ln_diag("bat_ovp_th=%d, vbat_float=%d\n", info->pdata->bat_ovp_th,
+ 		vbat_float);
+ 	LN8000_INIT_STEP(ln8000_set_vbat_float(info, vbat_float));
+ 	info->vbat_ovp_alarm_th = info->pdata->bat_ovp_alarm_th;
+@@ -990,7 +987,7 @@ static int ln8000_init_device(struct ln8000_info *info)
+ 		ln8000_write_reg(info, LN8000_REG_THRESHOLD_CTRL, 0x0e));
+ 
+ 	ln8000_print_regmap(info);
+-	ln_info("initialization complete; input NTC %s, all populated protections enabled\n",
++	ln_diag("initialization complete; input NTC %s, all populated protections enabled\n",
+ 		info->pdata->input_ntc_unwired ? "not populated" : "enabled");
+ 
+ #undef LN8000_INIT_STEP
+@@ -1110,12 +1107,12 @@ static void psy_chg_get_ti_alarm_status(struct work_struct *work)
+ 	}
+ 
+ 	ln8000_bulk_read_reg(info, LN8000_REG_SYS_STS, val, 4);
+-	ln_info("adc_vin=%d(th=%d), adc_iin=%d(th=%d), adc_vbat=%d(th=%d), v_offset=%d\n",
++	ln_diag("adc_vin=%d(th=%d), adc_iin=%d(th=%d), adc_vbat=%d(th=%d), v_offset=%d\n",
+ 		info->vbus_uV / 1000, info->vin_ovp_alarm_th / 1000,
+ 		info->iin_uA / 1000, info->iin_ocp_alarm_th / 1000,
+ 		info->vbat_uV / 1000, info->vbat_ovp_alarm_th / 1000,
+ 		v_offset / 1000);
+-	ln_info("st:0x%x:0x%x:0x%x:0x%x\n", val[0], val[1], val[2], val[3]);
++	ln_diag("st:0x%x:0x%x:0x%x:0x%x\n", val[0], val[1], val[2], val[3]);
+ 
+ 	if (info->chg_en)
+ 		queue_delayed_work(system_percpu_wq, &info->charge_work,
+@@ -1215,14 +1212,14 @@ static int psy_chg_set_charging_enable(struct ln8000_info *info, int val)
+ 	int restore_ret;
+ 
+ 	if (val) {
+-		ln_info("start charging\n");
++		ln_diag("start charging\n");
+ 		op_mode = LN8000_OPMODE_SWITCHING;
+ 		ret = ln8000_set_switching_charger(info, false);
+ 		if (ret)
+ 			return dev_err_probe(info->dev, ret,
+ 					     "failed to suspend switching charger\n");
+ 	} else {
+-		ln_info("stop charging\n");
++		ln_diag("stop charging\n");
+ 		op_mode = LN8000_OPMODE_STANDBY;
+ 	}
+ 
+@@ -1238,7 +1235,7 @@ static int psy_chg_set_charging_enable(struct ln8000_info *info, int val)
+ 	ln8000_print_regmap(info);
+ 	info->chg_en = info->op_mode == LN8000_OPMODE_SWITCHING;
+ 
+-	ln_info("op_mode=%d\n", info->op_mode);
++	ln_diag("op_mode=%d\n", info->op_mode);
+ 
+ 	ret = info->op_mode == op_mode ? 0 : -EIO;
+ 
+@@ -1292,7 +1289,7 @@ static irqreturn_t ln8000_interrupt_handler(int irq, void *data)
+ 	u8 masked_int;
+ 	int ret;
+ 
+-	ln_info("enter\n");
++	ln_diag("enter\n");
+ 	ret = ln8000_read_int_value(info, &int_reg);
+ 	if (IS_ERR_VALUE((unsigned long)ret)) {
+ 		ln_err("fail to read INT reg (ret=%d)\n", ret);
+@@ -1303,7 +1300,7 @@ static irqreturn_t ln8000_interrupt_handler(int irq, void *data)
+ 		goto fail_closed;
+ 	masked_int = int_reg & ~int_msk;
+ 
+-	ln_info("int_reg=0x%x, int_msk=0x%x, masked_int=0x%x\n", int_reg,
++	ln_diag("int_reg=0x%x, int_msk=0x%x, masked_int=0x%x\n", int_reg,
+ 		int_msk, masked_int);
+ 
+ 	ln8000_print_regmap(info);
+@@ -1393,7 +1390,7 @@ static int ln8000_irq_init(struct ln8000_info *info)
+ 		if (info->client->irq < 0)
+ 			return dev_err_probe(info->dev, info->client->irq,
+ 					     "failed to map IRQ GPIO\n");
+-		ln_info("mapped GPIO to irq (%d)\n", info->client->irq);
++		ln_diag("mapped GPIO to irq (%d)\n", info->client->irq);
+ 	}
+ 
+ 	/* interrupt mask setting */
+@@ -1408,7 +1405,7 @@ static int ln8000_irq_init(struct ln8000_info *info)
+ 		ln_err("fail to read INT reg (ret=%d)\n", ret);
+ 		return ret;
+ 	}
+-	ln_info("int1_msk=0x%x\n", mask);
++	ln_diag("int1_msk=0x%x\n", mask);
+ 
+ 	return 0;
+ }
+@@ -1511,7 +1508,7 @@ static int ln8000_psy_register(struct ln8000_info *info)
+ 		return PTR_ERR(info->psy_chg);
+ 	}
+ 
+-	ln_info("successfully registered power supply\n");
++	ln_diag("successfully registered power supply\n");
+ 
+ 	return 0;
+ }
+@@ -1619,8 +1616,6 @@ static int ln8000_probe(struct i2c_client *client)
+ 	if (ret != LN8000_DEVICE_ID)
+ 		return dev_err_probe(&client->dev, -ENODEV,
+ 				     "unexpected device ID 0x%02x\n", ret);
+-	dev_info(&client->dev, "device id=0x%x\n", ret);
+-
+ 	info = devm_kzalloc(&client->dev, sizeof(struct ln8000_info),
+ 			    GFP_KERNEL);
+ 	if (info == NULL) {
+@@ -1721,6 +1716,8 @@ static int ln8000_probe(struct i2c_client *client)
+ 	}
+ 	info->notifier_registered = true;
+ 	mod_delayed_work(system_percpu_wq, &info->status_changed_work, 0);
++	dev_info(info->dev, "LN8000 device 0x%02x registered\n",
++		 LN8000_DEVICE_ID);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/power/supply/qcom_smbx.c b/drivers/power/supply/qcom_smbx.c
+index d62ff2c16..76b21d968 100644
+--- a/drivers/power/supply/qcom_smbx.c
++++ b/drivers/power/supply/qcom_smbx.c
+@@ -1842,9 +1842,6 @@ static int smb_probe(struct platform_device *pdev)
+ 	chip->fv_max_uv = match_data->fv_max_uv;
+ 	chip->fv_step_uv = match_data->fv_step_uv;
+ 
+-	dev_info(chip->dev, "Generation %s\n",
+-		 chip->gen == SMB2 ? "SMB2" : "SMB5");
+-
+ 	/* Disable SMB5 before any probe deferral can preserve bootloader state. */
+ 	if (chip->gen == SMB5) {
+ 		rc = smb_set_charging_enabled(chip, false);
+@@ -2028,6 +2025,8 @@ static int smb_probe(struct platform_device *pdev)
+ 	schedule_delayed_work(&chip->status_change_work, 0);
+ 	if (chip->gen == SMB5)
+ 		mod_delayed_work(system_percpu_wq, &chip->thermal_work, 0);
++	dev_info(chip->dev, "Generation %s charger registered\n",
++		 chip->gen == SMB2 ? "SMB2" : "SMB5");
+ 
+ 	return 0;
+ }

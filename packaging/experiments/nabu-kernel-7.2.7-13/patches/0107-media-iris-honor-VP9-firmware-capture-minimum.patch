@@ -1,0 +1,50 @@
+From d2388cf85bbbfe4640878959fdb3eda54a5df834 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 15:45:19 +0300
+Subject: [PATCH] media: iris: honor VP9 firmware capture minimum
+
+---
+ drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c | 8 +-------
+ drivers/media/platform/qcom/iris/iris_vpu_buffer.c       | 8 ++------
+ 2 files changed, 3 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+index 8d6111be2b4b..d1b458ece77f 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+@@ -1253,13 +1253,7 @@ static int iris_hfi_gen1_set_first_capture_config(struct iris_inst *inst)
+ 	dpb_count = iris_vpu_buf_count(inst, BUF_DPB);
+ 	output2_count = vb2_get_num_buffers(dst_q);
+ 
+-	/*
+-	 * Split-mode DPBs are firmware-owned HFI_BUFFER_OUTPUT allocations.
+-	 * The client-visible OUTPUT2 queue is independent and may legitimately
+-	 * contain fewer buffers than the firmware DPB requirement (for example,
+-	 * GStreamer requests five capture buffers for an eleven-DPB VP9 stream).
+-	 */
+-	if (!dpb_count || !output2_count) {
++	if (!dpb_count || output2_count < dpb_count) {
+ 		dev_err(inst->core->dev,
+ 			"Iris1 v64: invalid first capture counts: codec=%p4cc output2=%u dpb=%u\n",
+ 			&inst->codec, output2_count, dpb_count);
+diff --git a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+index 34a9094201cc..e2b5a6095b38 100644
+--- a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
++++ b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+@@ -1369,12 +1369,8 @@ static int output_min_count(struct iris_inst *inst)
+ 	int output_min_count = 4;
+ 
+ 	/* fw_min_count > 0 indicates reconfig event has already arrived */
+-	if (inst->fw_min_count) {
+-		if (iris_split_mode_enabled(inst) && inst->codec == V4L2_PIX_FMT_VP9)
+-			return min_t(u32, 4, inst->fw_min_count);
+-		else
+-			return inst->fw_min_count;
+-	}
++	if (inst->fw_min_count)
++		return inst->fw_min_count;
+ 
+ 	if (inst->codec == V4L2_PIX_FMT_VP9)
+ 		output_min_count = 9;
+-- 
+2.55.0

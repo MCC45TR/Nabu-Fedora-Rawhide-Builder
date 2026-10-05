@@ -1,0 +1,50 @@
+From 237e5ffc69e5d6e858bb0ef576b3584c529302bd Mon Sep 17 00:00:00 2001
+From: MCC45TR <mursitcancihan@gmail.com>
+Date: Sat, 29 Aug 2026 19:14:35 +0300
+Subject: [PATCH 46/64] slimbus: qcom-ngd: make duplicate UP work idempotent
+
+---
+ drivers/slimbus/qcom-ngd-ctrl.c | 22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/slimbus/qcom-ngd-ctrl.c b/drivers/slimbus/qcom-ngd-ctrl.c
+index c2bf27678243..6436b379888f 100644
+--- a/drivers/slimbus/qcom-ngd-ctrl.c
++++ b/drivers/slimbus/qcom-ngd-ctrl.c
+@@ -1451,18 +1451,32 @@ static void qcom_slim_ngd_down(struct qcom_slim_ngd_ctrl *ctrl)
+ static void qcom_slim_ngd_up_worker(struct work_struct *work)
+ {
+ 	struct qcom_slim_ngd_ctrl *ctrl;
++	long wait_ret;
+ 
+ 	ctrl = container_of(work, struct qcom_slim_ngd_ctrl, ngd_up_work);
+ 
++	/* SSR, PDR and probe reconciliation can report the same UP transition. */
++	mutex_lock(&ctrl->ssr_lock);
++	if (ctrl->state != QCOM_SLIM_NGD_CTRL_DOWN) {
++		mutex_unlock(&ctrl->ssr_lock);
++		return;
++	}
++	mutex_unlock(&ctrl->ssr_lock);
++
+ 	/* Make sure qmi service is up before continuing */
+-	if (!wait_for_completion_interruptible_timeout(&ctrl->qmi_up,
+-						       msecs_to_jiffies(MSEC_PER_SEC))) {
+-		dev_err(ctrl->dev, "QMI wait timeout\n");
++	wait_ret = wait_for_completion_interruptible_timeout(&ctrl->qmi_up,
++						msecs_to_jiffies(MSEC_PER_SEC));
++	if (wait_ret <= 0) {
++		if (wait_ret < 0)
++			dev_dbg(ctrl->dev, "QMI wait interrupted: %ld\n", wait_ret);
++		else
++			dev_err(ctrl->dev, "QMI wait timeout\n");
+ 		return;
+ 	}
+ 
+ 	mutex_lock(&ctrl->ssr_lock);
+-	qcom_slim_ngd_enable(ctrl, true);
++	if (ctrl->state == QCOM_SLIM_NGD_CTRL_DOWN)
++		qcom_slim_ngd_enable(ctrl, true);
+ 	mutex_unlock(&ctrl->ssr_lock);
+ }
+ 

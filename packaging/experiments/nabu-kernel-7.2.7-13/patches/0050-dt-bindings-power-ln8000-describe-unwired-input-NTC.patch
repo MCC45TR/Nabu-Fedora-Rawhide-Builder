@@ -1,0 +1,35 @@
+From 29c8a37fb737458883b2d3a311e86b9060a43b86 Mon Sep 17 00:00:00 2001
+From: MCC45TR <mursitcancihan@gmail.com>
+Date: Sat, 29 Aug 2026 13:07:41 +0300
+Subject: [PATCH 50/64] dt-bindings: power: ln8000: describe unwired input NTC
+
+---
+ .../devicetree/bindings/power/supply/lionsemi,ln8000.yaml | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/power/supply/lionsemi,ln8000.yaml b/Documentation/devicetree/bindings/power/supply/lionsemi,ln8000.yaml
+index 7550b9b521de..2b72097f083e 100644
+--- a/Documentation/devicetree/bindings/power/supply/lionsemi,ln8000.yaml
++++ b/Documentation/devicetree/bindings/power/supply/lionsemi,ln8000.yaml
+@@ -66,6 +66,13 @@ properties:
+     minimum: 6500000
+     maximum: 12000000
+ 
++  lionsemi,input-ntc-unwired:
++    type: boolean
++    description: |
++      The board does not populate a thermistor on the LN8000 TSBUS input.
++      This disables only that absent input while battery NTC, die-temperature,
++      voltage, current, watchdog and reverse-current protections stay active.
++
+ required:
+   - compatible
+   - reg
+@@ -111,6 +118,7 @@ examples:
+             lionsemi,input-ocp-alarm-microamp = <3500000>;
+             lionsemi,ntc-alarm-code = <226>;
+             lionsemi,min-input-microvolt = <8000000>;
++            lionsemi,input-ntc-unwired;
+         };
+     };
+ ...

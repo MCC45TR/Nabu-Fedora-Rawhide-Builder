@@ -1,0 +1,31 @@
+From f3589b69117f8103e19df6247624e6678037ea40 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 15:10:27 +0300
+Subject: [PATCH] media: iris: decouple split capture and DPB counts
+
+---
+ drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+index d1b458ece77f..8d6111be2b4b 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+@@ -1253,7 +1253,13 @@ static int iris_hfi_gen1_set_first_capture_config(struct iris_inst *inst)
+ 	dpb_count = iris_vpu_buf_count(inst, BUF_DPB);
+ 	output2_count = vb2_get_num_buffers(dst_q);
+ 
+-	if (!dpb_count || output2_count < dpb_count) {
++	/*
++	 * Split-mode DPBs are firmware-owned HFI_BUFFER_OUTPUT allocations.
++	 * The client-visible OUTPUT2 queue is independent and may legitimately
++	 * contain fewer buffers than the firmware DPB requirement (for example,
++	 * GStreamer requests five capture buffers for an eleven-DPB VP9 stream).
++	 */
++	if (!dpb_count || !output2_count) {
+ 		dev_err(inst->core->dev,
+ 			"Iris1 v64: invalid first capture counts: codec=%p4cc output2=%u dpb=%u\n",
+ 			&inst->codec, output2_count, dpb_count);
+-- 
+2.55.0
+

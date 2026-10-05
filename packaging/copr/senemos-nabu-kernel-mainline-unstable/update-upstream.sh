@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-releases_url=https://www.kernel.org/releases.json
+releases_url=${NABU_RELEASES_URL:-https://www.kernel.org/releases.json}
 spec=$root/senemos-nabu-kernel-mainline-unstable.spec
 current=$(sed -nE \
     's/^%global upstream_version[[:space:]]+([^[:space:]]+).*/\1/p' "$spec")
@@ -29,12 +29,9 @@ restore() {
 trap cleanup EXIT
 
 curl -L --fail --retry 3 --output "$metadata" "$releases_url"
-latest=$(python3 -c '
-import json, sys
-with open(sys.argv[1], encoding="utf-8") as stream:
-    releases = json.load(stream)["releases"]
-print(next(item["version"] for item in releases
-           if item["moniker"] == "mainline"))
+latest=$(jq -er '
+    first(.releases[] | select(.moniker == "mainline") | .version)
+    // error("no mainline release found")
 ' "$metadata")
 [[ $latest =~ ^[0-9]+[.][0-9]+([.][0-9]+|[-]rc[0-9]+)?$ ]]
 

@@ -20,6 +20,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: Install the release metadata parser
+        run: sudo apt-get update && sudo apt-get install --yes jq
       - name: Apply the Nabu series to the latest Linux mainline tag
         env:
           TMPDIR: ${{ runner.temp }}

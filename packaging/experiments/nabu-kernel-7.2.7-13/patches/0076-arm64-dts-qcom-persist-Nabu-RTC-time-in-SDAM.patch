@@ -1,0 +1,57 @@
+From 8327bfe6bdc24c29d4afe5182c76a79f6dd61b93 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 15:48:26 +0300
+Subject: [PATCH 76/76] arm64: dts: qcom: persist Nabu RTC time in SDAM
+
+---
+ arch/arm64/boot/dts/qcom/pm8150.dtsi            |  8 ++++++++
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts | 14 ++++++++++++--
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/pm8150.dtsi b/arch/arm64/boot/dts/qcom/pm8150.dtsi
+index 34758acbcd96..51a745045eb0 100644
+--- a/arch/arm64/boot/dts/qcom/pm8150.dtsi
++++ b/arch/arm64/boot/dts/qcom/pm8150.dtsi
+@@ -125,6 +125,14 @@ pm8150_rtc: rtc@6000 {
+ 			interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
+ 		};
+ 
++		pm8150_sdam_2: sdam@b100 {
++			compatible = "qcom,spmi-sdam";
++			reg = <0xb100>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			status = "disabled";
++		};
++
+ 		pm8150_gpios: gpio@c000 {
+ 			compatible = "qcom,pm8150-gpio", "qcom,spmi-gpio";
+ 			reg = <0xc000>;
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index 048cadfb19b6..eed7593c4251 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -719,8 +719,18 @@ vol_up_n: vol-up-n-state {
+ };
+ 
+ &pm8150_rtc {
+-	/* Nabu has no firmware-backed wall clock; let Linux persist NTP time. */
+-	allow-set-time;
++	/* The PMIC RTC counter is read-only to the AP; persist its Unix offset. */
++	nvmem-cells = <&rtc_offset>;
++	nvmem-cell-names = "offset";
++	status = "okay";
++};
++
++&pm8150_sdam_2 {
++	status = "okay";
++
++	rtc_offset: rtc-offset@bc {
++		reg = <0xbc 0x4>;
++	};
+ };
+ 
+ &pm8150b_adc {
+-- 
+2.55.0
+

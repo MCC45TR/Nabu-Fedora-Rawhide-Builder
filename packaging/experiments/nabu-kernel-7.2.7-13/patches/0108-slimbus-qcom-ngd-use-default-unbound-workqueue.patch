@@ -1,0 +1,43 @@
+From b7960b5063ad7812c7e2440eefa8726ec49cdd1a Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 5 Sep 2026 16:13:55 +0300
+Subject: [PATCH] slimbus: qcom-ngd: use default unbound workqueue
+
+---
+ drivers/slimbus/qcom-ngd-ctrl.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/slimbus/qcom-ngd-ctrl.c b/drivers/slimbus/qcom-ngd-ctrl.c
+index f14eea164a41..2bdcbad2095a 100644
+--- a/drivers/slimbus/qcom-ngd-ctrl.c
++++ b/drivers/slimbus/qcom-ngd-ctrl.c
+@@ -1494,7 +1494,7 @@ static void qcom_slim_ngd_up_worker(struct work_struct *work)
+ 	 */
+ 	if (READ_ONCE(ctrl->ngd_ready) &&
+ 	    READ_ONCE(ctrl->state) == QCOM_SLIM_NGD_CTRL_DOWN)
+-		mod_delayed_work(system_wq, &ctrl->ngd_up_work,
++		mod_delayed_work(system_dfl_wq, &ctrl->ngd_up_work,
+ 				 msecs_to_jiffies(MSEC_PER_SEC));
+ }
+ 
+@@ -1517,7 +1517,7 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
+ 		break;
+ 	case QCOM_SSR_AFTER_POWERUP:
+ 	case SERVREG_SERVICE_STATE_UP:
+-		mod_delayed_work(system_wq, &ctrl->ngd_up_work, 0);
++		mod_delayed_work(system_dfl_wq, &ctrl->ngd_up_work, 0);
+ 		break;
+ 	default:
+ 		break;
+@@ -1625,7 +1625,7 @@ static int qcom_slim_ngd_probe(struct platform_device *pdev)
+ 
+ 	WRITE_ONCE(ctrl->ngd_ready, true);
+ 	/* Reconcile an UP notification which may have arrived during probe. */
+-	mod_delayed_work(system_wq, &ctrl->ngd_up_work, 0);
++	mod_delayed_work(system_dfl_wq, &ctrl->ngd_up_work, 0);
+ 
+ 	return 0;
+ }
+-- 
+2.55.0
+

@@ -1,0 +1,45 @@
+From daef98525c91d63d180c8f4b4787d9f1ac689923 Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Wed, 9 Sep 2026 23:40:30 +0300
+Subject: [PATCH] senemos: restore Fedora hardening and LED pattern trigger
+
+---
+ senemos/configs/nabu-minimal.config | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 995d7db6b..00ef555c0 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -210,6 +210,10 @@ CONFIG_CMA_SIZE_MBYTES=256
+ # SM8150 Iris1/Venus hardware video decoder.
+ CONFIG_VIDEO_QCOM_IRIS=m
+ 
++# feedbackd's flash feedback path uses the standard LED pattern trigger.  It
++# may be a module because the LED class is available before feedbackd starts.
++CONFIG_LEDS_TRIGGER_PATTERN=m
++
+ # Fedora-compatible module packaging.
+ CONFIG_MODULES=y
+ CONFIG_MODULE_COMPRESS_ZSTD=y
+@@ -220,7 +224,17 @@ CONFIG_SECURITY=y
+ CONFIG_SECURITY_SELINUX=y
+ CONFIG_DEFAULT_SECURITY_SELINUX=y
+ # CONFIG_DEFAULT_SECURITY_DAC is not set
++CONFIG_BPF_LSM=y
++CONFIG_SECURITY_YAMA=y
++CONFIG_SECURITY_LOCKDOWN_LSM=y
++CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y
++CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y
++CONFIG_SECURITY_LANDLOCK=y
++CONFIG_SECURITY_IPE=y
+ CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"
++CONFIG_FORTIFY_SOURCE=y
++CONFIG_HARDENED_USERCOPY=y
++CONFIG_HARDENED_USERCOPY_DEFAULT_ON=y
+ # The RPM installation stage signs every installed module explicitly.  Keep
+ # the kernel signing helper available without signing twice during make.
+ CONFIG_MODULE_SIG=y
+-- 
+2.55.0
+

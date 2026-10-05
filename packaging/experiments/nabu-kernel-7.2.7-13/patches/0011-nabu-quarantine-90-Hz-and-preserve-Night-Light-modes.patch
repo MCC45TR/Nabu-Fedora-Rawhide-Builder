@@ -1,0 +1,129 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: MCC45TR <mcc45tr@users.noreply.github.com>
+Date: Tue, 25 Aug 2026 17:33:03 +0300
+Subject: [PATCH 11/21] nabu: quarantine 90 Hz and preserve Night Light
+ modesets on 7.2
+
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c      |  9 +++++++-
+ drivers/gpu/drm/msm/msm_atomic.c              | 10 +++++++++
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c | 22 ++++++++++++++++---
+ 3 files changed, 37 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+index 42d0a529b4d5..1072a6cc690c 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+@@ -11,6 +11,7 @@
+ #include <linux/debugfs.h>
+ #include <linux/ktime.h>
+ #include <linux/bits.h>
++#include <linux/of.h>
+ 
+ #include <drm/drm_atomic.h>
+ #include <drm/drm_blend.h>
+@@ -1423,7 +1424,13 @@ static struct msm_display_topology dpu_crtc_get_topology(
+ 	else
+ 		topology.num_lm = 1;
+ 
+-	if (crtc_state->ctm || crtc_state->gamma_lut)
++	/*
++	 * Nabu's Night Light uses the CRTC CTM property.  Reserve one DSPP per
++	 * layer mixer from the initial modeset onward so later CTM enable/bypass
++	 * commits do not require a panel-blanking resource reallocation.
++	 */
++	if (crtc_state->ctm || crtc_state->gamma_lut ||
++	    of_machine_is_compatible("xiaomi,nabu"))
+ 		topology.num_dspp = topology.num_lm;
+ 
+ 	return topology;
+diff --git a/drivers/gpu/drm/msm/msm_atomic.c b/drivers/gpu/drm/msm/msm_atomic.c
+index 72a25482a789..c9d1db0ce682 100644
+--- a/drivers/gpu/drm/msm/msm_atomic.c
++++ b/drivers/gpu/drm/msm/msm_atomic.c
+@@ -9,6 +9,8 @@
+ #include <drm/drm_connector.h>
+ #include <drm/drm_vblank.h>
+ 
++#include <linux/of.h>
++
+ #include "msm_atomic_trace.h"
+ #include "msm_drv.h"
+ #include "msm_gem.h"
+@@ -405,6 +407,14 @@ int msm_atomic_check(struct drm_device *dev, struct drm_atomic_commit *state)
+ 				      new_crtc_state, i) {
+ 		if ((old_crtc_state->ctm && !new_crtc_state->ctm) ||
+ 		    (!old_crtc_state->ctm && new_crtc_state->ctm)) {
++			/*
++			 * Nabu reserves DSPP resources at every modeset.  Its CTM can
++			 * therefore be enabled or bypassed through the normal atomic
++			 * color-management flush without blanking the dual-DSI panel.
++			 */
++			if (of_machine_is_compatible("xiaomi,nabu"))
++				continue;
++
+ 			new_crtc_state->mode_changed = true;
+ 			state->allow_modeset = true;
+ 		}
+diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+index 755b71826045..5f16cd47319d 100644
+--- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
++++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+@@ -23,6 +23,11 @@
+ 
+ #define DSI_NUM_MIN 1
+ 
++static bool expose_nabu_90hz;
++module_param(expose_nabu_90hz, bool, 0444);
++MODULE_PARM_DESC(expose_nabu_90hz,
++		 "Expose Xiaomi Nabu experimental 90 Hz mode");
++
+ struct panel_info {
+ 	struct drm_panel panel;
+ 	struct mipi_dsi_device *dsi[2];
+@@ -1402,12 +1407,22 @@ static int nt36523_get_modes(struct drm_panel *panel,
+ 			       struct drm_connector *connector)
+ {
+ 	struct panel_info *pinfo = to_panel_info(panel);
+-	int i;
++	int i, num_modes = 0;
+ 
+ 	for (i = 0; i < pinfo->desc->num_modes; i++) {
+ 		const struct drm_display_mode *m = &pinfo->desc->modes[i];
+ 		struct drm_display_mode *mode;
+ 
++		/*
++		 * Xiaomi's Nabu vendor panel data advertises only 60 and 120 Hz.
++		 * Keep the experimental 90 Hz timing compiled for diagnostics, but
++		 * do not expose it to KMS clients until the dual-DSI scanout fault is
++		 * resolved and physically validated.
++		 */
++		if (pinfo->desc == &nabu_csot_desc &&
++		    drm_mode_vrefresh(m) == 90 && !expose_nabu_90hz)
++			continue;
++
+ 		mode = drm_mode_duplicate(connector->dev, m);
+ 		if (!mode) {
+ 			dev_err(panel->dev, "failed to add mode %ux%u@%u\n",
+@@ -1416,18 +1431,19 @@ static int nt36523_get_modes(struct drm_panel *panel,
+ 		}
+ 
+ 		mode->type = DRM_MODE_TYPE_DRIVER;
+-		if (i == 0)
++		if (!num_modes)
+ 			mode->type |= DRM_MODE_TYPE_PREFERRED;
+ 
+ 		drm_mode_set_name(mode);
+ 		drm_mode_probed_add(connector, mode);
++		num_modes++;
+ 	}
+ 
+ 	connector->display_info.width_mm = pinfo->desc->width_mm;
+ 	connector->display_info.height_mm = pinfo->desc->height_mm;
+ 	connector->display_info.bpc = pinfo->desc->bpc;
+ 
+-	return pinfo->desc->num_modes;
++	return num_modes;
+ }
+ 
+ static enum drm_panel_orientation nt36523_get_orientation(struct drm_panel *panel)

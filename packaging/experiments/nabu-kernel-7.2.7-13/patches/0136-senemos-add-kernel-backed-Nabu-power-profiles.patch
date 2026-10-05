@@ -1,0 +1,631 @@
+From 8f0824c128f2cdaabcbe62800a32f4aff4e94d09 Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Thu, 10 Sep 2026 06:38:34 +0300
+Subject: [PATCH] senemos: add kernel-backed Nabu power profiles
+
+---
+ .../soc/qcom/xiaomi,nabu-power-profile.yaml   |  35 +++
+ .../boot/dts/qcom/sm8150-xiaomi-nabu.dts      |   5 +
+ drivers/acpi/Kconfig                          |   1 +
+ drivers/acpi/Makefile                         |   1 -
+ drivers/platform/Kconfig                      |   7 +
+ drivers/platform/Makefile                     |   2 +
+ drivers/{acpi => platform}/platform_profile.c |  67 +++--
+ drivers/soc/qcom/Kconfig                      |  10 +
+ drivers/soc/qcom/Makefile                     |   1 +
+ drivers/soc/qcom/xiaomi-nabu-power-profile.c  | 266 ++++++++++++++++++
+ senemos/configs/nabu-minimal.config           |   1 +
+ 11 files changed, 379 insertions(+), 17 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/soc/qcom/xiaomi,nabu-power-profile.yaml
+ rename drivers/{acpi => platform}/platform_profile.c (93%)
+ create mode 100644 drivers/soc/qcom/xiaomi-nabu-power-profile.c
+
+diff --git a/Documentation/devicetree/bindings/soc/qcom/xiaomi,nabu-power-profile.yaml b/Documentation/devicetree/bindings/soc/qcom/xiaomi,nabu-power-profile.yaml
+new file mode 100644
+index 000000000..87fb04236
+--- /dev/null
++++ b/Documentation/devicetree/bindings/soc/qcom/xiaomi,nabu-power-profile.yaml
+@@ -0,0 +1,35 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/soc/qcom/xiaomi,nabu-power-profile.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Xiaomi Pad 5 platform power-profile controller
++
++maintainers:
++  - mcc45tr <mcc45tr@gmail.com>
++
++description:
++  Coordinates the three platform-wide CPU and GPU performance profiles used
++  by the Xiaomi Pad 5 downstream power policy through Linux frequency QoS.
++
++properties:
++  compatible:
++    const: xiaomi,nabu-power-profile
++
++  xiaomi,gpu:
++    $ref: /schemas/types.yaml#/definitions/phandle
++    description: Phandle to the Adreno GPU constrained by the profiles.
++
++required:
++  - compatible
++  - xiaomi,gpu
++
++additionalProperties: false
++
++examples:
++  - |
++    power-profile {
++        compatible = "xiaomi,nabu-power-profile";
++        xiaomi,gpu = <&gpu>;
++    };
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index 665eb334b..c57e1752c 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -43,6 +43,11 @@ aliases {
+ 		wifi0 = &wifi;
+ 	};
+ 
++	power-profile {
++		compatible = "xiaomi,nabu-power-profile";
++		xiaomi,gpu = <&gpu>;
++	};
++
+ 	slpi-sleep-state {
+ 		compatible = "qcom,smp2p-sleep-state";
+ 		qcom,smem-states = <&slpi_sleepstate_out 0>;
+diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
+index f165d14cf..a4205f98c 100644
+--- a/drivers/acpi/Kconfig
++++ b/drivers/acpi/Kconfig
+@@ -353,6 +353,7 @@ config ACPI_THERMAL
+ 
+ config ACPI_PLATFORM_PROFILE
+ 	tristate
++	select PLATFORM_PROFILE
+ 
+ config ACPI_CUSTOM_DSDT_FILE
+ 	string "Custom DSDT Table file to include"
+diff --git a/drivers/acpi/Makefile b/drivers/acpi/Makefile
+index d1b0affb8..f8af27341 100644
+--- a/drivers/acpi/Makefile
++++ b/drivers/acpi/Makefile
+@@ -91,7 +91,6 @@ obj-$(CONFIG_ACPI_PROCESSOR)	+= processor.o
+ obj-$(CONFIG_ACPI)		+= container.o
+ obj-$(CONFIG_ACPI_THERMAL_LIB)	+= thermal_lib.o
+ obj-$(CONFIG_ACPI_THERMAL)	+= thermal.o
+-obj-$(CONFIG_ACPI_PLATFORM_PROFILE) 	+= platform_profile.o
+ obj-$(CONFIG_ACPI_NFIT)		+= nfit/
+ obj-$(CONFIG_ACPI_NHLT)		+= nhlt.o
+ obj-$(CONFIG_ACPI_NUMA)		+= numa/
+diff --git a/drivers/platform/Kconfig b/drivers/platform/Kconfig
+index 312788f24..63c988d51 100644
+--- a/drivers/platform/Kconfig
++++ b/drivers/platform/Kconfig
+@@ -1,4 +1,11 @@
+ # SPDX-License-Identifier: GPL-2.0-only
++
++config PLATFORM_PROFILE
++	tristate
++	help
++	  Generic class interface for platform-wide performance profiles.  The
++	  class is shared by ACPI firmware drivers and Device Tree platforms.
++
+ source "drivers/platform/mips/Kconfig"
+ 
+ source "drivers/platform/loongarch/Kconfig"
+diff --git a/drivers/platform/Makefile b/drivers/platform/Makefile
+index fa322e7f8..ca4705abb 100644
+--- a/drivers/platform/Makefile
++++ b/drivers/platform/Makefile
+@@ -3,6 +3,8 @@
+ # Makefile for linux/drivers/platform
+ #
+ 
++obj-$(CONFIG_PLATFORM_PROFILE)	+= platform_profile.o
++
+ obj-$(CONFIG_X86)		+= x86/
+ obj-$(CONFIG_LOONGARCH)		+= loongarch/
+ obj-$(CONFIG_MELLANOX_PLATFORM)	+= mellanox/
+diff --git a/drivers/acpi/platform_profile.c b/drivers/platform/platform_profile.c
+similarity index 93%
+rename from drivers/acpi/platform_profile.c
+rename to drivers/platform/platform_profile.c
+index 79d2e92e5..d7959fbe9 100644
+--- a/drivers/acpi/platform_profile.c
++++ b/drivers/platform/platform_profile.c
+@@ -1,6 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+-/* Platform profile sysfs interface */
++/* Generic platform profile sysfs interface */
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
+@@ -16,6 +16,14 @@
+ 
+ static DEFINE_MUTEX(profile_lock);
+ 
++static void platform_profile_legacy_notify(void)
++{
++#if IS_ENABLED(CONFIG_ACPI)
++	if (!acpi_disabled)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
++#endif
++}
++
+ struct platform_profile_handler {
+ 	const char *name;
+ 	struct device dev;
+@@ -216,7 +224,7 @@ static ssize_t profile_store(struct device *dev,
+ 			return ret;
+ 	}
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	platform_profile_legacy_notify();
+ 
+ 	return count;
+ }
+@@ -274,6 +282,7 @@ static int _aggregate_choices(struct device *dev, void *arg)
+  *
+  * Return: 0 on success, -errno on failure
+  */
++#if IS_ENABLED(CONFIG_ACPI)
+ static int _remove_hidden_choices(struct device *dev, void *arg)
+ {
+ 	struct aggregate_choices_data *data = arg;
+@@ -324,6 +333,7 @@ static ssize_t platform_profile_choices_show(struct kobject *kobj,
+ 
+ 	return _commmon_choices_show(data.aggregate, buf);
+ }
++#endif
+ 
+ /**
+  * _aggregate_profiles - Aggregate the profiles for legacy sysfs interface
+@@ -376,6 +386,7 @@ static int _store_and_notify(struct device *dev, void *data)
+  *
+  * Return: The number of bytes written
+  */
++#if IS_ENABLED(CONFIG_ACPI)
+ static ssize_t platform_profile_show(struct kobject *kobj,
+ 				     struct kobj_attribute *attr,
+ 				     char *buf)
+@@ -436,7 +447,7 @@ static ssize_t platform_profile_store(struct kobject *kobj,
+ 			return ret;
+ 	}
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	platform_profile_legacy_notify();
+ 
+ 	return count;
+ }
+@@ -472,6 +483,33 @@ static const struct attribute_group platform_profile_group = {
+ 	.attrs = platform_profile_attrs,
+ 	.is_visible = profile_class_is_visible,
+ };
++#endif
++
++static int platform_profile_legacy_create_group(void)
++{
++#if IS_ENABLED(CONFIG_ACPI)
++	if (!acpi_disabled)
++		return sysfs_create_group(acpi_kobj, &platform_profile_group);
++#endif
++	return 0;
++}
++
++static int platform_profile_legacy_update_group(void)
++{
++#if IS_ENABLED(CONFIG_ACPI)
++	if (!acpi_disabled)
++		return sysfs_update_group(acpi_kobj, &platform_profile_group);
++#endif
++	return 0;
++}
++
++static void platform_profile_legacy_remove_group(void)
++{
++#if IS_ENABLED(CONFIG_ACPI)
++	if (!acpi_disabled)
++		sysfs_remove_group(acpi_kobj, &platform_profile_group);
++#endif
++}
+ 
+ /**
+  * platform_profile_notify - Notify class device and legacy sysfs interface
+@@ -482,7 +520,7 @@ void platform_profile_notify(struct device *dev)
+ 	scoped_cond_guard(mutex_intr, return, &profile_lock) {
+ 		_notify_class_profile(dev, NULL);
+ 	}
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	platform_profile_legacy_notify();
+ }
+ EXPORT_SYMBOL_GPL(platform_profile_notify);
+ 
+@@ -532,7 +570,7 @@ int platform_profile_cycle(void)
+ 			return err;
+ 	}
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	platform_profile_legacy_notify();
+ 
+ 	return 0;
+ }
+@@ -605,9 +643,9 @@ struct device *platform_profile_register(struct device *dev, const char *name,
+ 		goto cleanup_ida;
+ 	}
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	platform_profile_legacy_notify();
+ 
+-	err = sysfs_update_group(acpi_kobj, &platform_profile_group);
++	err = platform_profile_legacy_update_group();
+ 	if (err)
+ 		goto cleanup_cur;
+ 
+@@ -641,8 +679,8 @@ void platform_profile_remove(struct device *dev)
+ 	ida_free(&platform_profile_ida, pprof->minor);
+ 	device_unregister(&pprof->dev);
+ 
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+-	sysfs_update_group(acpi_kobj, &platform_profile_group);
++	platform_profile_legacy_notify();
++	platform_profile_legacy_update_group();
+ }
+ EXPORT_SYMBOL_GPL(platform_profile_remove);
+ 
+@@ -690,14 +728,11 @@ static int __init platform_profile_init(void)
+ {
+ 	int err;
+ 
+-	if (acpi_disabled)
+-		return -EOPNOTSUPP;
+-
+ 	err = class_register(&platform_profile_class);
+ 	if (err)
+ 		return err;
+ 
+-	err = sysfs_create_group(acpi_kobj, &platform_profile_group);
++	err = platform_profile_legacy_create_group();
+ 	if (err)
+ 		class_unregister(&platform_profile_class);
+ 
+@@ -706,12 +741,12 @@ static int __init platform_profile_init(void)
+ 
+ static void __exit platform_profile_exit(void)
+ {
+-	sysfs_remove_group(acpi_kobj, &platform_profile_group);
++	platform_profile_legacy_remove_group();
+ 	class_unregister(&platform_profile_class);
+ }
+-module_init(platform_profile_init);
++subsys_initcall(platform_profile_init);
+ module_exit(platform_profile_exit);
+ 
+ MODULE_AUTHOR("Mark Pearson <markpearson@lenovo.com>");
+-MODULE_DESCRIPTION("ACPI platform profile sysfs interface");
++MODULE_DESCRIPTION("Platform profile sysfs interface");
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/soc/qcom/Kconfig b/drivers/soc/qcom/Kconfig
+index 2caadbbcf..4a4033746 100644
+--- a/drivers/soc/qcom/Kconfig
++++ b/drivers/soc/qcom/Kconfig
+@@ -4,6 +4,16 @@
+ #
+ menu "Qualcomm SoC drivers"
+ 
++config XIAOMI_NABU_POWER_PROFILE
++	tristate "Xiaomi Pad 5 platform power profiles"
++	depends on ARCH_QCOM || COMPILE_TEST
++	depends on CPU_FREQ && PM_DEVFREQ && OF
++	select PLATFORM_PROFILE
++	help
++	  Expose the Xiaomi Pad 5 CPU and GPU power policy through Linux's
++	  standard platform-profile class.  The limits are applied with frequency
++	  QoS so thermal constraints and desktop power managers compose safely.
++
+ config QCOM_AOSS_QMP
+ 	tristate "Qualcomm AOSS Driver"
+ 	depends on ARCH_QCOM || COMPILE_TEST
+diff --git a/drivers/soc/qcom/Makefile b/drivers/soc/qcom/Makefile
+index 9a707c990..2460ec582 100644
+--- a/drivers/soc/qcom/Makefile
++++ b/drivers/soc/qcom/Makefile
+@@ -2,6 +2,7 @@
+ CFLAGS_rpmh-rsc.o := -I$(src)
+ CFLAGS_qcom_aoss.o := -I$(src)
+ obj-$(CONFIG_QCOM_AOSS_QMP) +=	qcom_aoss.o
++obj-$(CONFIG_XIAOMI_NABU_POWER_PROFILE) += xiaomi-nabu-power-profile.o
+ obj-$(CONFIG_QCOM_GENI_SE) +=	qcom-geni-se.o
+ obj-$(CONFIG_QCOM_COMMAND_DB) += cmd-db.o
+ obj-$(CONFIG_QCOM_GSBI)	+=	qcom_gsbi.o
+diff --git a/drivers/soc/qcom/xiaomi-nabu-power-profile.c b/drivers/soc/qcom/xiaomi-nabu-power-profile.c
+new file mode 100644
+index 000000000..5bcc72417
+--- /dev/null
++++ b/drivers/soc/qcom/xiaomi-nabu-power-profile.c
+@@ -0,0 +1,266 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Xiaomi Pad 5 (nabu) platform power profiles
++ *
++ * The downstream Android Power HAL uses three sets of CPU and GPU ceilings.
++ * Keep those board-specific limits in one kernel policy so desktop power
++ * managers use the standard platform-profile ABI and all constraints compose
++ * with thermal cooling through the frequency QoS frameworks.
++ */
++
++#include <linux/cleanup.h>
++#include <linux/cpufreq.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/of_platform.h>
++#include <linux/platform_device.h>
++#include <linux/platform_profile.h>
++#include <linux/pm_qos.h>
++
++#define NABU_CPU_POLICY_COUNT 3
++
++struct nabu_profile_limits {
++	u32 cpu_max_khz[NABU_CPU_POLICY_COUNT];
++	u32 gpu_max_khz;
++};
++
++static const struct nabu_profile_limits nabu_profile_limits[] = {
++	[PLATFORM_PROFILE_LOW_POWER] = {
++		.cpu_max_khz = { 1555200, 2131200, 2534400 },
++		.gpu_max_khz = 585000,
++	},
++	[PLATFORM_PROFILE_BALANCED] = {
++		.cpu_max_khz = { 1785600, 2419200, 2841600 },
++		.gpu_max_khz = 675000,
++	},
++	[PLATFORM_PROFILE_PERFORMANCE] = {
++		.cpu_max_khz = { 1785600, 2419200, 2956800 },
++		.gpu_max_khz = 675000,
++	},
++};
++
++struct nabu_power_profile {
++	struct device *profile_dev;
++	struct device *gpu_dev;
++	struct cpufreq_policy *policies[NABU_CPU_POLICY_COUNT];
++	struct freq_qos_request cpu_max_requests[NABU_CPU_POLICY_COUNT];
++	struct dev_pm_qos_request gpu_max_request;
++	enum platform_profile_option active_profile;
++	struct mutex lock;
++};
++
++static const unsigned int nabu_policy_cpus[NABU_CPU_POLICY_COUNT] = { 0, 4, 7 };
++
++static bool nabu_profile_supported(enum platform_profile_option profile)
++{
++	return profile == PLATFORM_PROFILE_LOW_POWER ||
++	       profile == PLATFORM_PROFILE_BALANCED ||
++	       profile == PLATFORM_PROFILE_PERFORMANCE;
++}
++
++static int nabu_profile_choices(void *data, unsigned long *choices)
++{
++	set_bit(PLATFORM_PROFILE_LOW_POWER, choices);
++	set_bit(PLATFORM_PROFILE_BALANCED, choices);
++	set_bit(PLATFORM_PROFILE_PERFORMANCE, choices);
++
++	return 0;
++}
++
++static int nabu_profile_get(struct device *dev,
++			    enum platform_profile_option *profile)
++{
++	struct nabu_power_profile *nabu = dev_get_drvdata(dev);
++
++	guard(mutex)(&nabu->lock);
++	*profile = nabu->active_profile;
++
++	return 0;
++}
++
++static int nabu_update_profile(struct nabu_power_profile *nabu,
++			       enum platform_profile_option profile)
++{
++	const struct nabu_profile_limits *old_limits;
++	const struct nabu_profile_limits *new_limits;
++	int i, ret;
++
++	if (!nabu_profile_supported(profile))
++		return -EOPNOTSUPP;
++
++	old_limits = &nabu_profile_limits[nabu->active_profile];
++	new_limits = &nabu_profile_limits[profile];
++
++	for (i = 0; i < NABU_CPU_POLICY_COUNT; i++) {
++		ret = freq_qos_update_request(&nabu->cpu_max_requests[i],
++					      new_limits->cpu_max_khz[i]);
++		if (ret < 0)
++			goto restore_cpu;
++	}
++
++	ret = dev_pm_qos_update_request(&nabu->gpu_max_request,
++					new_limits->gpu_max_khz);
++	if (ret < 0)
++		goto restore_cpu;
++
++	nabu->active_profile = profile;
++	return 0;
++
++restore_cpu:
++	while (--i >= 0)
++		freq_qos_update_request(&nabu->cpu_max_requests[i],
++					old_limits->cpu_max_khz[i]);
++
++	return ret;
++}
++
++static int nabu_profile_set(struct device *dev,
++			    enum platform_profile_option profile)
++{
++	struct nabu_power_profile *nabu = dev_get_drvdata(dev);
++
++	guard(mutex)(&nabu->lock);
++	if (profile == nabu->active_profile)
++		return 0;
++
++	return nabu_update_profile(nabu, profile);
++}
++
++static const struct platform_profile_ops nabu_profile_ops = {
++	.probe = nabu_profile_choices,
++	.profile_get = nabu_profile_get,
++	.profile_set = nabu_profile_set,
++};
++
++static void nabu_remove_qos_requests(struct nabu_power_profile *nabu)
++{
++	int i;
++
++	if (dev_pm_qos_request_active(&nabu->gpu_max_request))
++		dev_pm_qos_remove_request(&nabu->gpu_max_request);
++
++	for (i = 0; i < NABU_CPU_POLICY_COUNT; i++) {
++		if (!nabu->policies[i])
++			continue;
++		if (freq_qos_request_active(&nabu->cpu_max_requests[i]))
++			freq_qos_remove_request(&nabu->cpu_max_requests[i]);
++		cpufreq_cpu_put(nabu->policies[i]);
++		nabu->policies[i] = NULL;
++	}
++
++	if (nabu->gpu_dev) {
++		put_device(nabu->gpu_dev);
++		nabu->gpu_dev = NULL;
++	}
++}
++
++static int nabu_add_qos_requests(struct platform_device *pdev,
++				 struct nabu_power_profile *nabu)
++{
++	const struct nabu_profile_limits *limits =
++		&nabu_profile_limits[PLATFORM_PROFILE_BALANCED];
++	struct device_node *gpu_node;
++	struct platform_device *gpu_pdev;
++	int i, ret;
++
++	for (i = 0; i < NABU_CPU_POLICY_COUNT; i++) {
++		nabu->policies[i] = cpufreq_cpu_get(nabu_policy_cpus[i]);
++		if (!nabu->policies[i]) {
++			ret = -EPROBE_DEFER;
++			goto error;
++		}
++
++		ret = freq_qos_add_request(&nabu->policies[i]->constraints,
++					   &nabu->cpu_max_requests[i],
++					   FREQ_QOS_MAX,
++					   limits->cpu_max_khz[i]);
++		if (ret < 0)
++			goto error;
++	}
++
++	gpu_node = of_parse_phandle(pdev->dev.of_node, "xiaomi,gpu", 0);
++	if (!gpu_node) {
++		ret = -EINVAL;
++		goto error;
++	}
++	gpu_pdev = of_find_device_by_node(gpu_node);
++	of_node_put(gpu_node);
++	if (!gpu_pdev) {
++		ret = -EPROBE_DEFER;
++		goto error;
++	}
++	nabu->gpu_dev = &gpu_pdev->dev;
++
++	ret = dev_pm_qos_add_request(nabu->gpu_dev, &nabu->gpu_max_request,
++				     DEV_PM_QOS_MAX_FREQUENCY,
++				     limits->gpu_max_khz);
++	if (ret < 0)
++		goto error;
++
++	return 0;
++
++error:
++	nabu_remove_qos_requests(nabu);
++	return dev_err_probe(&pdev->dev, ret,
++			     "failed to acquire frequency QoS controls\n");
++}
++
++static int nabu_power_profile_probe(struct platform_device *pdev)
++{
++	struct nabu_power_profile *nabu;
++	int ret;
++
++	nabu = devm_kzalloc(&pdev->dev, sizeof(*nabu), GFP_KERNEL);
++	if (!nabu)
++		return -ENOMEM;
++
++	mutex_init(&nabu->lock);
++	nabu->active_profile = PLATFORM_PROFILE_BALANCED;
++	platform_set_drvdata(pdev, nabu);
++
++	ret = nabu_add_qos_requests(pdev, nabu);
++	if (ret)
++		return ret;
++
++	nabu->profile_dev = platform_profile_register(&pdev->dev,
++					       "xiaomi-nabu", nabu,
++					       &nabu_profile_ops);
++	if (IS_ERR(nabu->profile_dev)) {
++		ret = PTR_ERR(nabu->profile_dev);
++		nabu->profile_dev = NULL;
++		nabu_remove_qos_requests(nabu);
++		return dev_err_probe(&pdev->dev, ret,
++				     "failed to register platform profile\n");
++	}
++
++	dev_info(&pdev->dev, "registered balanced Nabu CPU/GPU profile\n");
++	return 0;
++}
++
++static void nabu_power_profile_remove(struct platform_device *pdev)
++{
++	struct nabu_power_profile *nabu = platform_get_drvdata(pdev);
++
++	platform_profile_remove(nabu->profile_dev);
++	nabu_remove_qos_requests(nabu);
++}
++
++static const struct of_device_id nabu_power_profile_of_match[] = {
++	{ .compatible = "xiaomi,nabu-power-profile" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, nabu_power_profile_of_match);
++
++static struct platform_driver nabu_power_profile_driver = {
++	.probe = nabu_power_profile_probe,
++	.remove = nabu_power_profile_remove,
++	.driver = {
++		.name = "xiaomi-nabu-power-profile",
++		.of_match_table = nabu_power_profile_of_match,
++	},
++};
++module_platform_driver(nabu_power_profile_driver);
++
++MODULE_AUTHOR("mcc45tr <mcc45tr@gmail.com>");
++MODULE_DESCRIPTION("Xiaomi Pad 5 CPU and GPU platform profiles");
++MODULE_LICENSE("GPL");
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 00ef555c0..87749d79c 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -209,6 +209,7 @@ CONFIG_CMA_SIZE_MBYTES=256
+ 
+ # SM8150 Iris1/Venus hardware video decoder.
+ CONFIG_VIDEO_QCOM_IRIS=m
++CONFIG_XIAOMI_NABU_POWER_PROFILE=y
+ 
+ # feedbackd's flash feedback path uses the standard LED pattern trigger.  It
+ # may be a module because the LED class is available before feedbackd starts.
+-- 
+2.55.0
+

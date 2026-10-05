@@ -1,0 +1,52 @@
+From 8fd85fcbe174e9e5613156c7c7578afe0e6ec698 Mon Sep 17 00:00:00 2001
+From: ChengFangming <chengfangming1993@gmail.com>
+Date: Fri, 28 Aug 2026 18:59:53 +0800
+Subject: [PATCH 27/30] kernel-overlay: preserve usable legacy VP9 output
+
+---
+ .../qcom/iris/iris_hfi_gen1_response.c        | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
+index 9ec90c3e2df4..4fe6e19f6145 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
+@@ -591,7 +591,13 @@ static void iris_hfi_gen1_session_ftb_done(struct iris_inst *inst, void *packet)
+ 	}
+ 
+ 	if (inst->domain == DECODER && buf->type == BUF_OUTPUT && filled_len) {
++		/* Legacy VP9 reports DROP_FRAME on filled, otherwise usable output
++		 * around show-existing frames and immediately after an in-place seek.
++		 * Hiding that completion starves one userspace target per occurrence
++		 * and can exhaust Chromium's pool.  Complete those VP9 buffers below;
++		 * retain the bounded recycle workaround for the other codecs. */
+ 		if (inst->core->iris_platform_data->legacy_vpu5 &&
++		    inst->codec != V4L2_PIX_FMT_VP9 &&
+ 		    (hfi_flags & (HFI_BUFFERFLAG_DATACORRUPT |
+ 				  HFI_BUFFERFLAG_DROP_FRAME)) &&
+ 		    inst->corrupt_output_drops < IRIS1_MAX_CORRUPT_OUTPUT_DROPS) {
+@@ -643,10 +649,19 @@ static void iris_hfi_gen1_session_ftb_done(struct iris_inst *inst, void *packet)
+ 	buf->attr |= BUF_ATTR_DEQUEUED;
+ 	buf->attr |= BUF_ATTR_BUFFER_DONE;
+ 
+-	if (hfi_flags & HFI_BUFFERFLAG_DATACORRUPT)
++	/* On legacy VP9, filled DROP_FRAME/DATACORRUPT buffers are usable output.
++	 * Do not turn them into VB2 errors: iris_vb2_buffer_done() would discard
++	 * their payload, and Chromium treats the dequeue error as fatal. */
++	if ((hfi_flags & HFI_BUFFERFLAG_DATACORRUPT) &&
++	    !(inst->domain == DECODER && buf->type == BUF_OUTPUT && filled_len &&
++	      inst->core->iris_platform_data->legacy_vpu5 &&
++	      inst->codec == V4L2_PIX_FMT_VP9))
+ 		flags |= V4L2_BUF_FLAG_ERROR;
+ 
+-	if (hfi_flags & HFI_BUFFERFLAG_DROP_FRAME)
++	if ((hfi_flags & HFI_BUFFERFLAG_DROP_FRAME) &&
++	    !(inst->domain == DECODER && buf->type == BUF_OUTPUT && filled_len &&
++	      inst->core->iris_platform_data->legacy_vpu5 &&
++	      inst->codec == V4L2_PIX_FMT_VP9))
+ 		flags |= V4L2_BUF_FLAG_ERROR;
+ 
+ 	buf->flags |= flags;
+-- 
+2.55.0
+

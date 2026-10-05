@@ -1,0 +1,35 @@
+From 9f42371850661de0da7a3682acc8cd78153d313f Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 10:14:01 +0300
+Subject: [PATCH 72/73] Input: nt36523: drop obsolete MediaTek SPI setup
+
+---
+ drivers/input/touchscreen/nt36523/nt36xxx.c | 12 ------------
+ 1 file changed, 12 deletions(-)
+
+diff --git a/drivers/input/touchscreen/nt36523/nt36xxx.c b/drivers/input/touchscreen/nt36523/nt36xxx.c
+index b1d7e0fd1f93..95a1cd586ad6 100644
+--- a/drivers/input/touchscreen/nt36523/nt36xxx.c
++++ b/drivers/input/touchscreen/nt36523/nt36xxx.c
+@@ -1400,18 +1400,6 @@ static int32_t nvt_ts_probe(struct spi_device *client)
+ 		goto err_spi_setup;
+ 	}
+ 
+-#ifdef CONFIG_MTK_SPI
+-    /* old usage of MTK spi API */
+-    memcpy(&ts->spi_ctrl, &spi_ctrdata, sizeof(struct mt_chip_conf));
+-    ts->client->controller_data = (void *)&ts->spi_ctrl;
+-#endif
+-
+-#ifdef CONFIG_SPI_MT65XX
+-    /* new usage of MTK spi API */
+-    memcpy(&ts->spi_ctrl, &spi_ctrdata, sizeof(struct mtk_chip_config));
+-    ts->client->controller_data = (void *)&ts->spi_ctrl;
+-#endif
+-
+ 	NVT_LOG("mode=%d, max_speed_hz=%d\n", ts->client->mode, ts->client->max_speed_hz);
+ 
+ 	//---parse dts---
+-- 
+2.55.0
+

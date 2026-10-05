@@ -1,0 +1,80 @@
+From 595c83e772ae5a75b0d77da609e87b77dbde9468 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Thu, 10 Sep 2026 22:01:43 +0300
+Subject: [PATCH 138/139] senemos: pin the Nabu production security baseline
+
+The stable 7.2 profile already restores Fedora FORTIFY, SELinux, BPF LSM and
+IPE support, but several low-overhead arm64 protections still depend on
+defconfig defaults and can disappear after device pruning.
+
+Add a dedicated post-prune fragment that retains the existing Fedora LSM
+order and pins audit, dmesg restriction, randomized kernel stacks, slab/list
+hardening, init-on-alloc and strict /dev/mem policy. Keep forced lockdown,
+IMA/EVM, fTPM, KVM and mandatory module signatures outside this stage pending
+separate boot-chain validation.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ senemos/configs/nabu-security.config | 50 ++++++++++++++++++++++++++++
+ 1 file changed, 50 insertions(+)
+ create mode 100644 senemos/configs/nabu-security.config
+
+diff --git a/senemos/configs/nabu-security.config b/senemos/configs/nabu-security.config
+new file mode 100644
+index 000000000..39462322e
+--- /dev/null
++++ b/senemos/configs/nabu-security.config
+@@ -0,0 +1,50 @@
++# SENEMOS Nabu production security baseline.
++#
++# Merge this fragment after prune-nabu-config.sh. The prune stage removes
++# unrelated hardware, while these settings are board-independent kernel
++# self-protection and Fedora security interfaces that must survive pruning.
++
++# Preserve security telemetry required by SELinux and auditd.
++CONFIG_AUDIT=y
++CONFIG_AUDITSYSCALL=y
++CONFIG_SECURITY_DMESG_RESTRICT=y
++
++# Pin the low-overhead arm64 kernel self-protection baseline.
++CONFIG_STRICT_KERNEL_RWX=y
++CONFIG_STRICT_MODULE_RWX=y
++CONFIG_VMAP_STACK=y
++CONFIG_RANDOMIZE_BASE=y
++CONFIG_RANDOMIZE_KSTACK_OFFSET_DEFAULT=y
++CONFIG_STACKPROTECTOR=y
++CONFIG_STACKPROTECTOR_STRONG=y
++CONFIG_SLAB_FREELIST_RANDOM=y
++CONFIG_SLAB_FREELIST_HARDENED=y
++CONFIG_FORTIFY_SOURCE=y
++CONFIG_HARDENED_USERCOPY=y
++CONFIG_HARDENED_USERCOPY_DEFAULT_ON=y
++CONFIG_LIST_HARDENED=y
++CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
++CONFIG_STRICT_DEVMEM=y
++CONFIG_IO_STRICT_DEVMEM=y
++CONFIG_SECCOMP=y
++CONFIG_SECCOMP_FILTER=y
++
++# SELinux remains the system MAC policy. Retain Fedora's existing BPF and IPE
++# layers alongside Landlock, Yama and Lockdown readiness. LoadPin and SafeSetID
++# remain in the ordered string for Fedora compatibility but are not enabled
++# without a separately qualified policy.
++CONFIG_SECURITY=y
++CONFIG_SECURITY_NETWORK=y
++CONFIG_SECURITY_SELINUX=y
++CONFIG_DEFAULT_SECURITY_SELINUX=y
++# CONFIG_DEFAULT_SECURITY_DAC is not set
++CONFIG_BPF_LSM=y
++CONFIG_SECURITY_YAMA=y
++CONFIG_SECURITY_LANDLOCK=y
++CONFIG_SECURITY_LOCKDOWN_LSM=y
++CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y
++CONFIG_SECURITY_IPE=y
++CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y
++# CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY is not set
++# CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY is not set
++CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"
+-- 
+2.55.0
+

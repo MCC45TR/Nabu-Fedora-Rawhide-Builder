@@ -11,8 +11,11 @@ COPR_KEY_URL='https://download.copr.fedorainfracloud.org/results/mcc45tr/nabu-li
 mkdir -p "$WORK/dnf-cache" "$META" "$LOGS"
 
 dnf5 -y --disable-repo='*openh264*' --setopt=install_weak_deps=False install \
-    ca-certificates curl dnf5 findutils python3 rpm systemd util-linux-core \
+    ca-certificates curl dnf5 findutils gcc-c++ rpm systemd util-linux-core \
     >"$LOGS/mobile-container-tools.log" 2>&1
+g++ -std=c++20 -O2 -Wall -Wextra -Werror \
+    /builder-source/tools/lib/rpm-file-ownership.cpp \
+    -o "$WORK/rpm-file-ownership"
 
 curl --fail --silent --show-error --location "$COPR_KEY_URL" \
     -o "$WORK/nabu-copr-pubkey.gpg"
@@ -127,44 +130,8 @@ rm -rf -- "$TARGET/var/cache/dnf"/* "$TARGET/var/cache/libdnf5"/* 2>/dev/null ||
 rpm --root "$TARGET" -qa --qf '%{NAME}\t%{EVR}\t%{ARCH}\n' | sort \
     >"$META/mobile-packages-final.tsv"
 
-python3 - "$TARGET" "$META/mobile-rpm-file-ownership.tsv" <<'PY'
-import os
-import subprocess
-import sys
-
-root, output = sys.argv[1:]
-
-def names(path):
-    result = {}
-    with open(path, encoding="utf-8", errors="surrogateescape") as stream:
-        for line in stream:
-            fields = line.rstrip("\n").split(":")
-            if len(fields) >= 4 and fields[2].isdigit():
-                result[fields[0]] = int(fields[2])
-    return result
-
-uids = names(os.path.join(root, "etc/passwd"))
-gids = names(os.path.join(root, "etc/group"))
-query = subprocess.check_output([
-    "rpm", "--root", root, "-qa", "--qf",
-    "[%{FILENAMES}|%{FILEUSERNAME}|%{FILEGROUPNAME}\\n]",
-], text=True, errors="surrogateescape")
-owners = {}
-for line in query.splitlines():
-    try:
-        path, owner, group = line.rsplit("|", 2)
-    except ValueError:
-        continue
-    if not path.startswith("/") or not os.path.lexists(root + path):
-        continue
-    if owner not in uids or group not in gids:
-        raise SystemExit(f"Cannot resolve RPM ownership for {path}: {owner}:{group}")
-    owners[path] = (uids[owner], gids[group])
-
-with open(output, "w", encoding="utf-8", errors="surrogateescape") as stream:
-    for path, (uid, gid) in sorted(owners.items()):
-        stream.write(f"{path}|{uid}|{gid}\n")
-PY
+"$WORK/rpm-file-ownership" capture "$TARGET" \
+    "$META/mobile-rpm-file-ownership.tsv"
 
 source /builder-source/tools/lib/rpm-special-modes.sh
 nabu_capture_rpm_special_modes \

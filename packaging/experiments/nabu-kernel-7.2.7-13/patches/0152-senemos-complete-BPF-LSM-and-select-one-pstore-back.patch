@@ -1,0 +1,66 @@
+From 49aeebadd0262d6eb579344973a56410c2f4cce2 Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Tue, 15 Sep 2026 21:51:39 +0300
+Subject: [PATCH] senemos: complete BPF LSM and select one pstore backend
+
+systemd implements RestrictFileSystems= with a CO-RE BPF LSM program,
+so keep vmlinux BTF available without paying the module-BTF cost. Keep EFI
+pstore compiled for compatibility but disabled by default so ramoops
+remains the single persistent crash backend on Nabu.
+
+Signed-off-by: SENEMOS patch gate <mcc45tr@gmail.com>
+
+---
+ senemos/configs/nabu-security.config | 18 ++++++++++++++++++
+ senemos/configs/prune-nabu-config.sh |  5 +++--
+ 2 files changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/senemos/configs/nabu-security.config b/senemos/configs/nabu-security.config
+index 39462322e..fa565a304 100644
+--- a/senemos/configs/nabu-security.config
++++ b/senemos/configs/nabu-security.config
+@@ -29,6 +29,18 @@ CONFIG_IO_STRICT_DEVMEM=y
+ CONFIG_SECCOMP=y
+ CONFIG_SECCOMP_FILTER=y
+ 
++# systemd's RestrictFileSystems= implementation attaches a CO-RE BPF LSM
++# program and therefore requires the kernel's compact BTF type graph. Keep
++# module BTF disabled: PID 1 only needs vmlinux BTF, avoiding per-module size
++# and load-time validation overhead on this fixed-hardware image.
++CONFIG_DEBUG_INFO=y
++# CONFIG_DEBUG_INFO_NONE is not set
++CONFIG_DEBUG_INFO_DWARF5=y
++# CONFIG_DEBUG_INFO_REDUCED is not set
++# CONFIG_DEBUG_INFO_SPLIT is not set
++CONFIG_DEBUG_INFO_BTF=y
++# CONFIG_DEBUG_INFO_BTF_MODULES is not set
++
+ # SELinux remains the system MAC policy. Retain Fedora's existing BPF and IPE
+ # layers alongside Landlock, Yama and Lockdown readiness. LoadPin and SafeSetID
+ # remain in the ordered string for Fedora compatibility but are not enabled
+@@ -48,3 +60,9 @@ CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y
+ # CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY is not set
+ # CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY is not set
+ CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,selinux,ipe,bpf"
++
++# Ramoops is Nabu's single persistent crash backend. Do not also register the
++# EFI-variable backend: it cannot win the pstore slot and would write firmware
++# variables if manually selected.
++CONFIG_EFI_VARS_PSTORE=y
++CONFIG_EFI_VARS_PSTORE_DEFAULT_DISABLE=y
+diff --git a/senemos/configs/prune-nabu-config.sh b/senemos/configs/prune-nabu-config.sh
+index 689adef61..3e9c9d46d 100755
+--- a/senemos/configs/prune-nabu-config.sh
++++ b/senemos/configs/prune-nabu-config.sh
+@@ -91,6 +91,7 @@ done < <(sed -n 's/^CONFIG_\([A-Z0-9_]*\(GCC\|GPUCC\|DISPCC\|VIDEOCC\|CAMCC\|TCS
+ 	--enable GPIO_SHARED_PROXY \
+ 	--enable SECURITY --enable SECURITY_NETWORK --enable SECURITY_SELINUX \
+ 	--disable VIDEO_QCOM_VENUS \
+-	--disable DEBUG_INFO --enable DEBUG_INFO_NONE \
+-	--disable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES \
++	--disable DEBUG_INFO_NONE --enable DEBUG_INFO_DWARF5 \
++	--disable DEBUG_INFO_REDUCED --disable DEBUG_INFO_SPLIT \
++	--enable DEBUG_INFO_BTF --disable DEBUG_INFO_BTF_MODULES \
+ 	--disable GDB_SCRIPTS
+-- 
+2.55.0

@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000126 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 15:20:00 +0300
+Subject: [PATCH] media: qcom: iris: use VPU5 firmware encoder buffer sizes
+
+VIDEO.IR.1.2 reports exact sizes for all encoder scratch buffers before
+LOAD_RESOURCES.  Iris records the first two scratch requirements but drops
+SCRATCH_2, and then restricts exact firmware sizing to decoder sessions.
+That leaves VPU5 encode using generic formulas intended for newer hardware;
+the firmware subsequently asserts in venus_venc_host_driver.c while loading
+the resources.
+
+Record the SCRATCH_2 requirement and use reported sizes for both decoder and
+encoder internal buffers on legacy VPU5.  Keep calculated sizes as the
+fallback when firmware did not report a requirement, and leave non-VPU5
+platforms unchanged.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/media/platform/qcom/iris/iris_buffer.c            | 15 +++++++--------
+ drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c |  3 +++
+ 2 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_buffer.c b/drivers/media/platform/qcom/iris/iris_buffer.c
+index 13cdbc9b335d..5a4078d83c87 100644
+--- a/drivers/media/platform/qcom/iris/iris_buffer.c
++++ b/drivers/media/platform/qcom/iris/iris_buffer.c
+@@ -339,17 +339,16 @@ static void iris_fill_internal_buf_info(struct iris_inst *inst,
+ 	u32 calculated_size;
+ 
+ 	calculated_size = iris_vpu_buf_size(inst, buffer_type);
+-	exact_firmware_size = inst->domain == DECODER &&
+-		inst->core->iris_platform_data->legacy_vpu5 &&
++	exact_firmware_size = inst->core->iris_platform_data->legacy_vpu5 &&
+ 		inst->fw_buffer_sizes[buffer_type];
+ 	/*
+-	 * VIDEO.IR.1.2 reports the exact internal allocation sizes after the
+-	 * session properties have been applied.  The generic Iris formulas are
+-	 * for newer hardware and substantially overestimate VPU5 decoder scratch
+-	 * memory (272 MiB instead of 20 MiB for 4K HEVC), preventing two legal
+-	 * sessions from coexisting.  Qualcomm's downstream VPU5 driver likewise
+-	 * allocates the firmware-reported size directly.  Keep the formula as a
+-	 * fallback when no requirement was returned and for non-VPU5 hardware.
++	 * VIDEO.IR.1.2 reports the exact decoder and encoder internal allocation
++	 * sizes after the session properties have been applied.  The generic Iris
++	 * formulas target newer hardware and can disagree with VPU5, including
++	 * substantially overestimating decoder scratch memory.  Qualcomm's
++	 * downstream VPU5 driver allocates these firmware-reported sizes directly
++	 * before LOAD_RESOURCES.  Keep the formula as a fallback when firmware did
++	 * not return a requirement and for non-VPU5 hardware.
+ 	 */
+ 	if (exact_firmware_size) {
+ 		buffers->size = inst->fw_buffer_sizes[buffer_type];
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
+index e48d606d5424..e5222b45bbb7 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_response.c
+@@ -775,6 +775,9 @@ iris_hfi_gen1_session_property_info(struct iris_inst *inst, void *packet)
+ 		case HFI_BUFFER_INTERNAL_SCRATCH_1:
+ 			buffer_type = BUF_SCRATCH_1;
+ 			break;
++		case HFI_BUFFER_INTERNAL_SCRATCH_2:
++			buffer_type = BUF_SCRATCH_2;
++			break;
+ 		default:
+ 			continue;
+ 		}
+-- 
+2.51.0

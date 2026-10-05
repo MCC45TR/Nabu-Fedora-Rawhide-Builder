@@ -92,7 +92,3 @@ core_assert_profile() {
     [[ "$CORE_SLPI_FIRMWARE_URL" =~ /raw/[0-9a-f]{40}/slpi_nb[.]mbn$ ]] || core_die "SLPI firmware URL is not commit pinned"
     [[ "$CORE_SLPI_FIRMWARE_SHA256" =~ ^[0-9a-f]{64}$ ]] || core_die "Invalid SLPI firmware digest"
 }
-
-core_json_escape() {
-    python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().rstrip("\n")))'
-}

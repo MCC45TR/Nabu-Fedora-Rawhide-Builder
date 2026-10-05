@@ -1,0 +1,75 @@
+From d7fcf6839627d013872d462caaf89efa678a590c Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 13 Sep 2026 03:47:40 +0300
+Subject: [PATCH] media: ov8856: bound cold-probe recovery
+
+A transient first SCCB read can otherwise leave an intact module absent
+for the entire boot. For explicitly opted-in boards, retry only an I/O
+failure once after a balanced power-off, 5 ms off interval, and power-on.
+Do not retry a wrong chip ID or any later streaming write.
+
+Also remove duplicated firmware-property parsing from the older Nabu
+camera backport now that Linux 7.2 carries the upstream implementation.
+Retaining it created duplicate controls and leaked the handler on its
+second error path.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/media/i2c/ov8856.c | 27 ++++++++++++++++++---------
+ 1 file changed, 18 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/media/i2c/ov8856.c b/drivers/media/i2c/ov8856.c
+index 9f9e646a6..f9be4d532 100644
+--- a/drivers/media/i2c/ov8856.c
++++ b/drivers/media/i2c/ov8856.c
+@@ -8,6 +8,7 @@
+ #include <linux/i2c.h>
+ #include <linux/module.h>
+ #include <linux/pm_runtime.h>
++#include <linux/property.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/unaligned.h>
+ 
+@@ -1967,15 +1968,6 @@ static int ov8856_init_controls(struct ov8856 *ov8856)
+ 	if (ret)
+ 		goto err_ctrl_handler_free;
+ 
+-	ret = v4l2_fwnode_device_parse(&client->dev, &props);
+-	if (ret)
+-		return ret;
+-
+-	ret = v4l2_ctrl_new_fwnode_properties(ctrl_hdlr, &ov8856_ctrl_ops,
+-					      &props);
+-	if (ret)
+-		return ret;
+-
+ 	ov8856->sd.ctrl_handler = ctrl_hdlr;
+ 
+ 	return 0;
+@@ -2483,6 +2475,23 @@ static int ov8856_probe(struct i2c_client *client)
+ 		}
+ 
+ 		ret = ov8856_identify_module(ov8856);
++		if (ret == -EIO &&
++		    device_property_read_bool(ov8856->dev,
++					      "ovti,probe-power-cycle-retry")) {
++			dev_warn(ov8856->dev,
++				 "initial identification failed, retrying after power cycle\n");
++			ov8856_power_off(ov8856->dev);
++			usleep_range(5000, 6000);
++
++			ret = ov8856_power_on(ov8856->dev);
++			if (ret) {
++				dev_err(ov8856->dev,
++					"failed to power on for identification retry\n");
++				return ret;
++			}
++
++			ret = ov8856_identify_module(ov8856);
++		}
+ 		if (ret) {
+ 			dev_err(ov8856->dev, "failed to find sensor: %d", ret);
+ 			goto probe_power_off;
+-- 
+2.55.0
+

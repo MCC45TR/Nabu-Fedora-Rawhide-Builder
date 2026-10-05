@@ -1,0 +1,28 @@
+From f8d46bb1425fdd5f023b6c5d3978e41b1f608868 Mon Sep 17 00:00:00 2001
+From: MCC45TR <mursitcancihan@gmail.com>
+Date: Sat, 29 Aug 2026 19:18:50 +0300
+Subject: [PATCH 39/64] Bluetooth: hci_qca: demote setup-only framing discard
+
+---
+ drivers/bluetooth/hci_qca.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
+index 1222f97800f4..beda41f96bcb 100644
+--- a/drivers/bluetooth/hci_qca.c
++++ b/drivers/bluetooth/hci_qca.c
+@@ -1288,7 +1288,13 @@ static int qca_recv(struct hci_uart *hu, const void *data, int count)
+ 				  qca_recv_pkts, ARRAY_SIZE(qca_recv_pkts));
+ 	if (IS_ERR(qca->rx_skb)) {
+ 		int err = PTR_ERR(qca->rx_skb);
+-		bt_dev_err(hu->hdev, "Frame reassembly failed (%d)", err);
++
++		/* WCN399x can leave a partial frame around setup baud changes. */
++		if (err == -EILSEQ && hci_dev_test_flag(hu->hdev, HCI_SETUP))
++			bt_dev_dbg(hu->hdev,
++				   "Setup frame reassembly discarded (%d)", err);
++		else
++			bt_dev_err(hu->hdev, "Frame reassembly failed (%d)", err);
+ 		qca->rx_skb = NULL;
+ 		return err;
+ 	}

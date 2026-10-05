@@ -1,0 +1,78 @@
+From 7082fc499aceb4f664284478389d27c57c70a1e1 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 13 Sep 2026 10:06:25 +0300
+Subject: [PATCH 146/147] ufs: qcom: keep Nabu runtime link active
+
+---
+ .../devicetree/bindings/ufs/qcom,ufs-common.yaml  |  9 +++++++++
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts   |  7 +++++++
+ drivers/ufs/host/ufs-qcom.c                       | 15 +++++++++++++++
+ 3 files changed, 31 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/ufs/qcom,ufs-common.yaml b/Documentation/devicetree/bindings/ufs/qcom,ufs-common.yaml
+index 962dffcd2..225f3007f 100644
+--- a/Documentation/devicetree/bindings/ufs/qcom,ufs-common.yaml
++++ b/Documentation/devicetree/bindings/ufs/qcom,ufs-common.yaml
+@@ -29,6 +29,15 @@ properties:
+       - const: ufs-ddr
+       - const: cpu-ufs
+ 
++  qcom,broken-runtime-pm:
++    type: boolean
++    description:
++      The controller and attached UFS device cannot reliably restore the
++      UniPro link after a runtime power-management transition. Keep SCSI
++      logical units active so the UFS device well-known logical unit and host
++      controller do not enter runtime suspend. System suspend remains
++      available.
++
+   iommus:
+     minItems: 1
+     maxItems: 2
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+index 665ed6dcb..4a2cebbd0 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu.dts
+@@ -1233,6 +1233,13 @@ &ufs_mem_hc {
+ 	status = "okay";
+ 
+ 	reset-gpios = <&tlmm 175 GPIO_ACTIVE_LOW>;
++	/*
++	 * This Samsung UFS/controller pairing intermittently reports a UniPro
++	 * TC replay timeout while the device WLUN resumes. A failed recovery
++	 * takes the root filesystem offline, so keep runtime PM disabled while
++	 * retaining the separate system-suspend path.
++	 */
++	qcom,broken-runtime-pm;
+ 
+ 	vcc-supply = <&vreg_l10a_2p5>;
+ 	vcc-max-microamp = <750000>;
+diff --git a/drivers/ufs/host/ufs-qcom.c b/drivers/ufs/host/ufs-qcom.c
+index d9adb9994..08dd1e8bb 100644
+--- a/drivers/ufs/host/ufs-qcom.c
++++ b/drivers/ufs/host/ufs-qcom.c
+@@ -1419,6 +1419,21 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
+ 	hba->caps |= UFSHCD_CAP_AGGR_POWER_COLLAPSE;
+ 	hba->caps |= UFSHCD_CAP_RPM_AUTOSUSPEND;
+ 
++	/*
++	 * Some controller/device combinations lose the UniPro link while the
++	 * UFS device WLUN is returning from runtime suspend. Clearing this
++	 * capability makes the SCSI core forbid runtime PM for the consumer
++	 * LUNs. Their device link then keeps the supplier WLUN and HBA active,
++	 * while system suspend and the lighter-weight clock policies remain
++	 * available.
++	 */
++	if (of_property_read_bool(hba->dev->of_node,
++				  "qcom,broken-runtime-pm")) {
++		hba->caps &= ~UFSHCD_CAP_RPM_AUTOSUSPEND;
++		dev_info(hba->dev,
++			 "runtime PM disabled for unreliable UFS link recovery\n");
++	}
++
+ 	if (host->hw_ver.major >= 0x7)
+ 		hba->caps |= UFSHCD_CAP_TX_EQUALIZATION;
+ 
+-- 
+2.55.0
+

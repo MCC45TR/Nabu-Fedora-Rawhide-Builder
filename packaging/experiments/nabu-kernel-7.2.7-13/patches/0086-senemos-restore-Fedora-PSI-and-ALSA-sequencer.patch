@@ -1,0 +1,42 @@
+From 7a2e7b612a0479f734351408addc357a9d117f06 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Fri, 4 Sep 2026 17:30:00 +0300
+Subject: [PATCH] senemos: restore Fedora PSI and ALSA sequencer
+
+The Nabu pruning transition stopped using the full Fedora configuration as
+its merge base, so options not repeated in the small device fragment silently
+fell back to arm64 defconfig. Restore the pressure-stall ABI expected by Fedora
+userspace and the ALSA sequencer module requested by alsa-lib's standard
+dist-alsa.conf rule.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ senemos/configs/nabu-minimal.config | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index 35fc5bf..aa6842d 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -42,6 +42,10 @@ CONFIG_BACKLIGHT_KTZ8866=m
+ CONFIG_PREEMPT=y
+ # CONFIG_PREEMPT_DYNAMIC is not set
+ 
++# Fedora userspace uses PSI for pressure-aware service and memory management.
++CONFIG_PSI=y
++# CONFIG_PSI_DEFAULT_DISABLED is not set
++
+ # Nabu SPI touch, wake gestures and PM8150 fuel gauge.
+ CONFIG_TOUCHSCREEN_NT36523_SPI=m
+ CONFIG_BATTERY_QCOM_FG=y
+@@ -75,6 +79,7 @@ CONFIG_PHY_QCOM_QMP_COMBO=y
+ CONFIG_QCOM_APR=m
+ CONFIG_SLIMBUS=m
+ CONFIG_SOUNDWIRE=m
++CONFIG_SND_SEQUENCER=m
+ CONFIG_SND_SOC_QDSP6=m
+ CONFIG_SND_SOC_SM8150=m
+ CONFIG_SND_SOC_CS35L41_I2C=m
+-- 
+2.55.0
+

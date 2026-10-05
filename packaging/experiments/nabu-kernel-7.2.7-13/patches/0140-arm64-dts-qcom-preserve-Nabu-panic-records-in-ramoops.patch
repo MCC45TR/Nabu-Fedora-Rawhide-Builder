@@ -1,0 +1,38 @@
+From 9fbc2af7b8079ed694b672192050ee7e4c7c04f2 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sat, 12 Sep 2026 18:32:00 +0300
+Subject: [PATCH] arm64: dts: qcom: preserve Nabu panic records in ramoops
+
+The Iris overlay replaced the base Nabu ramoops record area with a larger
+console-only allocation.  That leaves pstore without a dmesg record after the
+hard UI freezes currently under investigation.
+
+Keep the complete four MiB reservation split into one MiB each for the panic
+record and console plus two MiB for persistent ftrace.  This restores evidence
+collection without changing the reserved-memory address or total size.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+index 82b5eb07ad19..21b42da2f2df 100644
+--- a/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8150-xiaomi-nabu-iris.dtsi
+@@ -7,9 +7,9 @@
+  */
+ 
+ &{/reserved-memory/ramoops@b0000000} {
+-	/* Split the 4 MiB region evenly between printk and persistent ftrace. */
+-	record-size = <0>;
+-	console-size = <0x200000>;
++	/* Preserve panic dmesg, console and persistent ftrace across hard resets. */
++	record-size = <0x100000>;
++	console-size = <0x100000>;
+ 	ecc-size = <0>;
+ };
+ 
+-- 
+2.55.0
+

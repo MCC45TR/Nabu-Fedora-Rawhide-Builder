@@ -1,0 +1,28 @@
+From 5f7d3ab7b57ada4e653ace71ef752655f7e3c2cc Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Wed, 2 Sep 2026 10:36:53 +0300
+Subject: [PATCH] senemos: retain module signing helper in Nabu config
+
+---
+ senemos/configs/nabu-minimal.config | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/senemos/configs/nabu-minimal.config b/senemos/configs/nabu-minimal.config
+index d7b54bc020d1..98209e1f8cc4 100644
+--- a/senemos/configs/nabu-minimal.config
++++ b/senemos/configs/nabu-minimal.config
+@@ -126,6 +126,11 @@ CONFIG_VIDEO_QCOM_IRIS=m
+ # Fedora-compatible module packaging.
+ CONFIG_MODULES=y
+ CONFIG_MODULE_COMPRESS_ZSTD=y
++# The RPM installation stage signs every installed module explicitly.  Keep
++# the kernel signing helper available without signing twice during make.
++CONFIG_MODULE_SIG=y
++# CONFIG_MODULE_SIG_ALL is not set
++CONFIG_MODULE_SIG_SHA512=y
+ 
+ # Release images do not ship kernel self-tests or KUnit test modules.
+ # CONFIG_RUNTIME_TESTING_MENU is not set
+-- 
+2.55.0
+

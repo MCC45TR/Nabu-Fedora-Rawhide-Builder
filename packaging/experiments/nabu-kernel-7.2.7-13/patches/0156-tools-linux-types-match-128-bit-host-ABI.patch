@@ -1,0 +1,33 @@
+From 81b0d4a50156f08636191ca3ee3d9db8589e0156 Mon Sep 17 00:00:00 2001
+From: SENEMOS patch gate <mcc45tr@gmail.com>
+Date: Wed, 16 Sep 2026 21:34:00 +0300
+Subject: [PATCH] tools: define 128-bit types for newer arm64 host headers
+
+The in-tree tools/include/linux/types.h takes precedence over the host UAPI
+header when libbpf and libsubcmd build resolve_btfids. Newer arm64
+asm/ptrace.h and sigcontext.h use __u128; without its typedef these host
+helpers cannot compile on Fedora Rawhide. Mirror the kernel UAPI definitions
+in the tools-only header; do not change the runtime kernel ABI or disable BTF.
+
+Signed-off-by: SENEMOS patch gate <mcc45tr@gmail.com>
+---
+ tools/include/linux/types.h | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/tools/include/linux/types.h b/tools/include/linux/types.h
+--- a/tools/include/linux/types.h
++++ b/tools/include/linux/types.h
+@@ -13,6 +13,11 @@
+ #include <asm/types.h>
+ #include <asm/posix_types.h>
+ 
++#ifdef __SIZEOF_INT128__
++typedef __signed__ __int128 __s128 __attribute__((aligned(16)));
++typedef unsigned __int128 __u128 __attribute__((aligned(16)));
++#endif
++
+ struct page;
+ struct kmem_cache;
+ 
+-- 
+2.55.0

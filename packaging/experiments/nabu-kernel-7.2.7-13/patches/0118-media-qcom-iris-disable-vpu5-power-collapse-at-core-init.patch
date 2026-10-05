@@ -1,0 +1,44 @@
+From 3e9f0fcdd8ec708bff27b86047ebc49a8d1ef303 Mon Sep 17 00:00:00 2001
+From: mcc45tr <mcc45tr@gmail.com>
+Date: Sun, 6 Sep 2026 00:01:00 +0300
+Subject: [PATCH] media: qcom: iris: disable VPU5 power collapse at core init
+
+Legacy VPU5 currently keeps its controller and codec power domains under
+software control because the matching Iris power-collapse sequence has not
+been implemented.  Despite that, Gen1 core initialization tells firmware to
+enable inter-frame power collapse.  If the device is opened once and then
+left idle, VIDEO.IR.1.2 can enter a state from which a later SESSION_INIT
+gets no response even though Linux still reports the device active.
+
+Send the power-control property with false during core initialization on
+legacy VPU5.  This makes the policy effective before the firmware first
+becomes idle; the existing session-open write remains an idempotent guard.
+Keep the upstream policy unchanged for Gen1 platforms with working hardware
+power handoff.
+
+Signed-off-by: mcc45tr <mcc45tr@gmail.com>
+---
+ drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+index 444444444444..555555555555 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen1_command.c
+@@ -192,7 +192,13 @@ static int iris_hfi_gen1_sys_power_control(struct iris_core *core, bool enable)
+ 
+ static int iris_hfi_gen1_sys_interframe_powercollapse(struct iris_core *core)
+ {
+-	return iris_hfi_gen1_sys_power_control(core, true);
++	/*
++	 * VPU5 remains software-powered until its hardware handoff sequence is
++	 * implemented.  Disable firmware power collapse before its first idle
++	 * period, rather than waiting for the first session to be opened.
++	 */
++	return iris_hfi_gen1_sys_power_control(core,
++					  !core->iris_platform_data->legacy_vpu5);
+ }
+ 
+ static int iris_hfi_gen1_sys_pc_prep(struct iris_core *core)
+-- 
+2.51.0

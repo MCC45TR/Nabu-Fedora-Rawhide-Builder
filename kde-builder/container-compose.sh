@@ -16,8 +16,14 @@ die() { log "ERROR: $*"; exit 1; }
 mkdir -p "$META" "$LOGS" /work/dnf-cache "$TARGET"
 
 dnf5 -y --disablerepo='*openh264*' --setopt=install_weak_deps=False install \
-    ca-certificates curl dnf5 e2fsprogs findutils fuse3 python3 rpm systemd util-linux \
+    ca-certificates curl dnf5 e2fsprogs findutils fuse3 gcc-c++ rpm systemd util-linux \
     >"$LOGS/container-tools.log" 2>&1
+g++ -std=c++20 -O2 -Wall -Wextra -Werror \
+    /builder-source/tools/lib/find-missing-rpm-locales.cpp \
+    -o /work/find-missing-rpm-locales
+g++ -std=c++20 -O2 -Wall -Wextra -Werror \
+    /builder-source/tools/lib/rpm-file-ownership.cpp \
+    -o /work/rpm-file-ownership
 
 # --use-host-config makes RPM evaluate the compose container's macro. Set it
 # here so KDE translations are unpacked during compose, not repaired at login.
@@ -116,7 +122,7 @@ touch "$TARGET/.unconfigured"
 rpm --root "$TARGET" -q "$KDE_META_PACKAGE" glibc-all-langpacks plasma-login-manager \
     plasma-desktop plasma-workspace kwin plasma-discover plasma-discover-offline-updates \
     dolphin konsole spectacle kwrite plasma-camera kde-gtk-config xsettingsd breeze-gtk-gtk3 breeze-gtk-gtk4 \
-    nabu-camera-support iris-vaapi-nabu iio-sensor-proxy-nabu libssc-nabu python3-ssc-nabu \
+    nabu-camera-support iris-vaapi-nabu iio-sensor-proxy-nabu libssc-nabu \
     xiaomi-nabu-firmware \
     >"$META/kde-selection.txt"
 
@@ -126,14 +132,14 @@ plasma_catalogs=$(find "$TARGET/usr/share/locale" -path '*/LC_MESSAGES/plasmashe
 (( plasma_catalogs >= KDE_PLASMASHELL_LOCALE_MIN )) || die "Plasmashell locale count too low: $plasma_catalogs"
 printf 'locale_dirs=%s\nplasmashell_catalogs=%s\n' "$locale_dirs" "$plasma_catalogs" >"$META/locale-counts.txt"
 
-python3 /builder-source/tools/lib/find-missing-rpm-locales.py "$TARGET" "$META/locale-rpm-files-before.txt" \
+/work/find-missing-rpm-locales "$TARGET" "$META/locale-rpm-files-before.txt" \
     "$META/locale-repair-packages.txt"
 if [[ -s "$META/locale-repair-packages.txt" ]]; then
     mapfile -t locale_repair_packages <"$META/locale-repair-packages.txt"
     "${dnf_command[@]}" reinstall "${locale_repair_packages[@]}" \
         >"$LOGS/dnf-locale-repair.log" 2>&1
 fi
-python3 /builder-source/tools/lib/find-missing-rpm-locales.py "$TARGET" "$META/locale-rpm-files.txt" \
+/work/find-missing-rpm-locales "$TARGET" "$META/locale-rpm-files.txt" \
     "$META/locale-repair-packages-after.txt"
 if [[ -s "$META/locale-repair-packages-after.txt" ]]; then
     sed -n '1,160p' "$META/locale-rpm-files.txt" >&2
@@ -150,34 +156,10 @@ rpm --root "$TARGET" -qa --qf '%{NAME}|%{EVR}|%{ARCH}\n' | sort >"$META/rpm-mani
 find "$TARGET" -xdev \( -uid 65534 -o -gid 65534 \) -printf '%u:%g %m %p\n' \
     >"$META/pre-restore-overflow-ownership.txt"
 
-python3 - "$TARGET" "$META/rpm-file-ownership.tsv" <<'PY'
-import os, subprocess, sys
-root, output = sys.argv[1:]
-def ids(name):
-    result = {}
-    with open(os.path.join(root, "etc", name), encoding="utf-8", errors="surrogateescape") as f:
-        for line in f:
-            fields = line.rstrip("\n").split(":")
-            if len(fields) >= 4 and fields[2].isdigit(): result[fields[0]] = int(fields[2])
-    return result
-uids, gids = ids("passwd"), ids("group")
-query = subprocess.check_output(
-    ["rpm", "--root", root, "-qa", "--dump"],
-    text=True, errors="surrogateescape")
-owners = {}
-for line in query.splitlines():
-    fields = line.rsplit(maxsplit=10)
-    if len(fields) != 11: continue
-    path, owner, group = fields[0], fields[5], fields[6]
-    if path.startswith("/") and os.path.lexists(root + path):
-        if owner not in uids or group not in gids: raise SystemExit(f"Unknown owner: {path} {owner}:{group}")
-        owners[path] = (uids[owner], gids[group])
-for path in ("/.unconfigured", "/etc/nabu-image/desktop-profile", "/etc/systemd/system/default.target",
-             "/etc/systemd/system/display-manager.service", "/etc/systemd/system/nabu-esp32-cdc-log.service"):
-    if os.path.lexists(root + path): owners[path] = (0, 0)
-with open(output, "w", encoding="utf-8") as f:
-    for path, (uid, gid) in sorted(owners.items()): f.write(f"{path}|{uid}|{gid}\n")
-PY
+/work/rpm-file-ownership capture-dump "$TARGET" "$META/rpm-file-ownership.tsv" \
+    /.unconfigured /etc/nabu-image/desktop-profile \
+    /etc/systemd/system/default.target /etc/systemd/system/display-manager.service \
+    /etc/systemd/system/nabu-esp32-cdc-log.service
 source /builder-source/gnome-builder/lib/rpm-special-modes.sh
 nabu_capture_rpm_special_modes "$TARGET" "$META/rpm-special-modes.tsv"
 cleanup_target
