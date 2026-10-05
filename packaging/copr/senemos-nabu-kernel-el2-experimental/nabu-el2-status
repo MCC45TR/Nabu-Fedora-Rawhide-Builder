@@ -1,0 +1,76 @@
+#!/usr/bin/bash
+# SPDX-License-Identifier: MIT
+set -Eeuo pipefail
+
+LC_ALL=C
+export LC_ALL
+
+require_kvm=0
+case ${1:-} in
+    "") ;;
+    --require-kvm) require_kvm=1 ;;
+    -h|--help)
+        printf 'usage: nabu-el2-status [--require-kvm]\n'
+        exit 0
+        ;;
+    *)
+        printf 'usage: nabu-el2-status [--require-kvm]\n' >&2
+        exit 2
+        ;;
+esac
+
+kernel_release=${NABU_EL2_UNAME:-$(uname -r)}
+config=${NABU_EL2_CONFIG:-/boot/config-$kernel_release}
+dev_kvm=${NABU_EL2_DEV_KVM:-/dev/kvm}
+kernel_log=${NABU_EL2_KERNEL_LOG:-}
+
+if [[ -z $kernel_log ]]; then
+    if command -v journalctl >/dev/null 2>&1; then
+        kernel_log=$(journalctl -k -b --no-pager 2>/dev/null || :)
+    elif command -v dmesg >/dev/null 2>&1; then
+        kernel_log=$(dmesg 2>/dev/null || :)
+    fi
+elif [[ -r $kernel_log ]]; then
+    kernel_log=$(<"$kernel_log")
+else
+    kernel_log=
+fi
+
+kvm_config=unknown
+if [[ -r $config ]]; then
+    if grep -Fxq 'CONFIG_KVM=y' "$config"; then
+        kvm_config=enabled
+    elif grep -Fxq '# CONFIG_KVM is not set' "$config"; then
+        kvm_config=disabled
+    fi
+fi
+
+kvm_device=absent
+[[ -c $dev_kvm ]] && kvm_device=present
+
+handoff=unproven
+if grep -Eiq 'KVM.*(Hyp mode initialized successfully|VHE mode initialized successfully|IPA Size Limit)' <<<"$kernel_log"; then
+    handoff=el2-accepted
+elif grep -Eiq '(HYP mode not available|KVM.*(no EL2|disabled by firmware))' <<<"$kernel_log"; then
+    handoff=el2-unavailable
+fi
+
+verdict=unproven
+if [[ $kvm_config == disabled ]]; then
+    verdict=kernel-kvm-disabled
+elif [[ $kvm_config == enabled && $kvm_device == present && $handoff != el2-unavailable ]]; then
+    verdict=kvm-device-ready
+elif [[ $kvm_config == enabled && $handoff == el2-unavailable ]]; then
+    verdict=firmware-el2-blocked
+fi
+
+printf 'kernel_release=%s\n' "$kernel_release"
+printf 'kernel_config=%s\n' "$config"
+printf 'kvm_config=%s\n' "$kvm_config"
+printf 'kvm_device=%s\n' "$kvm_device"
+printf 'el2_handoff=%s\n' "$handoff"
+printf 'verdict=%s\n' "$verdict"
+
+if (( require_kvm )) && [[ $verdict != kvm-device-ready ]]; then
+    exit 1
+fi
