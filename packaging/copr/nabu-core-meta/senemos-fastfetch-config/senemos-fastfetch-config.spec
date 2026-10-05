@@ -70,11 +70,11 @@ PY
 %{_datadir}/senemos-fastfetch-config/
 
 %changelog
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Route interactive fastfetch calls through the locale-aware launcher.
 - Own the system Fastfetch fallback configuration for clean removal.
 - Coordinate file ownership migration from nabu-core-meta 3.0.0-56.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-1
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-1
 - Add locale-aware Fastfetch configuration for all 27 MFile Finder languages.
 - Normalize regional locale names and provide an English fallback.

@@ -28,12 +28,12 @@ install -Dm0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/dnf/repos.override.d/90-na
 %config(noreplace) %{_sysconfdir}/dnf/repos.override.d/90-nabu-disable-cisco-openh264.repo
 
 %changelog
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 1.1.0-2
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-2
 - Retire the Fedora 43 build target; retain Fedora 44, Fedora 45 and Rawhide.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Adopt the independent control-plane version policy.
 - Export a stable repository configuration API capability.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-33.test
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-33.test
 - Split repository configuration from desktop and CORE policy packages.

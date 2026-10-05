@@ -72,10 +72,10 @@ fi
 %systemd_postun_with_restart plasmalogin.service plasma-setup.service
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Decouple the Plasma manifest from the former repository-wide release counter.
 - Require component ABIs instead of unrelated minimum EVRs.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-33.test
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-33.test
 - Remove the mandatory broad Qt5 and KF5 obsoletes transition.
 - Link independent components through stable virtual ABI capabilities.

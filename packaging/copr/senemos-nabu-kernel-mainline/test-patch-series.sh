@@ -18,10 +18,6 @@ for tool in git gcc make pahole python3; do
         exit 1
     }
 done
-extra_config=${NABU_EXTRA_CONFIG:-}
-expected_kernel_release=${NABU_EXPECTED_KERNEL_RELEASE:-}
-expect_kvm=${NABU_EXPECT_KVM:-0}
-[[ $expect_kvm == 0 || $expect_kvm == 1 ]]
 reject_grep -Eq '^Provides:[[:space:]]+kernel-uname-r' \
     "$root/senemos-nabu-kernel-mainline.spec"
 grep -Fxq 'Provides:       kernel-nabu-core-uname-r' \
@@ -54,7 +50,7 @@ fi
 tar -xf "$work/linux-$version.tar.xz" -C "$work"
 git -C "$work/linux-$version" init -q
 git -C "$work/linux-$version" config user.name 'SENEMOS patch gate'
-git -C "$work/linux-$version" config user.email 'mcc45tr@gmail.com'
+git -C "$work/linux-$version" config user.email '75160848+MCC45TR@users.noreply.github.com'
 git -C "$work/linux-$version" add -A
 git -C "$work/linux-$version" commit -qm "Linux $version"
 (cd "$root/patches" && sha256sum -c ../patches.sha256)
@@ -230,21 +226,13 @@ KCONFIG_CONFIG="$config_dir/.config" \
     "$config_dir/.config" \
     "$work/linux-$version/senemos/configs/nabu-security.config" \
     "$work/linux-$version/senemos/configs/nabu-rng.config"
-if [[ -n $extra_config ]]; then
-    [[ -r $extra_config ]]
-    KCONFIG_CONFIG="$config_dir/.config" \
-        "$work/linux-$version/scripts/kconfig/merge_config.sh" -m -r \
-        "$config_dir/.config" "$extra_config"
-fi
 make -C "$work/linux-$version" O="$config_dir" ARCH=arm64 HOSTCC=gcc olddefconfig
 make -s -C "$work/linux-$version" O="$config_dir" \
     ARCH=arm64 HOSTCC=gcc syncconfig
 rm -f "$config_dir/include/config/kernel.release"
 kernel_release=$(LOCALVERSION= make -s -C "$work/linux-$version" O="$config_dir" \
     ARCH=arm64 HOSTCC=gcc kernelrelease)
-[[ -n $expected_kernel_release ]] || \
-    expected_kernel_release="$version-nabu-senemos-mainline"
-if [[ $kernel_release != "$expected_kernel_release" ]]; then
+if [[ $kernel_release != "$version-nabu-senemos-mainline" ]]; then
     grep '^CONFIG_LOCALVERSION' "$config_dir/.config" >&2 || true
     printf 'ERROR: unexpected kernel release: %s\n' "$kernel_release" >&2
     exit 1
@@ -372,21 +360,11 @@ for forbidden in \
         exit 1
     fi
 done
-if grep -Eq '^CONFIG_(MODULE_SIG_FORCE|TCG_FTPM_TEE|IMA|EVM)=(y|m)$' \
+if grep -Eq \
+    '^CONFIG_(MODULE_SIG_FORCE|VIRTUALIZATION|KVM|TCG_FTPM_TEE|IMA|EVM)=(y|m)$' \
     "$config_dir/.config"; then
     printf 'ERROR: final Nabu config crossed the stage-one security boundary\n' >&2
     exit 1
-fi
-if (( expect_kvm )); then
-    grep -Fxq 'CONFIG_VIRTUALIZATION=y' "$config_dir/.config"
-    grep -Fxq 'CONFIG_KVM=y' "$config_dir/.config"
-    grep -Fxq '# CONFIG_NVHE_EL2_DEBUG is not set' "$config_dir/.config"
-    grep -Fxq '# CONFIG_PTDUMP_STAGE2_DEBUGFS is not set' "$config_dir/.config"
-else
-    if grep -Eq '^CONFIG_(VIRTUALIZATION|KVM)=(y|m)$' "$config_dir/.config"; then
-        printf 'ERROR: final production Nabu config enabled KVM\n' >&2
-        exit 1
-    fi
 fi
 dm_inlinecrypt="$work/linux-$version/drivers/md/dm-inlinecrypt.c"
 grep -Eq '^[[:space:]]*\.name[[:space:]]*=[[:space:]]*"default-key"' \

@@ -762,54 +762,54 @@ fi
 %{_sysconfdir}/rpm/macros.nabu-languages
 
 %changelog
-* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-111
+* Fri Sep 25 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-111
 - Use the normal ALSA sink for Nabu stereo I2S; the native helper exits
   without creating an unconnected four-channel filter or a polling loop.
 - Retain screen-relative four-channel support for older kernels, and avoid
   selecting unrelated USB sound cards as the built-in speaker backend.
 
-* Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-110
+* Thu Sep 24 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-110
 - Verify the native color selector's whitelist and helper error propagation
   in build-only tests; runtime payload remains unchanged from release 109.
 
-* Thu Sep 24 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-109
+* Thu Sep 24 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-109
 - Replace the manually launched Bash color selector with a native Qt6
   dialog while preserving the explicit user choice and ICC validation path.
 
-* Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-108
+* Mon Sep 14 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-108
 - Install the stock KDE color-profile KCM for explicit ICC selection.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-107
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-107
 - Move the Nabu widget into plasma-nabu-kcm and require its native KCM.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-106
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-106
 - Remove only the exact vendor-owned legacy automatic ICC enablement link so
   Plasma lists profiles for explicit selection without enqueueing a missing
   auto-apply unit.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-105
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-105
 - Replace the three Python KDE runtime helpers with native C++20/QtCore
   binaries; retain Python only for isolated package tests.
 - Keep ICC handling explicit and user-selected; no automatic profile command
   or service is installed.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-104
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-104
 - Keep all panel-specific ICC profiles discoverable by stock KDE/KScreen.
 - Stop selecting or changing a color profile automatically at user login.
 - Rebuild the KDE payload deterministically from its reviewed source tree.
 
-* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-103
+* Thu Sep 10 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-103
 - Rebuild source payloads reproducibly without generated Python bytecode.
 - Require the corrected core meta build containing the complete test archive.
 
-* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-102
+* Thu Sep 10 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-102
 - Enable bounded per-user panel-variant ICC selection for all Plasma users.
 - Prefer kernel panel identity and retain a read-only UEFI fallback.
 
-* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-101
+* Tue Sep 08 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-101
 - Select the factory-derived ICC automatically for each Nabu panel and user.
 - Preserve user-selected profiles and the accurate KWin ICC pipeline.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-100
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-100
 - Build all five desktop manifests from one COPR source family.
 - Preserve the existing binary names and stock Fedora/KDE package policy.

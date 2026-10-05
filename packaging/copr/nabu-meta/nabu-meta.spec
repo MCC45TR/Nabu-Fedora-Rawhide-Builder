@@ -22,13 +22,13 @@ selections are retained; fresh solving deterministically prefers stable.
 %files
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - %{nabu_meta_version}-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - %{nabu_meta_version}-1
 - Adopt the shared Istanbul YYMMDDHHMM meta-package version.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Define the release manifest role independently from component versions.
 - Pull the dedicated package rename and retirement manifest.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-33.test
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-33.test
 - Stop forcing Rawhide installations onto the unstable branch.
 - Preserve an installed branch through the shared virtual capability.

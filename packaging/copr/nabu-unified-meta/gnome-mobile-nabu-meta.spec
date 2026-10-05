@@ -154,53 +154,53 @@ touch /var/lib/nabu-gnome-mobile-sync/pending
 %{_presetdir}/90-nabu-gnome-mobile-sync.preset
 %{_userunitdir}/org.gnome.Shell@initial-setup.service.d/20-nabu-mobile-user-mode.conf
 %changelog
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-13
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-13
 - Follow Fedora Rawhide's current Mutter EVR without a stale RC version floor.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-12
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-12
 - Add a configurable grip-aware keep-awake tile to the existing Quick Settings extension.
 - Keep the tile fail-closed until real ADUX1050 calibration and fresh data exist.
 
-* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-11
+* Wed Sep 02 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-11
 - Add configurable one-column tablet tiles, sound placement and live flashlight slider.
 - Show pen and Xiaomi Keyboard tiles only while their accessories are connected.
 
-* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-10
+* Wed Sep 02 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-10
 - Require the upstream Mutter auto-rotation lifecycle fix for touch-first devices.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-9
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-9
 - Never start the deferred DNF synchronizer from inside an active RPM
   transaction; leave the pending marker for the enabled boot/retry units.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-8
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-8
 - Disable animations only in GNOME Initial Setup to avoid the Mobile Shell
   overview grab crash while preserving animations in normal user sessions.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-7
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-7
 - Present GNOME account creation through the working normal Mobile Shell mode.
 - Allow the deferred DNF transaction to use Fedora's current RPM database path.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-6
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-6
 - Install GNOME input-method integration and Avahi for first-boot services.
 - Keep the Nabu extension enable helper out of GDM and Initial Setup greeter sessions.
 
-* Sun Aug 30 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-5
+* Sun Aug 30 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-5
 - Enable the signed @mobility/gnome-mobile COPR from the mobile meta package.
 - Defer installation of mobile GNOME Shell, Mutter and settings-daemon until
   the package transaction closes, with a persistent retry timer and fail-closed checks.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-4
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-4
 - Expand the independent stock GNOME Quick Settings extension into
   capability-aware Nabu tablet controls and enable it once at first login.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-3
 - Make DE exclusivity explicit by package name so this manifest updates itself.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-2
 - Leave retirement of shared locale and tablet-control names to CORE.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-1
 - Merge the locale policy and GNOME tablet-control extension into this DE RPM.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-1
 - Replace the touch GNOME minimal/optimal and base packages with one manifest.

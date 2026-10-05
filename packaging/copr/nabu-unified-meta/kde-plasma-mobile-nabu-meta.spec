@@ -259,93 +259,93 @@ fi
 %systemd_user_postun_with_restart nabu-audio-orientation.service
 
 %changelog
-* Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-19
+* Mon Sep 14 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-19
 - Install the stock KDE color-profile KCM for explicit ICC selection.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-18
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-18
 - Move the Nabu Plasma widget into the native plasma-nabu-kcm package.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-16
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-16
 - Give stock KWin the minimum real-time priority it requests for compositor,
   input and DRM commit scheduling without replacing any Fedora KDE package.
 - Retain KWin's upstream dynamic double/triple-buffering policy.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-15
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-15
 - Skip PowerDevil ddcutil probing on Nabu's internal DSI panel, which has no
   DRM DDC connector, while retaining Fedora's unmodified PowerDevil package.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-14
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-14
 - Keep Fedora KDE packages unmodified; remove the temporary KSystemStats replacement.
 - Retain the deadline-based File Search maintenance and asynchronous cache reads.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-12
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-12
 - Read local MFile Finder caches through one asynchronous runner instead of
   repeatedly attempting Qt-blocked file URL requests.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-11
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-11
 - Schedule MFile Finder RSS and weather maintenance at their actual deadlines
   instead of waking every minute when no work is due.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-10
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-10
 - Release completed MFile Finder weather requests and accept Plasma's generic
   applet-layout keys to reduce long-session memory growth and QML log noise.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-9
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-9
 - Install UDisks2 so Plasma and Solid can enumerate storage devices without
   repeatedly waiting for a missing D-Bus service during session startup.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-8
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-8
 - Allow KDE Connect in firewalld's default zone so LAN discovery and pairing
   work after installation without weakening unrelated firewall policy.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-7
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-7
 - Stop forcing Turkish packages on global installations; use the locale chosen
   in initial setup through the shared CORE language-pack installer.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-6
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-6
 - Install KDE Plasma Addons so PowerDevil can load its Kameleon module.
 - Include the current Fedora Turkish language and spell-checking payloads.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-5
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-5
 - Read KWin's output transform directly instead of spawning kscreen-doctor
   every second, and reduce idle PipeWire graph scans.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-4
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-4
 - Add grip-aware keep-awake state and control to the existing Plasma Mobile widget.
 - Keep the control disabled until real ADUX1050 calibration is available.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-3
 - Make DE exclusivity explicit by package name so this manifest updates itself.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-2
 - Leave retirement of shared integration names to CORE; this DE owns only its
   replacement payload and profile-specific legacy names.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-1
 - Merge mobile KDE configuration, ICC profiles, widgets, locale restoration,
   login branding and the Plasma tablet-control UI into this release package.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-6
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-6
 - Do not run owner lifecycle macros for the Plasma-owned login service.
 - Repair only an inactive manager left by legacy removal scriptlets, while
   preserving an already active graphical login session on normal upgrades.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-5
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-5
 - Reassert and start Plasma Login Manager after legacy mobile removal scriptlets
   when the machine is already running the graphical target.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-4
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-4
 - Keep the shared login theme as an implementation dependency and let CORE own
   retirement of the common migration helper, eliminating DE-selection ambiguity.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-3
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-3
 - Keep Plasma Mobile on the independent Nabu KDE configuration payload; the
   desktop integration meta requires plasma-setup and plasma-desktop.
 - Provide the plasmashell capability directly for the mobile shell.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-2
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-2
 - Match the KDE integration/configuration EVRs retained in the live COPR.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-1
 - Merge Plasma Mobile base, optimal profile, session and login branding.
 - Require complete locale support and stop obsoleting Fedora/KDE packages.

@@ -558,46 +558,46 @@ if [ -x /usr/bin/systemd-hwdb ]; then
 fi
 
 %changelog
-* Sat Sep 26 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-99
+* Sat Sep 26 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-99
 - Require DNF5 plugins so COPR repository setup works in CORE and KDE.
 - Reboot after a kernel oops; retain the existing 15-second panic timeout.
 
-* Sat Sep 26 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-98
+* Sat Sep 26 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-98
 - Keep e2fsck and related ext4 recovery tools available on Nabu installations.
 
-* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-97
+* Fri Sep 25 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-97
 - Select stereo I2S from ALSA components while preserving the four-channel
   fallback UCM profile and conservative direct-ASP gain.
 - Keep the native two-channel speaker sink visible and require matching KDE
   integration so an obsolete four-channel filter cannot swallow playback.
 
-* Tue Sep 22 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-96
+* Tue Sep 22 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-96
 - Add an explicitly selected Arch reference gain UCM modifier with rollback.
 - Keep default gain conservative and preserve four-channel playback.
 
-* Wed Sep 16 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-95
+* Wed Sep 16 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-95
 - Bound legacy package migration to this CORE EVR so virtual compatibility
   Provides are not obsoleted by the package that supplies them.
 - Include and checksum-gate the deterministic SAR 0.3.1 source archive.
 
-* Tue Sep 15 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-94
+* Tue Sep 15 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-94
 - Keep the fixed UFS topology on its kernel-selected mq-deadline scheduler and
   mask Fedora's removable-media BFQ rule that races five Nabu LUNs at boot.
 
-* Mon Sep 14 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-93
+* Mon Sep 14 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-93
 - Reject constant or saturated ADUX1050 reports before grip classification,
   calibration capture, or logind inhibition; export explicit data-quality
   evidence and reduce unhealthy unchanged D-Bus updates to one per five seconds.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-92
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-92
 - Require the native C++ hardware provenance runtime so an existing Python
   revision cannot satisfy the production hardware inventory dependency.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-91
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-91
 - Keep the persist filesystem mounted read-only and stop tmpfiles from trying to
   change the mounted root; enforce Linux-user privacy at /mnt/vendor instead.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-90
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-90
 - Copy Android sensor calibration into volatile runtime storage through bounded,
   nofollow, regular-file-only C++ descriptors and an atomically replaced target;
   retain Python only for build-time tests.
@@ -608,30 +608,30 @@ fi
 - Require the hardened camera EEPROM reader and exact released sensor/provenance
   interfaces used by the early hardware-data path.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-89
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-89
 - Export bounded SSC algorithm availability and observed-report evidence over
   a read-only D-Bus interface, while leaving uncalibrated SAR mapping disabled.
 - Require the privacy-preserving DTBO, firmware and camera provenance inventory.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-88
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-88
 - Bound PlasmaLogin, login-session and user-manager shutdown so a wedged
   GPU/DSP desktop cannot prevent reboot indefinitely.
 - Give ADSP FastRPC a restart window that actually rate-limits repeated attach
   failures, and reset that budget for an intentional suspend resume.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-87
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-87
 - Make all Nabu TuneD profiles ARM-native instead of inheriting unsupported
   x86 boost, SATA ALPM and NMI-watchdog controls.
 - Keep power-saver Wi-Fi/USB autosuspend plus writeback tuning while making
   TuneD verification cover only controls that exist on Xiaomi Pad 5.
 
-* Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-86
+* Sat Sep 12 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-86
 - Use the WCN3990 kernel-provided permanent address for associated Wi-Fi
   connections instead of Fedora's per-SSID randomized identity.
 - Keep scan randomization independent and allow explicit per-profile MAC
   choices to override the Nabu system default.
 
-* Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-85
+* Sat Sep 12 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-85
 - Ship complete desktop language payloads at compose time and retire the
   post-setup DNF locale watcher.
 - Defer kernel and rEFInd maintenance until queued work can run while idle, and
@@ -639,279 +639,279 @@ fi
 - Remove redundant PMIC RTC and root-growfs boot services, enable host-only
   Nabu initrds, and reboot automatically 15 seconds after a real kernel panic.
 
-* Fri Sep 11 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-84
+* Fri Sep 11 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-84
 - Invalidate prepared UKIs when the owning RPM NEVRA, kernel image or Nabu DTB
   changes even if the kernel uname and EFI filename stay the same.
 - Add regression coverage for same-uname kernel and DTB payload replacements.
 - Advance the kernel maintenance state contract to API 6.
 
-* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-83
+* Thu Sep 10 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-83
 - Restore the flashlight payload's USB-role regression test to the reproducible
   source archive so every COPR target executes the complete check suite.
 
-* Thu Sep 10 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-82
+* Thu Sep 10 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-82
 - Treat the kernel POGO connected attribute as the authoritative attachment
   state instead of inverting it in the Plasma accessory helper.
 - Route TuneD's three public power profiles through the kernel platform-profile
   class while preserving matching direct limits for older fallback kernels.
 
-* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-81
+* Tue Sep 08 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-81
 - Configure source, sink and automatic USB-C choices as connection policy so
   ESP32 peripherals can be prepared before attachment.
 - Report that policy accurately in the Plasma Tablet Control widget.
 
-* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-80
+* Tue Sep 08 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-80
 - Permit USB host and off mode when the optional gadget service is absent.
 - Preserve the fail-closed stop gate for an installed or active USB gadget.
 
-* Tue Sep 08 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-79
+* Tue Sep 08 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-79
 - Map desktop power modes to Nabu-specific TuneD CPU and GPU profiles while
   retaining schedutil, idle residency and safe Android-vetted frequency caps.
 - Keep Tablet Control torch actions functional while libcamera owns the flash
   subdevice, without taking over a camera-armed strobe.
 
-* Mon Sep 07 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-78
+* Mon Sep 07 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-78
 - Keep ADUX1050 sampling and grip transitions responsive while limiting
   unchanged D-Bus telemetry to one update per second.
 - Reduce idle CPU and bus traffic without weakening stale-sample or
   hold-awake safety gates.
 
-* Mon Sep 07 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-77
+* Mon Sep 07 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-77
 - Make SAR calibration capture deterministic under Turkish and other
   non-English collation locales.
 - Report an intentionally disabled, uncalibrated classifier as informational
   while keeping all raw ADUX1050 telemetry available.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-76
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-76
 - Require the UCM command-line tools and ALSA-to-PipeWire plugin used by the
   Nabu four-channel hardware playback and diagnostic path.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-75
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-75
 - Exclude every dependency-free, non-filesystem Nabu UFS partition from
   systemd device enumeration instead of limiting the login fix to A/B slots.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-74
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-74
 - Release the graphical startup gate as soon as a valid sensor sample arrives.
 - Keep raw UFS firmware slots out of systemd device enumeration while retaining
   all block nodes, persistent links and Linux storage dependencies.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-73
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-73
 - Disable feedbackd role loopbacks through the main profile from the
   higher-priority host configuration layer; same-name fragment masking is not
   supported by WirePlumber's merged fragment loader.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-72
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-72
 - Mask feedbackd's phone-oriented media-role fragment from WirePlumber's
   higher-priority configuration layer while retaining feedback support.
 - Install the Nabu endpoint visibility rule in the administrator override
   layer so it has deterministic precedence over distribution fragments.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-71
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-71
 - Remove the optional WebRTC echo-cancel graph because it makes the built-in
   microphones sound robotic and exposes an unnecessary virtual sink.
 - Disable phone-oriented feedbackd role loopbacks on Nabu and hide the raw
   ALSA speaker target behind the orientation-aware built-in speaker node.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-70
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-70
 - Repair missing RPM-owned translation catalogs once for the locale selected
   during setup, without imposing Turkish or replacing any Fedora KDE package.
 - Keep subsequent application translations under Fedora's install-langs policy.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-69
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-69
 - Let kernel maintenance select semantic identities for the timestamp-free
   mainline-stable package while retaining timestamped unstable identities.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-68
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-68
 - Require the consolidated boot, sensor and platform-runtime family payloads.
 - Retire the old alpha and LTS package names during an ordinary DNF update.
 - Keep stable mainline, fallback and development as the three supported kernels.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-67
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-67
 - Make senemos-nabu-kernel-mainline 7.2.3 the release kernel and migrate existing
   alpha/development installations through a normal DNF update.
 - Limit kernel maintenance to kernel, mainline and mainline-unstable families.
 - Keep exactly one package/UKI per family while preserving the Android entry.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-66
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-66
 - Keep QCam and other graphical camera applications out of the CORE contract.
 - Require the consolidated nabu-camera hardware and tuning support instead.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-65
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-65
 - Remove every uncalibrated ADUX1050 channel selection and threshold default.
 - Keep all three raw SAR/grip channels available without mapping them to a
   physical edge or the screen proximity policy.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-64
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-64
 - Keep the optional WebRTC microphone processing graph passive while idle so
   display and system resume do not reopen stale Qualcomm DSP streams.
 - Preserve both the raw stereo microphone and the processed source.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-63
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-63
 - Quiesce both ADSP and SDSP FastRPC clients around system sleep, then restore
   them in dependency order to avoid stale DSP handles after resume.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-62
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-62
 - Warm SensorProxy with a bounded real accelerometer sample before starting the
   graphical login, avoiding KWin's 25-second first-claim timeout.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-61
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-61
 - Retain the last valid TCS3701 value from its on-change SSC stream.
 - Require the packed standard-event CCT decoder and apply the bridge update live.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-60
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-60
 - Require the corrected SSC standard-event decoder before enabling the TCS3701
   colour-temperature bridge.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-59
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-59
 - Install NetworkManager's Bluetooth PAN/DUN plugin and BlueZ OBEX support.
 - Expose a WebRTC noise-cancelled microphone source while preserving the raw
   two-channel internal microphone source.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-58
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-58
 - Continue SLPI quiescing after a bounded sensor-service stop timeout.
 - Require proof that a timed-out client is inactive before suspending.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-57
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-57
 - Keep ADUX1050 as an unmapped three-channel SAR/grip stream by default.
 - Remove uncalibrated CH0/CH2 selection and synthetic grip thresholds.
 - Require an explicit valid calibration before grip classification can run.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-56
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-56
 - Transfer the system Fastfetch configuration to the optional
   senemos-fastfetch-config package so uninstall removes it cleanly.
 - Recommend the ownership-aware locale package at version 1.1.0 or newer.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-55
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-55
 - Recommend the optional SENEMOS locale-aware Fastfetch configuration so
   normal image and device transactions install it without a hard dependency.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-54
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-54
 - Align the RPM build gate with the PackageKit idle I/O policy.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-53
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-53
 - Move PackageKit background metadata work to idle I/O scheduling and nice 10
   so Discover startup does not compete with the first Plasma frames.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-52
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-52
 - Mask the obsolete forced CS35L41 module list so UKI early boot no longer
   reports a false snd-seq/systemd-modules-load failure.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-51
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-51
 - Recover systems that briefly received the level-triggered locale watcher by
   clearing its start limit and activating the corrected edge-based units.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-50
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-50
 - Watch setup completion as an edge instead of a permanently true path state,
   preventing a locale-service start-limit loop after first boot.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-49
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-49
 - Enable locale selection units for existing installations on package upgrade,
   while deferring their first package transaction until the next boot.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-48
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-48
 - Install Fedora language support from the locale selected in initial setup
   instead of imposing any maintainer language on global installations.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-47
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-47
 - Give interactive desktop work priority over background PackageKit CPU and
   I/O activity without disabling Discover or offline updates.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-46
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-46
 - Stop globally disabling Freedreno UBWC; it did not prevent the observed GPU
   resets and unnecessarily increased graphics memory and bandwidth pressure.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-45
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-45
 - Disable UBWC for Freedreno GL clients on Nabu to avoid the observed Adreno
   640 CCU translation faults and repeated Plasma graphics resets.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-44
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-44
 - Converge stable, alpha, mainline, unstable and LTS kernel packages into four
   managed EFI families with exactly one newest UKI retained per family.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-43
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-43
 - Use the native TCS3701 cct_front protocol for colour temperature instead of
   interpreting the cct_front_strm ambient-light payload as Kelvin.
 - Require the libssc release that exposes the complete typed CCT measurement.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-42
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-42
 - Rate-limit invalid TCS3701 colour-temperature warnings while continuing to
   reject out-of-range firmware samples from the standard IIO endpoint.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-41
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-41
 - Load the WCD934x ASoC codec before the SM8150 machine driver so the Xiaomi
   Pad 5 sound card cannot remain deferred after boot.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-40
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-40
 - Refuse package-triggered manual stops of the ath10k shutdown helper so an
   online upgrade cannot unload the active Wi-Fi driver.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-39
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-39
 - Finish queued kernel UKI work inside the DNF5 offline transaction unit.
 - Hold the ordered offline reboot until the new EFI and rEFInd default are ready.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-38
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-38
 - Recover once when SLPI is running without publishing its SSC QMI service.
 - Keep the live sensor stack undisturbed during package upgrades; new unit
   definitions take effect on the next bounded boot instead of restarting
   FastRPC consumers underneath the graphical session.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-37
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-37
 - Add the openssh build dependency required by the packaged host-key
   persistence test.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-36
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-36
 - Gate graphical startup on a real SSC accelerometer sample and SensorProxy
   publication instead of treating a running FastRPC filesystem server as ready.
 - Order the bounded recovery gate explicitly before GDM and Plasma Login so a
   late SLPI enumeration is repaired before the desktop caches sensor state.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-35
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-35
 - Grow undersized ext4 root filesystems to the provisioned Linux partition.
 - Preserve SSH host identity across boots even if another boot step removes keys.
 - Clear failed DNF5 offline-update state instead of repeating a broken update.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-34
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-34
 - Publish the SSC colour-temperature stream through a standard IIO endpoint.
 - Add fail-closed ADUX1050 grip-aware sleep inhibition and calibration tooling.
 - Install the shared SAR control interface used by KDE Plasma and GNOME.
 
-* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-33
+* Wed Sep 02 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-33
 - Add automatic USB-C power-role policy and correct Xiaomi Keyboard presence.
 
-* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-32
+* Wed Sep 02 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-32
 - Skip the expensive full-root SELinux relabel and verification pass when the
   stored policy digest is already current and no autorelabel was requested.
 
-* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-31
+* Wed Sep 02 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-31
 - Retire the legacy shell importer and duplicate Nabu orientation rule; the
   sensor package now consumes the kernel-exported Device Tree matrix directly.
 - Let the canonical 7.2.2 package self-update normally while preserving the
   independently named 6.17 fallback kernel family.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-30
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-30
 - Import Nabu's accelerometer matrix from the FastRPC sysfs attribute backed by
   Device Tree instead of duplicating board orientation as a userspace constant.
 - Import the trusted matrix with a bounded helper that accepts only a Nabu
   sysfs path and a valid 3x3 signed-unit rotation matrix.
 - Keep SDSP as the sole SSC sensor source and prevent duplicate ADSP discovery.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-28
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-28
 - Make SDSP the sole Nabu SSC sensor owner and prevent duplicate ADSP sensors.
 - Export the verified Nabu accelerometer matrix through the udev device property.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-27
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-27
 - Expose only the supported alpha and mainline-unstable families on the ESP.
 - Keep stable, LTS and old mainline packages available without generating UKIs.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-26
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-26
 - Align kernel maintenance verification with the standard EFI/fedora UKI path.
 - Require the dynamic rEFInd-capable boot integration before enabling maintenance.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-25
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-25
 - Copy the Android SSC registry version marker beside the volatile registry so
   SDSP discovery can validate and open the complete calibration database.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-24
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-24
 - Stage packaged SSC data and read-only Android calibration in a volatile
   fastrpc-owned registry; give iio-sensor-proxy a system cache under SELinux.
 - Remove the sensor health check from the graphical critical path.
@@ -919,21 +919,21 @@ fi
 - Install the FAT checker and include signed regulatory data in release UKIs.
 - Retry deferred UKI work once at boot instead of rerunning failed dracut jobs.
 
-* Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-21
+* Mon Aug 31 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-21
 - Keep the existing stable package as the independent SENEMOS616 UKI family.
 - Preserve exactly five named kernel package families without UKI collisions.
 
-* Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-20
+* Mon Aug 31 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-20
 - Require the corrected SENEMOS7U-aware boot integration build.
 
-* Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-19
+* Mon Aug 31 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-19
 - Manage the separate mainline-unstable package as the SENEMOS7U UKI family.
 
-* Sun Aug 30 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-18
+* Sun Aug 30 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-18
 - Maintain one latest UKI independently for SENEMOS6, SENEMOS7 and SENEMOS6LTS.
 - Preserve user-installed kernels and select the preferred family only as the default.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-17
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-17
 - Verify the exact UKI derived from the shared kernel identity instead of
   treating the manager-neutral manifest as the only success artifact.
 - Skip regeneration only when the prepared record's UKI digest still matches
@@ -941,92 +941,92 @@ fi
 - Require boot integration support for the COPR uname form with the preserved
   SENEMOS timestamped EFI name.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-16
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-16
 - Skip the full-root SELinux relabel and verification pass when the stored
   policy digest is current and no autorelabel request exists.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-15
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-15
 - Make the ESP an explicit writable path in the hardened UKI maintenance
   service and serialize it after rEFInd synchronization.
 - Rate-limit failed path-triggered retries while retaining the pending marker
   for the timer's later retry.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-14
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-14
 - Add the native BlueZ, stylus-power and pogo-keyboard state helper required
   by the stock GNOME and Plasma tablet-control integrations.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-13
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-13
 - Classify stable, alpha and mainline package names as install-only after the
   first unified upgrade while retaining exactly two versions per family.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-12
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-12
 - Retain at most two versions of each installed Nabu kernel family using DNF's
   native install-only policy without disabling running-kernel protection.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-11
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-11
 - Preserve legacy split payloads during the first unified transaction so DNF's
   running-kernel safety gate remains effective.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-10
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-10
 - Drain deferred work for installed non-preferred kernel families so the path
   unit cannot retrigger continuously; only the selected family owns a UKI.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-9
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-9
 - Support one-RPM kernel families and migrate every former core/modules split.
 - Merge the Nabu stylus autopair hardware integration into CORE.
 - Require scriptlet-free boot integration 2.0.0-17.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-8
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-8
 - Retire only pre-migration install-only payload EVRs so a normal DNF update
   converges on one version per installed family and removes orphan payloads.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-7
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-7
 - Consume exact per-family kernel markers without running DNF recursively or
   scanning unrelated installed kernels.
 - Manage one canonical Linux entry, never require or inspect a Linux fallback, and
   preserve the Android return artifact when it exists.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-6
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-6
 - Ship the stock Fedora libcamera, PipeWire, GStreamer and V4L2 camera stack
   from CORE for the Nabu CAMSS/CCI alpha kernel; no KDE or Fedora application
   is forked or replaced.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-5
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-5
 - Provide the final split flashlight EVR during migration so normal DNF
   updates can remove its version-locked Plasma companion without erasing.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-4
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-4
 - Keep desktop-owned compatibility transitions in the selected DE manifest so
   version-locked legacy KDE integrations retire in one solvable transaction.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-3
 - Make CORE the sole retirement owner for shared integration subpackages so
   mutually exclusive DE manifests are never considered competing replacements.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-2
 - Run inherited system-policy tests from their source root in clean build
   chroots.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-1
 - Merge the complete noarch system policy, native flashlight/USB helpers, SAR
   service and SSC probe into the CORE release package.
 - Retire the standalone runtime, system, flashlight, SAR, SSC and alpha-only
   suspend diagnostic integration packages in one bounded transaction.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-4
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-4
 - Preserve the device's existing explicit loader default instead of assuming it
   must be fallback.conf, and hash-guard Android/fallback entries and EFI files.
 - Clear the obsolete failed-unit state after installing the corrected policy.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-3
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-3
 - Re-enable and start the maintenance timer in post-transaction so removal of
   the superseded standalone package cannot undo the new CORE policy.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-2
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-2
 - Retire the shared one-shot desktop migration helper from the unambiguous CORE
   transition instead of making multiple DE manifests compete for it.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-1
 - Replace the split CORE base, branch selectors and control packages with one
   release manifest while retaining all install-only kernel payloads.
 - Require at least one kernel family, recommend alpha and permit co-installing

@@ -60,14 +60,14 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/nabu-kernel-update.tim
 %systemd_postun_with_restart nabu-kernel-maintenance.timer
 
 %changelog
-* Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 1.1.0-2
+* Sat Sep 12 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-2
 - Defer maintenance until the device is idle, lightly loaded and sufficiently
   powered instead of running from a boot-time path trigger.
 - Fold pending rEFInd synchronization into the same bounded maintenance unit.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Export a stable maintenance API independent of implementation releases.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-1
 - Replace the hard-coded kernel timer with branch-aware serialized maintenance.
 - Preserve Android, the known-good fallback and the loader default.

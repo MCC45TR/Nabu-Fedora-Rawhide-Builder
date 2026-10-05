@@ -102,11 +102,11 @@ done
 %{_datadir}/plymouth/themes/senemos-nabu/
 
 %changelog
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-11.test
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-11.test
 - Force Plymouth DeviceScale=1 on the Nabu framebuffer so Plasma's 200 percent
   desktop scale cannot double the boot-theme logos, progress bar or text.
 - Queue only the three supported kernel families for refreshed UKIs.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-10.test
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-10.test
 - Restore supplied artwork with native dimensions and orientation-aware layout.
 - Place the 427x120 Fedora logo exactly 40 pixels above the lower edge.

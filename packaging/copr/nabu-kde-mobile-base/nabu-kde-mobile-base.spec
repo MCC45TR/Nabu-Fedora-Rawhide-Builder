@@ -96,8 +96,8 @@ fi
 %systemd_postun_with_restart plasmalogin.service
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Adopt the independent session-manifest version and ABI.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-33.test
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-33.test
 - Publish the Plasma Mobile base independently without broad transition metadata.

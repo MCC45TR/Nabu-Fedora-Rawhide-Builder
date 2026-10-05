@@ -53,17 +53,17 @@ desktop-neutral applications and the same provisional coverage as Posh.
 %files
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - %{nabu_meta_version}-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - %{nabu_meta_version}-1
 - Adopt the shared Istanbul YYMMDDHHMM meta-package version.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.2.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.2.0-1
 - Align terminal and video applications with the Fedora Workstation ISO.
 - Add GNOME System Monitor and the selected mandatory session components.
 - Add the Workstation file, PackageKit and preview integration set.
 - Keep Fastfetch as a Nabu profile utility and drop File Roller.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Adopt independent profile-manifest versioning and base ABI dependencies.
 
-* Wed Aug 26 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-23.test
+* Wed Aug 26 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-23.test
 - Publish the GNOME optimal profile as an independent COPR source package.

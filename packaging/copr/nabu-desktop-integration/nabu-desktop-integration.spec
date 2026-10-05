@@ -197,11 +197,11 @@ test "$(readlink %{buildroot}%{_sysconfdir}/xdg/fastfetch/config.jsonc)" = \
 %{_datadir}/senemos-fastfetch-config/
 
 %changelog
-* Wed Sep 23 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-2
+* Wed Sep 23 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-2
 - Drop the unreferenced Python Fastfetch value helper and bytecode from the
   embedded source archive; the documented locale-aware launcher is unchanged.
 - Remove Python from the Fastfetch runtime and source-family build dependency.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 1.0.0-1
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-1
 - Consolidate GNOME extensions and Fastfetch into one COPR source family.
 - Preserve all existing binary RPM names and use stock desktop packages.

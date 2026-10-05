@@ -40,11 +40,11 @@ Fedora and KDE packages.
 %files
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - %{nabu_meta_version}-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - %{nabu_meta_version}-1
 - Adopt the shared Istanbul YYMMDDHHMM meta-package version.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Adopt independent profile-manifest versioning and base ABI dependencies.
 
-* Wed Aug 26 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-23.test
+* Wed Aug 26 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-23.test
 - Publish the KDE Mobile optimal profile as an independent COPR source.

@@ -12,8 +12,14 @@ Related public source repositories: [hardware support](https://github.com/MCC45T
 [tablet controls](https://github.com/MCC45TR/nabu-tablet-controls),
 [Iris video](https://github.com/MCC45TR/nabu-iris), and
 [Linux image builder](https://github.com/MCC45TR/nabu-linux-builder).
-The EOL archival branches preserve unmerged boot, runtime, power and package
-family experiments; none is implied to be a production promotion.
+The former EOL archival branches are reachable through `main` after the
+2026-10-05 consolidation. See the
+[consolidation record](lessons/2026-10-05-main-consolidation.md) for superseding
+implementations and isolated candidates. Historical experiments do not imply
+production promotion. The owner reported that the EL2 candidate did not boot;
+its package, build configuration and test tools were removed from the current
+tree. DisplayLink integration was also removed at the owner's request. The
+historical observations below remain earlier findings, not current features.
 
 ## What worked, and what did not
 
@@ -27,7 +33,7 @@ family experiments; none is implied to be a production promotion.
 | EL2/KVM | EFI preflight displayed `CurrentEL=1` and no proven SCM transition ABI | KVM cannot be claimed from a kernel config alone |
 | Double tap wake | Interface and test patches were built | A physical double tap did not wake the display during testing |
 | Btrfs | A personal HIL candidate was prepared | Contains user data and credentials; never a public image or release asset |
-| DisplayLink | UDL/EVDI compiled and signed on AArch64 | No physical dock test |
+| DisplayLink | Historical UDL/EVDI compile and signature checks on AArch64 | No physical dock test; integration removed on 2026-10-05 |
 | DRM L1 | No licensed OEMCrypto/CDM or protected video path | Not implemented or claimed |
 
 ## Reusable workflow
@@ -46,7 +52,7 @@ family experiments; none is implied to be a production promotion.
    profiles, SSH host keys, machine ID, device-derived calibration and signing
    private keys before release. Do not distribute personal-device Btrfs images.
 
-The Nabu-specific source branches in this repository document experimental
+The Nabu-specific Git history in this repository documents experimental
 steps independently. Other source families are referenced through COPR
 package metadata; no private Android partitions, device logs or credentials
 are part of this EOL documentation.

@@ -42,15 +42,15 @@ Nabu. No Fedora or KDE application is forked or modified.
 %files
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - %{nabu_meta_version}-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - %{nabu_meta_version}-1
 - Adopt the shared Istanbul YYMMDDHHMM meta-package version.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Adopt independent profile-manifest versioning and base ABI dependencies.
 
-* Thu Aug 27 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-24.test
+* Thu Aug 27 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-24.test
 - Use KWrite without the separate Kate application.
 - Add Spectacle and Discover offline-update integration.
 
-* Wed Aug 26 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-23.test
+* Wed Aug 26 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-23.test
 - Publish the Plasma optimal profile as an independent COPR source package.

@@ -124,32 +124,32 @@ grep -Fq 'show-hold-awake' flashlight/gnome/schemas/org.gnome.shell.extensions.n
 %{_userunitdir}/nabu-gnome-extension-enable.service
 %{_userunitdir}/graphical-session.target.wants/nabu-gnome-extension-enable.service
 %changelog
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-8
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-8
 - Follow Fedora Rawhide's current Mutter EVR without a stale RC version floor.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-7
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-7
 - Add a configurable grip-aware keep-awake tile to the existing Quick Settings extension.
 - Keep the tile fail-closed until real ADUX1050 calibration and fresh data exist.
 
-* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-6
+* Wed Sep 02 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-6
 - Add configurable one-column tablet tiles, sound placement and live flashlight slider.
 - Show pen and Xiaomi Keyboard tiles only while their accessories are connected.
 
-* Wed Sep 02 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-5
+* Wed Sep 02 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-5
 - Require the upstream Mutter auto-rotation lifecycle fix for touch-first devices.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 3.0.0-4
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-4
 - Expand the independent stock GNOME Quick Settings extension into
   capability-aware Nabu tablet controls and enable it once at first login.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-3
 - Make DE exclusivity explicit by package name so this manifest updates itself.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-2
 - Leave retirement of shared locale and tablet-control names to CORE.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-1
 - Merge the locale policy and GNOME tablet-control extension into this DE RPM.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-1
 - Replace minimal/optimal and base packages with one complete GNOME manifest.

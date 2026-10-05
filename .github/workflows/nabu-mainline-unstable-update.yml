@@ -33,7 +33,7 @@ jobs:
             exit 0
           fi
           git config user.name "SENEMOS kernel updater"
-          git config user.email "mcc45tr@gmail.com"
+          git config user.email "75160848+MCC45TR@users.noreply.github.com"
           git add \
             packaging/copr/senemos-nabu-kernel-mainline-unstable/upstream.sha256 \
             packaging/copr/senemos-nabu-kernel-mainline-unstable/senemos-nabu-kernel-mainline-unstable.spec

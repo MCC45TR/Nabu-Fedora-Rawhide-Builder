@@ -36,11 +36,11 @@ install -Dm0644 %{SOURCE1} %{buildroot}%{_mandir}/man8/nabu.8
 %{_mandir}/man8/nabu.8*
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-2
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-2
 - Export a stable API capability for dependency manifests.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Delegate explicit desktop migrations to the independently packaged helper.
 
-* Thu Aug 27 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-1
+* Thu Aug 27 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-1
 - Add status, list and sudo-mediated CORE branch switching.

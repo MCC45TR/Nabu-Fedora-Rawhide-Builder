@@ -92,7 +92,7 @@ sed -i -E "s/^Version:[[:space:]]+.*/Version:        $latest/" "$spec"
 sed -i -E 's/^Release:[[:space:]]+.*/Release:        1%{?dist}/' "$spec"
 changelog_date=$(LC_ALL=C date -u '+%a %b %d %Y')
 sed -i "/^%changelog$/a\\
-* $changelog_date SENEMOS kernel updater <mcc45tr@gmail.com> - $latest-1\\
+* $changelog_date SENEMOS kernel updater <75160848+MCC45TR@users.noreply.github.com> - $latest-1\\
 - Accept signed Linux $latest after the complete Nabu stable patch gate.\\
 \\
 " "$spec"

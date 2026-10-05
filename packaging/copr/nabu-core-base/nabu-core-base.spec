@@ -27,9 +27,9 @@ are serialized by nabu-kernel-maintenance.
 %files
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.1.0-1
 - Replace shared release-train minimums with stable component APIs.
 
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-33.test
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-33.test
 - Move CORE dependency policy to its own source package.
 - Require the branch-aware serialized kernel maintenance service.

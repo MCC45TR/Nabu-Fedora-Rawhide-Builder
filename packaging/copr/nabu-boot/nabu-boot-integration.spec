@@ -331,134 +331,134 @@ fi
 %{_datadir}/plymouth/themes/senemos-nabu/
 
 %changelog
-* Fri Sep 25 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-48.test
+* Fri Sep 25 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-48.test
 - Select the rEFInd default by its visible manual-entry title rather than
   the EFI filename, preserving an explicit known-good fallback menu entry.
 - Exercise a user-owned recovery include in the boot-manager regression test.
 
-* Mon Sep 21 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-47.test
+* Mon Sep 21 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-47.test
 - Refuse mainline UKI generation when essential network, touchscreen, panel
   or remoteproc modules are missing or belong to another kernel ABI.
 - Publish the deferred-probe correction consistently for all Fedora targets.
 
-* Tue Sep 15 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-46.test
+* Tue Sep 15 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-46.test
 - Stop forcing the deferred-probe timeout to expire at late init, so Nabu
   camera, audio and remote-processor consumers can continue to bind safely.
 - Retain permissive firmware links until the complete SM8150 dependency graph
   has passed physical boot and suspend qualification.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-45.test
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-45.test
 - Generate an explicit menu for each managed SENEMOS family plus Android so
   rEFInd cannot rediscover stale loaders from other internal volumes.
 - Keep update convergence at one UKI per family and test exact manual entries.
 
-* Sun Sep 13 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-44.test
+* Sun Sep 13 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-44.test
 - Treat semantic stable-mainline UKIs as one managed SENEMOS family while
   reclaiming ESP space, so a future 7.2.y update replaces its predecessor.
 - Gate both timestamp-to-semantic migration and semantic-to-semantic pruning.
 
-* Sat Sep 12 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-43.test
+* Sat Sep 12 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-43.test
 - Let rEFInd discover only the internal Fedora and Android EFI vendor folders
   instead of generating manual menuentry stanzas.
 - Retire the standalone boot-time rEFInd service and consume its pending marker
   from the shared idle or offline-update maintenance worker.
 
-* Fri Sep 11 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-42.test
+* Fri Sep 11 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-42.test
 - Run deferred rEFInd synchronization once per boot after the ESP mount.
 - Retire the persistent path trigger that could exhaust the start limit before
   /boot/efi was mounted, while preserving the pending request for a later boot.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-38.test
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-38.test
 - Accept semantic identities such as 7.2.3 for the timestamp-free stable
   mainline kernel and keep its UKI in the distinct SENEMOS7 family.
 - Treat the original 0000000000 stable marker as a compatibility sentinel.
 
-* Sun Sep 06 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-37.test
+* Sun Sep 06 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-37.test
 - Publish boot integration and the scale-independent Plymouth theme from one
   COPR source family while preserving every existing binary RPM name.
 - Retire the legacy LTS EFI family and converge updates to SENEMOS6, SENEMOS7
   and SENEMOS7U with at most one current UKI for each family.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-36.test
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-36.test
 - Keep exactly one loader manifest per SENEMOS family without a duplicate
   canonical alias.
 - Remove stale loader manifests for rEFInd and Limine plus legacy image-builder
   Fedora EFI aliases while preserving Android and arbitrary user payloads.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-35.test
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-35.test
 - Apply the same bounded zstd policy while normalizing the generated initramfs.
 
-* Sat Sep 05 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-34.test
+* Sat Sep 05 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-34.test
 - Limit UKI zstd compression to two workers so post-update maintenance does
   not monopolize all Nabu CPU cores or cause interactive latency.
 
-* Fri Sep 04 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-33.test
+* Fri Sep 04 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-33.test
 - Generate explicit rEFInd entries for one newest UKI per managed family.
 - Hide legacy image aliases from automatic discovery and retain Android.
 - Restore the five-second rEFInd timeout and prune stale family manifests.
 
-* Thu Sep 03 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-32.test
+* Thu Sep 03 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-32.test
 - Scan the Fedora and Android EFI vendor directories explicitly.
 - Show every managed UKI separately instead of folding same-directory kernels.
 
-* Tue Sep 01 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-31.test
+* Tue Sep 01 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-31.test
 - Move managed and user EFI payloads to the standard EFI/fedora directory.
 - Let rEFInd discover Fedora and Android loaders dynamically by vendor folder.
 - Exclude EFI/BOOT and the legacy EFI/SENEMOS directory to prevent duplicates.
 - Preserve a hash manifest and the previous rEFInd configuration during migration.
 
-* Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-29.test
+* Mon Aug 31 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-29.test
 - Align the RPM static family gate with the tested SENEMOS7U contract.
 
-* Mon Aug 31 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-28.test
+* Mon Aug 31 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-28.test
 - Accept the isolated SENEMOS7U UKI family and queue mainline-unstable kernels.
 
-* Sun Aug 30 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-26.test
+* Sun Aug 30 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-26.test
 - Restrict production rEFInd discovery to explicit manual entries
 - Prevent duplicate Fedora and Android icons while retaining refind-local.conf
 
-* Sun Aug 30 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-25.test
+* Sun Aug 30 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-25.test
 - Retain one latest UKI independently for SENEMOS6, SENEMOS7 and SENEMOS6LTS.
 - Preserve unrecognized user EFI payloads and optional rEFInd local entries.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-24.test
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-24.test
 - Install the supplied Fedora and Android artwork for their matching rEFInd
   entries and resolve manual-entry icon paths from the EFI volume root.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-23.test
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-23.test
 - Accept the COPR uname form 6.17.0-senemos-YYMMDDHHMM in the shared identity
   helper while preserving the SENEMOS6-YYMMDDHHMM.efi output contract.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-22.test
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-22.test
 - Converge an existing versioned rEFInd theme directory in place when an
   older package left pre-rewrite asset paths.
 - Prevent the deferred path marker from repeatedly failing into start-limit.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-21.test
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-21.test
 - Publish exactly one canonical Linux boot target for every manager.
 - Remove fallback.conf and obsolete SENEMOS UKIs only after the new manager
   configuration is committed; preserve the independent Android return entry.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-20.test
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-20.test
 - Commit a manager-neutral senemos.conf for rEFInd and Limine so deferred
   maintenance verifies the same canonical UKI used by the boot manager.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-19.test
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-19.test
 - Retry a deferred rEFInd ESP synchronization automatically on the next boot.
 - Enable a narrow systemd path unit only for the RPM-owned pending marker.
 - Rewrite theme asset paths to the versioned EFI/BOOT theme directory.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-18.test
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-18.test
 - Copy hard-linked theme assets to FAT32 as independent regular files.
 - Install rEFInd, its configuration, 2x theme and GopRotate beside BOOTAA64.EFI.
 - Add nabu-refind install, update, status and version commands.
 - Queue guarded ESP synchronization after every nabu-boot-refind upgrade.
 - Preserve and verify Android plus the explicit known-good fallback artifacts.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-17.test
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-17.test
 - Recognize the merged one-RPM kernel family owners in kernel-install.
 
-* Sat Aug 29 2026 mcc45tr <mcc45tr@gmail.com> - 2.0.0-16.test
+* Sat Aug 29 2026 mcc45tr <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-16.test
 - Remove synchronous UKI and boot-manager work from every RPM scriptlet.
 - Maintain one canonical SENEMOS Linux UKI and preserve Android return.
 - Queue kernel-install work for the serialized maintenance service.

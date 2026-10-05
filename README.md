@@ -130,9 +130,13 @@ status summary. Every release candidate still requires a fresh physical test.
 - [ ] Correct charging-status telemetry and qualify higher-current charging with
       an external USB-C power meter and thermal safeguards
 - [ ] Qualify Bluetooth audio, USB OTG storage/HID/hubs/audio, and DisplayPort
-- [ ] Resolve EL2 firmware/UEFI handoff before claiming KVM support
 - [ ] Complete repeated cold-boot, rollback, and Android-return acceptance
       tests for each release candidate
+
+The EL2 experimental kernel is excluded following a reported boot failure.
+DisplayLink integration is also excluded. KVM support is unavailable.
+See the [consolidation record](docs/lessons/2026-10-05-main-consolidation.md)
+for retained changes and archived candidates.
 
 ## Package repository
 

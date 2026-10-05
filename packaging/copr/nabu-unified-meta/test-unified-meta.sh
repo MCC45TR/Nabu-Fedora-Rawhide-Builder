@@ -35,7 +35,10 @@ done
 while IFS= read -r copr_spec; do
     source_name=$(sed -nE 's/^Name:[[:space:]]+([^[:space:]]+).*/\1/p' "$copr_spec" | head -n 1)
     [[ -n $source_name ]] || fail "source package name missing in $copr_spec"
-    [[ $source_name == *nabu* || $source_name == senemos-fastfetch-config ]] || fail \
+    # The existing Material Decoration source is an upstream window theme,
+    # not a renamed or rebuilt KDE desktop application.
+    [[ $source_name == *nabu* || $source_name == senemos-fastfetch-config || \
+       $source_name == material-decoration ]] || fail \
         "default Fedora package fork is forbidden in Nabu COPR: $source_name ($copr_spec)"
 done < <(find "$root/.." \
     -path '*/.rpmbuild*' -prune -o \

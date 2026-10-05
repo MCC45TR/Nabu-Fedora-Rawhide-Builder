@@ -22,6 +22,6 @@ Nabu-owned compatibility name reaches the end of its transition window.
 %files
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0-1
 - Retire the two temporary Nabu Plasma transition markers.
 - Establish one package for future Nabu-owned retirements only.

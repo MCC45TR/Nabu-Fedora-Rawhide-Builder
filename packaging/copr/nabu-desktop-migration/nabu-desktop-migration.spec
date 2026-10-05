@@ -27,6 +27,6 @@ install -Dm0755 %{SOURCE0} %{buildroot}%{_libexecdir}/nabu-desktop-migrate
 %{_libexecdir}/nabu-desktop-migrate
 
 %changelog
-* Fri Aug 28 2026 MCC45TR <mcc45tr@gmail.com> - 1.0.0-1
+* Fri Aug 28 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 1.0.0-1
 - Add opt-in, allowlisted and dependency-aware Plasma Qt6 cleanup.
 

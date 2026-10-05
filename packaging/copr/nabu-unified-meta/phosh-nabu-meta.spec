@@ -70,14 +70,14 @@ install -Dm0644 l10n/macros.nabu-languages %{buildroot}%{_sysconfdir}/rpm/macros
 %{_libexecdir}/senemos-nabu/nabu-restore-kde-locales
 %{_sysconfdir}/rpm/macros.nabu-languages
 %changelog
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-3
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-3
 - Make DE exclusivity explicit by package name so this manifest updates itself.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-2
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-2
 - Leave retirement of the shared locale policy name to CORE.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 3.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 3.0.0-1
 - Merge the complete locale policy into the single Phosh release RPM.
 
-* Sat Aug 29 2026 MCC45TR <mcc45tr@gmail.com> - 2.0.0-1
+* Sat Aug 29 2026 MCC45TR <75160848+MCC45TR@users.noreply.github.com> - 2.0.0-1
 - Replace Posh/Phosh minimal, optimal and base packages with one manifest.
