@@ -4,7 +4,7 @@
 %global uname_r %{version}-nabu-senemos-mainline
 
 Name:           senemos-nabu-kernel-mainline
-Version:        7.2.10
+Version:        7.2.11
 Release:        1%{?dist}
 Summary:        Patch-layered Linux stable SENEMOS kernel for Xiaomi Pad 5
 License:        GPL-2.0-only AND MIT
@@ -559,6 +559,10 @@ fi
 %{_prefix}/lib/senemos-nabu/uki-version.d/%{uname_r}
 
 %changelog
+* Fri Oct 16 2026 SENEMOS kernel updater <75160848+MCC45TR@users.noreply.github.com> - 7.2.11-1
+- Accept signed Linux 7.2.11 after the complete Nabu stable patch gate.
+
+
 * Mon Oct 12 2026 SENEMOS kernel updater <75160848+MCC45TR@users.noreply.github.com> - 7.2.10-1
 - Accept signed Linux 7.2.10 after the complete Nabu stable patch gate.
 
