@@ -1,8 +1,8 @@
-%global upstream_commit c7cff8f674a1d29b4f6a232461a2dfe83457b1dc
+%global upstream_commit 495ebb322f977238eb21d27abc3d9db5751e57b8
 
 Name:           material-decoration
-Version:        20261027.092512
-Release:        1.gitc7cff8f%{?dist}
+Version:        20261029.113034
+Release:        1.git495ebb3%{?dist}
 Summary:        Material window decoration and configuration for KWin 6
 License:        GPL-2.0-or-later AND LGPL-2.0-or-later
 URL:            https://github.com/guiodic/material-decoration
@@ -66,6 +66,9 @@ test -f %{buildroot}%{_libdir}/qt6/plugins/org.kde.kdecoration3.kcm/materialdeco
 %{_datadir}/applications/*material*desktop
 
 %changelog
+* Thu Oct 29 2026 SENEMOS Project <mcc45tr@gmail.com> - 20261029.113034-1.git495ebb3
+- Update pinned upstream master to 495ebb322f977238eb21d27abc3d9db5751e57b8.
+
 * Tue Oct 27 2026 SENEMOS Project <mcc45tr@gmail.com> - 20261027.092512-1.gitc7cff8f
 - Update pinned upstream master to c7cff8f674a1d29b4f6a232461a2dfe83457b1dc.
 
